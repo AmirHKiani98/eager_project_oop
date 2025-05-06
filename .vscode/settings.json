@@ -1,0 +1,10 @@
+{
+    "github.copilot.enable": {
+        "*": true,
+        "yaml": true,
+        "plaintext": true,
+        "markdown": true,
+        "python": true
+    },
+    "editor.inlineSuggestionsEnabled": true
+}

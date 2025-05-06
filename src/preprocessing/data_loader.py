@@ -178,8 +178,6 @@ class DataLoader:
                     for time in self.fp_time:
                         # Use tuple instead of set as dictionary key
                         raw_data_file_path = self._download_file(location, date, time)
-                        
-                        
                         exploded_file_address = self._explode_dataset(raw_data_file_path)
                         self.files_list[
                             (location, date, time)
@@ -197,16 +195,14 @@ class DataLoader:
         if len(trajectory) % 6 != 0:
             start_preview = trajectory[:6]
             end_preview = trajectory[-6:] if len(trajectory) > 6 else []
-            raise Exception(
+            raise ValueError(
                 f"[Error] Malformed trajectory (len={len(trajectory)}):\n"
                 f"  Start: {start_preview}\n"
                 f"  End:   {end_preview}"
             )
-             
             # return pl.DataFrame({})  # Skip bad line
 
         data = defaultdict(list)
-        
         for jndex, item in enumerate(trajectory):
             field_index = jndex % 6
             if field_index == 0:
@@ -232,9 +228,7 @@ class DataLoader:
         file_address = '.cache/' + Path(raw_data_location).stem + "_exploded.csv"
         if os.path.isfile(file_address):
             return file_address
-
         local_df = pl.DataFrame({})
-        
         with open(raw_data_location, "r", encoding="utf-8") as f:
             for i, line in enumerate(tqdm(f, desc="Processing...")):
                 if i != 0:
@@ -270,7 +264,7 @@ class DataLoader:
             with additional metadata columns.
         """
         dataframes = []
-        for (location, date, time), file_address in self.files_list.items():
+        for (_, _, _), file_address in self.files_list.items():
             print("Address is", file_address)
             read_csv = pl.read_csv(file_address)
             dataframes.append(read_csv)
@@ -285,4 +279,3 @@ if __name__ == "__main__":
         fp_date=["20181029"],
         fp_time=["0800_0830"]
     )
-    
