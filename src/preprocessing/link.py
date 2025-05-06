@@ -9,9 +9,9 @@ Dependencies:
     - src.preprocessing.spatial_line.SpatialLine: Base class for spatial line representation.
     - shapely.geometry.Point: Used to define the start and end points of the link.
 """
-
-from src.preprocessing.spatial_line import SpatialLine
 from shapely.geometry import Point as POINT
+from src.preprocessing.cell import Cell
+from src.preprocessing.spatial_line import SpatialLine
 
 class Link(SpatialLine):
     """
@@ -27,6 +27,15 @@ class Link(SpatialLine):
             end_point (POINT): The ending point of the link.
         """
         super().__init__(start_point, end_point)
-        
+        self.cells = []  
 
-    def add_cell(self, cell: Cell)
+    def add_cell(self, cell: Cell):
+        """
+        Adds a cell to the link.
+
+        Args:
+            cell (Cell): The cell to be added to the link.
+        """
+        if not isinstance(cell, Cell):
+            raise TypeError("cell must be an instance of Cell")
+        self.cells.append(cell)
