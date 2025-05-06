@@ -11,6 +11,9 @@ retrieved programmatically and efficiently managed in a local environment.
 Example:
     To use the `DataLoader` class, initialize it with the desired parameters:
 """
+from collections import defaultdict
+from pathlib import Path
+
 import os
 import requests
 from tqdm import tqdm
@@ -57,6 +60,7 @@ class DataLoader:
         self.df = pl.DataFrame({})
         self._validate_inputs()
         self._download_all_files()
+        self._load_dataframe()
 
     def _validate_inputs(self):
         """
@@ -104,9 +108,9 @@ class DataLoader:
 
     def check_file_is_correct(self, downloaded_loc):
         """
-        It checks if the file is not currupted.
+        Check if the file is not corrupted.
         """
-        with open(downloaded_loc, "w", encoding="utf-8") as f:
+        with open(downloaded_loc, "r", encoding="utf-8") as f:
             first_line = f.readline()
             if first_line == "Empty Dataset":
                 os.remove(downloaded_loc)
@@ -156,8 +160,8 @@ class DataLoader:
                     if chunk:
                         f.write(chunk)
                         progress_bar.update(len(chunk))
-
             progress_bar.close()
+
             print(f"Downloaded to: {self.get_cached_filepath(location, date, time)}")
             return self.get_cached_filepath(location, date, time)
         else:
@@ -167,16 +171,91 @@ class DataLoader:
         """
         Downloads all files for the specified combinations of location, date, and time.
         """
-        for location in self.fp_location:
-            for date in self.fp_date:
-                for time in self.fp_time:
-                    self.files_list[
-                        set([location, date, time])
-                    ] = self._download_file(location, date, time)
+        total_files = len(self.fp_location) * len(self.fp_date) * len(self.fp_time)
+        with tqdm(total=total_files, desc="Loading the files", position=0, leave=True) as pbar:
+            for location in self.fp_location:
+                for date in self.fp_date:
+                    for time in self.fp_time:
+                        # Use tuple instead of set as dictionary key
+                        raw_data_file_path = self._download_file(location, date, time)
+                        
+                        
+                        exploded_file_address = self._explode_dataset(raw_data_file_path)
+                        self.files_list[
+                            (location, date, time)
+                        ] = exploded_file_address
+                        pbar.update(1)
         self.df.clear()
         self.df = pl.DataFrame({})
 
-    def load_dataframe(self):
+    def _get_trajectory_dataframe(self,
+                              track_id,
+                              veh_type,
+                              traveled_d,
+                              avg_speed,
+                              trajectory):
+        if len(trajectory) % 6 != 0:
+            start_preview = trajectory[:6]
+            end_preview = trajectory[-6:] if len(trajectory) > 6 else []
+            raise Exception(
+                f"[Error] Malformed trajectory (len={len(trajectory)}):\n"
+                f"  Start: {start_preview}\n"
+                f"  End:   {end_preview}"
+            )
+             
+            # return pl.DataFrame({})  # Skip bad line
+
+        data = defaultdict(list)
+        
+        for jndex, item in enumerate(trajectory):
+            field_index = jndex % 6
+            if field_index == 0:
+                data["lat"].append(item)
+            elif field_index == 1:
+                data["lot"].append(item)
+            elif field_index == 2:
+                data["speed"].append(item)
+            elif field_index == 3:
+                data["lon_acc"].append(item)
+            elif field_index == 4:
+                data["lot_acc"].append(item)
+            elif field_index == 5:
+                data["trajectory_time"].append(item)
+                data["track_id"].append(track_id)
+                data["veh_type"].append(veh_type)
+                data["traveled_d"].append(traveled_d)
+                data["avg_speed"].append(avg_speed)
+        return pl.DataFrame(data)
+
+
+    def _explode_dataset(self, raw_data_location):
+        file_address = '.cache/' + Path(raw_data_location).stem + "_exploded.csv"
+        if os.path.isfile(file_address):
+            return file_address
+
+        local_df = pl.DataFrame({})
+        
+        with open(raw_data_location, "r", encoding="utf-8") as f:
+            for i, line in enumerate(tqdm(f, desc="Processing...")):
+                if i != 0:
+                    split = line.strip("\n").strip(" ").split("; ")
+                    track_id = split[0]
+                    veh_type = split[1]
+                    traveled_d = split[2]
+                    avg_speed = split[3]
+                    trajectory = [v.strip(";").strip("") for v in split[4:]]
+                    dataframe = self._get_trajectory_dataframe(
+                        track_id,
+                        veh_type,
+                        traveled_d,
+                        avg_speed,
+                        trajectory
+                    )
+                    local_df = pl.concat([local_df, dataframe])
+        local_df.write_csv(file_address)
+        return file_address
+
+    def _load_dataframe(self):
         """
         Loads and concatenates multiple CSV files into a single DataFrame.
 
@@ -190,16 +269,20 @@ class DataLoader:
             polars.DataFrame: A concatenated DataFrame containing data from all the CSV files, 
             with additional metadata columns.
         """
-        for (location, date, time), file_address in self.files_list:
+        dataframes = []
+        for (location, date, time), file_address in self.files_list.items():
+            print("Address is", file_address)
             read_csv = pl.read_csv(file_address)
-            read_csv["location"] = location
-            read_csv["data"] = date
-            read_csv["time"] = time
-            self.df = pl.concat([self.df, read_csv])
+            dataframes.append(read_csv)
+        if dataframes:
+            self.df = pl.concat(dataframes)
         return self.df
 
 # Run as script
 if __name__ == "__main__":
-    dl = DataLoader(fp_location=["d1", "d2"],
-                    fp_date=["20181029"],
-                    fp_time=["0800_0830", "0830_0900"])
+    dl = DataLoader(
+        fp_location=["d1"],
+        fp_date=["20181029"],
+        fp_time=["0800_0830"]
+    )
+    
