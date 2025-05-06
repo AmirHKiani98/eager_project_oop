@@ -12,6 +12,7 @@ Dependencies:
 """
 from shapely.geometry import Point as POINT
 from src.preprocessing.spatial_line import SpatialLine
+from src.preprocessing.link import Link
 class Cell(SpatialLine):
     """
     Class representing a cell in a transportation network.
@@ -26,3 +27,15 @@ class Cell(SpatialLine):
             end_point (POINT): The ending point of the cell.
         """
         super().__init__(start_point, end_point)
+        self.link = None
+
+    def set_link(self, link: Link):
+        """
+        Sets a link to the cell.
+
+        Args:
+            link (Link): The link to be added to the cell.
+        """
+        if not isinstance(link, Link):
+            raise TypeError("link must be an instance of Link")
+        self.link = link
