@@ -13,6 +13,10 @@ class DataLoader:
         self.payload = self._build_payload()
         os.makedirs(self.cache_dir, exist_ok=True)
 
+    def handle_data(self):
+        """
+        
+        """
     def validate_inputs(self):
         if not (self.fp_location.startswith("d") and (self.fp_location[1:].isdigit() or self.fp_location == "dX")):
             raise ValueError(f"Invalid fp_location: {self.fp_location}")
@@ -30,7 +34,7 @@ class DataLoader:
         return f"{self.base_url}?{self.payload}"
 
     def get_filename(self) -> str:
-        return f"{self.fp_location}_{self.fp_date}_{self.fp_time}.zip"
+        return f"{self.fp_location}_{self.fp_date}_{self.fp_time}.csv"
 
     def get_cached_filepath(self) -> str:
         return os.path.join(self.cache_dir, self.get_filename())
