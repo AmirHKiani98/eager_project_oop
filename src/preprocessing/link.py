@@ -27,7 +27,7 @@ class Link(SpatialLine):
             end_point (POINT): The ending point of the link.
         """
         super().__init__(start_point, end_point)
-        self.cells = []  
+        self.cells = []
 
     def add_cell(self, cell: Cell):
         """

@@ -28,7 +28,7 @@ class SpatialLine:
                             that define the intersections along the spatial line.
     """
 
-    def __init__(self, _from: POINT, _to: POINT, crs="EPSG:4326"):
+    def __init__(self, _from: POINT, _to: POINT):
         """
         Initializes a SpatialLine object.
 
@@ -38,17 +38,28 @@ class SpatialLine:
             crs (str): The coordinate reference system of the points. Default is "EPSG:4326".
         """
 
-        # Define the transformer to convert coordinates to a metric CRS (e.g., EPSG:3857)
-        transformer = Transformer.from_crs(crs, "EPSG:3857", always_xy=True)
+        self.source_crs = "EPSG:4326"
+        self.metric_crs = "EPSG:3857"
+        self._transformer = Transformer.from_crs(self.source_crs, self.metric_crs, always_xy=True)
 
-        # Transform the points to the metric CRS
-        _from_metric = transform(transformer.transform, _from)
-        _to_metric = transform(transformer.transform, _to)
+        _from_metric = transform(self._transformer.transform, _from)
+        _to_metric = transform(self._transformer.transform, _to)
 
-        # Create the LineString in the metric CRS
-        self.intersection_locations = LINESTRING([_from_metric, _to_metric])
+        self.line = LINESTRING([_from_metric, _to_metric])
+        self.length_meters = self.line.length
 
-        # Calculate the length in meters
-        self.length_meters = self.intersection_locations.length
+    def get_distance(self, point: POINT) -> float:
+        """
+        Calculates the distance from the spatial line to a given point in meters.
+
+        Args:
+            point (POINT): A Point object representing the point to calculate the distance to.
+
+        Returns:
+            float: The distance from the spatial line to the point in meters.
+        """
+        # Ensure the distance is calculated in meters
+        point_metric = transform(self._transformer.transform, point)
+        return self.line.distance(point_metric)
 
     
