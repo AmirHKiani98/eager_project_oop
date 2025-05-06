@@ -164,7 +164,14 @@ class DataLoader:
             total_size = int(response.headers.get('Content-Length', 0))
             block_size = 8192
 
-            progress_bar = tqdm(total=total_size, unit='B', unit_scale=True, desc=self.get_filename())
+            progress_bar = tqdm(
+                total=total_size,
+                unit='B',
+                unit_scale=True,
+                desc=self.get_filename(),
+                leave=False,
+                dynamic_ncols=True
+            )
 
             with open(self.get_cached_filepath(), "wb") as f:
                 for chunk in response.iter_content(chunk_size=block_size):
