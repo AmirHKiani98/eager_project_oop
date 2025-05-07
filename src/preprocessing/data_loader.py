@@ -285,15 +285,11 @@ class DataLoader:
         """
         processed_file_path = (
             self.cache_dir + Path(exploded_file_address).stem + "_" +
-            self.geo_loader.hash_str() + ".csv"
+            self.geo_loader.get_hash_str() + ".csv"
         )
         if os.path.isfile(processed_file_path):
             return (
-                self.cache_dir
-                + Path(exploded_file_address).stem
-                + "_"
-                + self.geo_loader.hash_str()
-                + ".csv"
+                processed_file_path
             )
 
         df = self._find_links_cells(exploded_file_address)
@@ -308,9 +304,10 @@ class DataLoader:
         raw_df = pl.read_csv(exploded_file_address)
         if raw_df.is_empty():
             raise ValueError("DataFrame is empty. Cannot find links.")
+        length = raw_df.shape[0]
         points = [
             POINT(row["lon"], row["lat"])
-            for row in tqdm(raw_df.iter_rows(named=True))
+            for row in tqdm(raw_df.iter_rows(named=True), total=length, desc="Creating points")
         ]
         # TODO: Ensure that closests_links_cells is sorted according to the raw_df
         # if len(closests_links_cells) != len(points):
