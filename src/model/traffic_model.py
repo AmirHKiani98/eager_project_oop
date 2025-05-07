@@ -73,6 +73,5 @@ class TrafficModel:
         """
         Abstract method to predict traffic flow.
         """
-        pass
-
+        raise NotImplementedError("Subclasses must implement this method.")
     
