@@ -66,6 +66,28 @@ class Link(SpatialLine):
             cells.append(cell)
         return cells
 
+    def load_cells_by_number(self, number_of_cells: int):
+        """
+        Divides the link into a specified number of cells.
+
+        Args:
+            number_of_cells (int): The number of cells to divide the link into.
+        """
+        from src.preprocessing.cell import Cell
+        distance = self.length_meters
+        cells = []
+        cell_length = distance / number_of_cells
+        for i in range(number_of_cells):
+            start_dist = i * cell_length
+            end_dist = min((i + 1) * cell_length, distance)
+            cell_geom = substring(self.line, start_dist, end_dist)
+            coords = list(cell_geom.coords)
+            coords = list(map(lambda x: self._transformer_to_source.transform(x[0], x[1]), coords))
+            cell = Cell(POINT(coords[0]), POINT(coords[-1]))
+            cell.set_link(self)
+            self.add_cell(cell)
+            cells.append(cell)
+        return cells
 
     def __str__(self):
         """

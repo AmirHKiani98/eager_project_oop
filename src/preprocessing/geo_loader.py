@@ -74,9 +74,8 @@ class GeoLoader:
 
     def _load_cells_by_length(self):
         for link in self.links:
-            cells = link.load_cells_by_length(self.cell_length)
-
-            self.cells.extend(cells)
+            link_cells = link.load_cells_by_length(self.cell_length)
+            self.cells.extend(link_cells)
 
     def _load_cells_by_number(self):
         """
@@ -84,15 +83,8 @@ class GeoLoader:
         of cells.
         """
         for link in self.links:
-            distance = link.length_meters
-            cell_length = distance / self.number_of_cells
-            for i in range(self.number_of_cells):
-                cell_start = link.line.interpolate(i * cell_length)
-                cell_end = link.line.interpolate(min((i + 1) * cell_length, distance))
-                cell = Cell(cell_start, cell_end)
-                cell.set_link(link)
-                link.add_cell(cell)
-                self.cells.append(cell)
+            link_cells = link.load_cells_by_number(self.number_of_cells)
+            self.cells.extend(link_cells)
 
     def _load_cells(self):
         if self.cell_length is not None:
@@ -151,7 +143,7 @@ if __name__ == "__main__":
         fp_date="20181029",
         fp_time="0800_0830",
         locations=intersection_locations,
-        cell_length=20
+        number_of_cells=2
     )
     links = geo_loader.get_links()
     cells = geo_loader.get_cells()
