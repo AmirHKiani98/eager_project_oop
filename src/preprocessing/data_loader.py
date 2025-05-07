@@ -44,6 +44,7 @@ class DataLoader:
         geo_loader: GeoLoader,
         cache_dir=".cache",
         line_threshold=20,
+        time_interval=0.04
     ):
         """
         Initializes the DataLoader with the specified parameters.
@@ -56,6 +57,7 @@ class DataLoader:
             ".cache".
         """
         self.line_threshold = line_threshold
+        self.time_interval = time_interval
         self.base_url = "https://open-traffic.epfl.ch/wp-content/uploads/mydownloads.php"
         self.fp_location = [fp_location] if isinstance(fp_location, str) else fp_location
         self.fp_date = [fp_date] if isinstance(fp_date, str) else fp_date
@@ -421,32 +423,32 @@ class DataLoader:
 
         wlc_df = pl.read_csv(fully_processed_file_address)
 
-        # Step 1: Count vehicles per group
-        counts = wlc_df.group_by(["link_id", "cell_id", "trajectory_time"]).agg(
-            pl.count().alias("vehicle_count")
-        )
-
-        # Step 2: Map cell length for each group
-        lengths = counts.select([
-            pl.col("link_id"),
-            pl.col("cell_id"),
-            pl.struct(["link_id", "cell_id"]).map_elements(
-                lambda x: self.geo_loader.get_cell_length(x["cell_id"], x["link_id"])
-            ).alias("cell_length")
+        counts = wlc_df.group_by(["link_id", "cell_id", "trajectory_time"]).agg([
+            pl.col("track_id").alias("vehicle_ids")
         ])
+        print("Counts DataFrame:", counts)
+        counts
+        # lengths = counts.select([
+        #     pl.col("link_id"),
+        #     pl.col("cell_id"),
+        #     pl.struct(["link_id", "cell_id"]).map_elements(
+        #         lambda x: self.geo_loader.get_cell_length(x["cell_id"], x["link_id"]),
+        #         return_dtype=pl.Float64
+        #     ).alias("cell_length")
+        # ])
 
-        # Step 3: Join and compute density = vehicle_count / cell_length
-        density_df = counts.join(lengths, on=["link_id", "cell_id"])
-        density_df = density_df.with_columns([
-            (pl.col("vehicle_count") / pl.col("cell_length")).alias("density")
-        ])
+        # # Step 3: Join and compute density = vehicle_count / cell_length
+        # density_df = counts.join(lengths, on=["link_id", "cell_id"])
+        # density_df = density_df.with_columns([
+        #     (pl.col("vehicle_count") / pl.col("cell_length")).alias("density")
+        # ])
 
-        # Optional: keep only necessary columns
-        density_df = density_df.select(["link_id", "cell_id", "density"])
+        # # Optional: keep only necessary columns
+        # density_df = density_df.select(["link_id", "cell_id", "density"])
 
-        density_df.write_csv(file_address)
-        print(f"Density DataFrame saved to {file_address}")
-        return file_address
+        # density_df.write_csv(file_address)
+        # print(f"Density DataFrame saved to {file_address}")
+        # return file_address
 
 
 
