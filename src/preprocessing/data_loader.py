@@ -495,7 +495,7 @@ if __name__ == "__main__":
         Intersection(
             intersection_id=i,
             location=POINT(loc[1], loc[0]),
-            is_tl=True
+            tl=True
         )
         for i, loc in enumerate(intersection_locations)
     ]
