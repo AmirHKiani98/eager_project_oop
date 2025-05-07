@@ -12,10 +12,9 @@ Example:
     To use the `DataLoader` class, initialize it with the desired parameters:
 """
 import os
+from collections import defaultdict
 from multiprocessing import Pool, cpu_count
 from sklearn.linear_model import LinearRegression
-from collections import defaultdict
-from pathlib import Path
 from more_itertools import chunked
 from shapely.geometry import Point as POINT
 import requests
