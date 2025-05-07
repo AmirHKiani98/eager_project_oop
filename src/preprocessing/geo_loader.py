@@ -10,6 +10,8 @@ from shapely.geometry import Point as POINT
 from src.preprocessing.cell import Cell
 from src.preprocessing.link import Link
 from src.preprocessing.data_loader import DataLoader
+import random
+
 class GeoLoader:
     """
     GeoLoader is a class designed to preprocess and load geographical data, 
@@ -48,11 +50,11 @@ class GeoLoader:
                 fp_location,
                 fp_date,
                 fp_time,
-                intersection_locations: list[POINT] = None,
+                locations: list[POINT] = None,
                 cell_length: float = None,
                 number_of_cells: int = None):
         self.data_loader = DataLoader(fp_location, fp_date, fp_time)
-        self.intersection_locations = intersection_locations
+        self.locations = locations
         self.links = []
         self.cells = []
         self.cell_length = cell_length
@@ -64,25 +66,17 @@ class GeoLoader:
         """
         Load links from the data loader.
         """
-        for index in range(len(self.intersection_locations) - 1):
-            start_point = self.intersection_locations[index]
-            end_point = self.intersection_locations[index + 1]
+        for index in range(len(self.locations) - 1):
+            start_point = self.locations[index]
+            end_point = self.locations[index + 1]
             link = Link(start_point, end_point)
             self.links.append(link)
-    
 
     def _load_cells_by_length(self):
         for link in self.links:
-            distance = link.length_meters
-            number_of_cells = int(distance / self.cell_length)
-            for i in range(number_of_cells):
-                cell_start = link.line.interpolate(i * self.cell_length)
-                cell_end = link.line.interpolate(min((i + 1) * self.cell_length, distance))
-                cell = Cell(cell_start, cell_end)
-                cell.set_link(link)
-                link.add_cell(cell)
-                self.cells.append(cell)
+            cells = link.load_cells_by_length(self.cell_length)
 
+            self.cells.extend(cells)
 
     def _load_cells_by_number(self):
         """
@@ -99,7 +93,7 @@ class GeoLoader:
                 cell.set_link(link)
                 link.add_cell(cell)
                 self.cells.append(cell)
-    
+
     def _load_cells(self):
         if self.cell_length is not None:
             self._load_cells_by_length()
@@ -107,7 +101,7 @@ class GeoLoader:
             self._load_cells_by_number()
         else:
             raise ValueError("Either one of cell_length or number_of_cells must be provided.")
-    
+
     def get_links(self):
         """
         Returns the list of links created from the intersection locations.
@@ -131,10 +125,12 @@ class GeoLoader:
         ax.set_ylabel("Latitude")
         for link in self.links:
             x, y = link.line.xy
-            ax.plot(x, y, color='blue', linewidth=2, alpha=0.5)
+            # ax.plot(x, y, color='blue', linewidth=2, alpha=0.5)
         for cell in self.cells:
             x, y = cell.line.xy
-            ax.plot(x, y, color='red', linewidth=3, alpha=0.2)
+            print(f"Link: {cell.link.length_meters} meters, Cell: {cell.length_meters} meters")
+            random_color = (random.random(), random.random(), random.random())
+            ax.plot(x, y, color=random_color, linewidth=3, alpha=1)
         plt.show()
         plt.axis('equal')
 
@@ -154,7 +150,7 @@ if __name__ == "__main__":
         fp_location="d1",
         fp_date="20181029",
         fp_time="0800_0830",
-        intersection_locations=intersection_locations,
+        locations=intersection_locations,
         cell_length=20
     )
     links = geo_loader.get_links()

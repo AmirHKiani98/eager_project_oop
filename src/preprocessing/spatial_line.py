@@ -40,10 +40,15 @@ class SpatialLine:
 
         self.source_crs = "EPSG:4326"
         self.metric_crs = "EPSG:3857"
-        self._transformer = Transformer.from_crs(self.source_crs, self.metric_crs, always_xy=True)
+        self._transformer_to_metric = Transformer.from_crs(self.source_crs, self.metric_crs, always_xy=True)
+        self._transformer_to_source = Transformer.from_crs(self.metric_crs, self.source_crs, always_xy=True)
+        # Keep the original points in their original CRS
+        self._from = _from
+        self._to = _to
 
-        _from_metric = transform(self._transformer.transform, _from)
-        _to_metric = transform(self._transformer.transform, _to)
+        # Transform points to metric CRS for length calculation
+        _from_metric = transform(self._transformer_to_metric.transform, _from)
+        _to_metric = transform(self._transformer_to_metric.transform, _to)
 
         self.line = LINESTRING([_from_metric, _to_metric])
         self.length_meters = self.line.length
@@ -59,7 +64,7 @@ class SpatialLine:
             float: The distance from the spatial line to the point in meters.
         """
         # Ensure the distance is calculated in meters
-        point_metric = transform(self._transformer.transform, point)
+        point_metric = transform(self._transformer_to_metric.transform, point)
         return self.line.distance(point_metric)
 
     

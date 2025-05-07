@@ -9,8 +9,9 @@ Dependencies:
     - src.preprocessing.spatial_line.SpatialLine: Base class for spatial line representation.
     - shapely.geometry.Point: Used to define the start and end points of the link.
 """
+import math
 from shapely.geometry import Point as POINT
-
+from shapely.ops import substring
 from src.preprocessing.spatial_line import SpatialLine
 
 class Link(SpatialLine):
@@ -38,24 +39,57 @@ class Link(SpatialLine):
         """
         self.cells.append(cell)
     
+    def load_cells_by_length(self, cell_length: float):
+        """
+        Divides the link into cells based on the specified cell length.
+
+        Args:
+            cell_length (float): The length of each cell in meters.
+        """
+        from src.preprocessing.cell import Cell
+        if cell_length <= 0:
+            raise ValueError("Cell length must be positive")
+
+        number_of_cells = int(self.length_meters / cell_length)
+        distance = self.length_meters
+        number_of_cells = max(1, math.ceil(distance / cell_length))
+        cells = []
+        for i in range(number_of_cells):
+            start_dist = i * cell_length
+            end_dist = min((i + 1) * cell_length, distance)
+            cell_geom = substring(self.line, start_dist, end_dist)
+            coords = list(cell_geom.coords)
+            coords = list(map(lambda x: self._transformer_to_source.transform(x[0], x[1]), coords))
+            cell = Cell(POINT(coords[0]), POINT(coords[-1]))
+            cell.set_link(self)
+            self.add_cell(cell)
+            cells.append(cell)
+        return cells
+
+
     def __str__(self):
         """
         Returns a string representation of the Link object.
         """
-        return f"Link from {self.line.coords[0]} to {self.line.coords[1]} with length {self.length_meters} meters"
-    
+        return (
+            f"Link from {self.line.coords[0]} to {self.line.coords[1]} "
+            f"with length {self.length_meters} meters"
+        )
     def __repr__(self):
         """
         Returns a string representation of the Link object for debugging.
         """
-        return f"Link(start_point={self.line.coords[0]}, end_point={self.line.coords[1]}, length_meters={self.length_meters})"
-    
+        return (
+            f"Link(start_point={self.line.coords[0]}, "
+            f"end_point={self.line.coords[1]}, "
+            f"length_meters={self.length_meters})"
+        )
     def __len__(self):
         """
         Returns the number of cells in the link.
         """
         return len(self.cells)
-    
+
     def __getitem__(self, index):
         """
         Returns the cell at the specified index.

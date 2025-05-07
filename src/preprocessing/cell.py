@@ -39,7 +39,7 @@ class Cell(SpatialLine):
         if not isinstance(link, Link):
             raise TypeError("link must be an instance of Link")
         self.link = link
-    
+
     def get_distance(self, point: POINT) -> float:
         """
         Calculates the distance from the cell to a given point in meters.
@@ -52,3 +52,12 @@ class Cell(SpatialLine):
         """
         # Ensure the distance is calculated in meters
         return self.line.distance(point) * 1  # Assuming the CRS is in meters
+
+    def __str__(self):
+        """
+        Returns a string representation of the Cell object.
+
+        Returns:
+            str: String representation of the Cell object.
+        """
+        return f"Cell(start_point={self._from}, end_point={self._to}, length_meters={self.length_meters})"
