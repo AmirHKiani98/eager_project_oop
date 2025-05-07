@@ -284,7 +284,7 @@ class DataLoader:
         and finding the closest links and cells for each point in the DataFrame.
         """
         processed_file_path = (
-            self.cache_dir + Path(exploded_file_address).stem + "_" +
+            self.cache_dir + "/" + Path(exploded_file_address).stem + "_" +
             self.geo_loader.get_hash_str() + ".csv"
         )
         if os.path.isfile(processed_file_path):
@@ -318,6 +318,7 @@ class DataLoader:
         #             f"Mismatch at index {i}: DataFrame point and closest link/cell result "
         #             f"are not aligned."
         #         )
+        
         with Pool(cpu_count()) as pool:
             closests_links_cells = list(
                 tqdm(
