@@ -40,8 +40,12 @@ class SpatialLine:
 
         self.source_crs = "EPSG:4326"
         self.metric_crs = "EPSG:3857"
-        self._transformer_to_metric = Transformer.from_crs(self.source_crs, self.metric_crs, always_xy=True)
-        self._transformer_to_source = Transformer.from_crs(self.metric_crs, self.source_crs, always_xy=True)
+        self._transformer_to_metric = Transformer.from_crs(
+            self.source_crs, self.metric_crs, always_xy=True
+        )
+        self._transformer_to_source = Transformer.from_crs(
+            self.metric_crs, self.source_crs, always_xy=True
+        )
         # Keep the original points in their original CRS
         self._from = _from
         self._to = _to
