@@ -12,12 +12,11 @@ USAGE:
     path representation.
 
 """
+from abc import abstractmethod
 from shapely.ops import transform
-
 from shapely.geometry import LineString as LINESTRING
 from shapely.geometry import Point as POINT
 from pyproj import Transformer
-from abc import abstractmethod
 
 class SpatialLine:
 
@@ -64,6 +63,9 @@ class SpatialLine:
         Returns:
             float: The distance from the spatial line to the point in meters.
         """
+        # Ensure the point is not metric
+        if point.crs != self.source_crs:
+            raise ValueError("Point must be in the source CRS (EPSG:4326)")
         # Ensure the distance is calculated in meters
         point_metric = transform(self._transformer_to_metric.transform, point)
         return self.line.distance(point_metric)
