@@ -45,7 +45,7 @@ class Link(SpatialLine):
             cell (Cell): The cell to be added to the link.
         """
         self.cells.append(cell)
-    
+
     def load_cells_by_length(self, cell_length: float):
         """
         Divides the link into cells based on the specified cell length.

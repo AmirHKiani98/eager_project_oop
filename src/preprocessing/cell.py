@@ -59,9 +59,7 @@ class Cell(SpatialLine):
         """
         # Ensure the distance is calculated in meters
         return self.line.distance(point) * 1  # Assuming the CRS is in meters
-    
-    
-    
+
     def __str__(self):
         """
         Returns a string representation of the Cell object.
@@ -69,9 +67,16 @@ class Cell(SpatialLine):
         Returns:
             str: String representation of the Cell object.
         """
-        return f"Cell(start_point={self._from}, end_point={self._to}, length_meters={self.length_meters})"
+        return (
+            f"Cell(start_point={self._from}, end_point={self._to}, "
+            f"length_meters={self.length_meters})"
+        )
 
     def __eq__(self, other):
         if not isinstance(other, Cell):
             return False
-        return self._from == other._from and self._to == other._to and self.length_meters == other.length_meters
+        return (
+            self._from == other._from and
+            self._to == other._to and
+            self.length_meters == other.length_meters
+        )
