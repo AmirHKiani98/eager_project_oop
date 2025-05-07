@@ -15,6 +15,7 @@ import os
 from multiprocessing import Pool, cpu_count
 from collections import defaultdict
 from pathlib import Path
+from more_itertools import chunked
 from shapely.geometry import Point as POINT
 import requests
 from tqdm import tqdm
@@ -318,16 +319,13 @@ class DataLoader:
         #             f"Mismatch at index {i}: DataFrame point and closest link/cell result "
         #             f"are not aligned."
         #         )
-        
-        with Pool(int(cpu_count()/2)) as pool:
-            closests_links_cells = list(
-                tqdm(
-                    pool.imap(self.geo_loader.find_closest_link, points),
-                    total=len(points),
-                    desc="Finding closest cells and links",
-                    dynamic_ncols=True
-                )
-            )
+        batch_size = 50000
+        closests_links_cells = []
+
+        with Pool(processes=int(cpu_count() / 2)) as pool:
+            for batch in tqdm(chunked(points, batch_size), total=(len(points) // batch_size) + 1, desc="Finding closest cells and links"):
+                results = pool.map(self.geo_loader.find_closest_link, batch)
+                closests_links_cells.extend(results)
         link_ids = []
         link_distances = []
         cell_ids = []

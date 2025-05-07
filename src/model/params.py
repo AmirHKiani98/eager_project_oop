@@ -13,7 +13,7 @@ class Parameters():
         self.tau = 1
         self.c = 10.14 
         self.c0 = self.free_flow_speed/(self.tau*2)
-        
+
     def max_flow(self, cell_length):
         """
         Calculate the maximum flow in the system based on the fundamental diagram.
@@ -21,10 +21,24 @@ class Parameters():
         Returns:
             float: Maximum flow (vehicles/second).
         """
-        return min(1800, min(self.free_flow_speed, self.wave_speed) * self.get_jam_density(cell_length) * self.num_lanes)
+        max_flow = min(
+            1800,
+            min(self.free_flow_speed, self.wave_speed)
+            * self.get_jam_density(cell_length)
+            * self.num_lanes
+        )
+        return max_flow
 
     def get_time_step(self, cell_length):
+        """
+        Calculate the time step based on the cell length and free flow speed.
 
+        Args:
+            cell_length (float): The length of a cell in the simulation grid.
+
+        Returns:
+            float: The time step, calculated as the ratio of cell length to free flow speed.
+        """
         return cell_length / self.free_flow_speed
 
     def get_jam_density(self, cell_length):

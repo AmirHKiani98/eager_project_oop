@@ -79,7 +79,7 @@ class GeoLoader:
             self.links[link.link_id] = link
 
     def _load_cells_by_length(self):
-        for link in self.links:
+        for link_id, link in self.links.items():
             link_cells = link.load_cells_by_length(self.cell_length)
             self.cells.extend(link_cells)
 
@@ -88,7 +88,7 @@ class GeoLoader:
         Placeholder method to divide each link into a specified number 
         of cells.
         """
-        for link in self.links:
+        for link_id, link in self.links.items():
             link_cells = link.load_cells_by_number(self.number_of_cells)
             self.cells.extend(link_cells)
 
@@ -121,7 +121,7 @@ class GeoLoader:
         ax.set_title("Links and Cells")
         ax.set_xlabel("Longitude")
         ax.set_ylabel("Latitude")
-        for link in self.links:
+        for link_id, link in self.links.items():
             x, y = link.line.xy
             # ax.plot(x, y, color='blue', linewidth=2, alpha=0.5)
         for cell in self.cells:
@@ -211,14 +211,13 @@ class GeoLoader:
 
 
         cells_df = pl.read_csv(f".cache/cells_{hash_str}.csv")
-        print(self.links)
         for row in cells_df.iter_rows(named=True):
             cell_start = POINT(row['cell_start_lon'], row['cell_start_lat'])
             cell_end = POINT(row['cell_end_lon'], row['cell_end_lat'])
             cell_id = row['cell_id']
             link_id = row['link_id']
             link_found = False
-            for link in self.links:
+            for link_key, link in self.links.items():
                 if link.link_id == link_id:
                     link_found = True
                     break
@@ -252,14 +251,14 @@ class GeoLoader:
         """
         min_distance_link = float("inf")
         closest_link = None
-        for link in self.links:
+        for _, link in self.links.items():
             distance = link.get_distance(point)
             if distance < min_distance_link:
                 min_distance_link = distance
                 closest_link = link
         min_distance_cell = float("inf")
         closest_cell = None
-        for cell in closest_link.cells:
+        for _, cell in closest_link.cells.items():
             distance = cell.get_distance(point)
             if distance < min_distance_cell:
                 min_distance_cell = distance
