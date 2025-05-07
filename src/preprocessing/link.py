@@ -67,7 +67,7 @@ class Link(SpatialLine):
             cell_geom = substring(self.line, start_dist, end_dist)
             coords = list(cell_geom.coords)
             coords = list(map(lambda x: self._transformer_to_source.transform(x[0], x[1]), coords))
-            cell = Cell(POINT(coords[0]), POINT(coords[-1]))
+            cell = Cell(POINT(coords[0]), POINT(coords[-1]), cell_id=len(self.cells)+1)
             cell.set_link(self)
             self.add_cell(cell)
             cells.append(cell)

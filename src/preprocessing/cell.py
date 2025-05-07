@@ -29,12 +29,7 @@ class Cell(SpatialLine):
         """
         super().__init__(start_point, end_point)
         self.link = None
-        if cell_id is None:
-            Cell.Identification += 1
-            self.cell_id = Cell.Identification
-        else:
-            self.cell_id = cell_id
-            Cell.Identification = max(Cell.Identification, cell_id)
+        self.cell_id = cell_id
 
     def set_link(self, link: Link):
         """

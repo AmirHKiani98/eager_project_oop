@@ -283,41 +283,37 @@ class DataLoader:
         if self.df.is_empty():
             raise ValueError("DataFrame is empty. Cannot find links.")
         # # Form the list of points from the DataFrame
-        temp_df = self.df[500:800]
         points = [
             POINT(row["lon"], row["lat"])
-            for row in tqdm(temp_df.iter_rows(named=True))
+            for row in tqdm(self.df.iter_rows(named=True))
         ]
-        # Find the closest link for each point
+        # TODO: Check if the closests_links_cells is sorted according to the self.df
         with Pool(cpu_count()) as pool:
-            closest_links = list(
+            closests_links_cells = list(
                 tqdm(
                     pool.imap(self.geo_loader.find_closest_link, points),
                     total=len(points),
-                    desc="Finding closest links",
+                    desc="Finding closest cells and links",
                     dynamic_ncols=True
                 )
             )
-        # Assign the closest links to the df
-        # Extract link IDs and distances
         link_ids = []
         link_distances = []
         cell_ids = []
         cell_distances = []
-        for (link, link_distance, cell, cell_distance) in closest_links:
+        for (link, link_distance, cell, cell_distance) in closests_links_cells:
             link_ids.append(link.link_id)
             link_distances.append(link_distance)
             cell_ids.append(cell.cell_id)
             cell_distances.append(cell_distance)
 
         # Add columns to the DataFrame
-        temp_df = temp_df.with_columns([
+        self.df = self.df.with_columns([
             pl.Series("link_id", link_ids),
             pl.Series("distance_from_link", link_distances),
             pl.Series("cell_id", cell_ids),
             pl.Series("distance_from_cell", cell_distances)
         ])
-        return temp_df
 
 
 # Run as script
@@ -336,7 +332,3 @@ if __name__ == "__main__":
         fp_time=["0800_0830"],
         geo_loader=model_geo_loader
     )
-    print(dl.find_links())
-    # for row in dl.df.iter_rows(named=True):
-    #     point = POINT(row["lon"], row["lat"])
-    #     print(model_geo_loader.find_closest_link(point))
