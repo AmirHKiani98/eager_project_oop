@@ -212,13 +212,13 @@ class DataLoader:
             if field_index == 0:
                 data["lat"].append(item)
             elif field_index == 1:
-                data["lot"].append(item)
+                data["lon"].append(item)
             elif field_index == 2:
                 data["speed"].append(item)
             elif field_index == 3:
                 data["lon_acc"].append(item)
             elif field_index == 4:
-                data["lot_acc"].append(item)
+                data["lat_acc"].append(item)
             elif field_index == 5:
                 data["trajectory_time"].append(item)
                 data["track_id"].append(track_id)
@@ -282,10 +282,9 @@ class DataLoader:
         """
         if self.df.is_empty():
             raise ValueError("DataFrame is empty. Cannot find links.")
-        
         # # Form the list of points from the DataFrame
         # points = [
-        #     POINT(row["lot"], row["lat"])
+        #     POINT(row["lon"], row["lat"])
         #     for row in self.df.iter_rows(named=True)
         # ]
         # # Find the closest link for each point
@@ -304,9 +303,12 @@ if __name__ == "__main__":
         cell_length=20.0,
         number_of_cells=2
     )
-    data_loader = DataLoader(
+    dl = DataLoader(
         fp_location=["d1"],
         fp_date=["20181029"],
         fp_time=["0800_0830"],
         geo_loader=model_geo_loader
     )
+    print(dl.df["lat"][0], dl.df["lon"][0])
+
+    
