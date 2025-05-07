@@ -64,7 +64,7 @@ class GeoLoader:
             self._load_links()
             if self.cell_length is None and self.number_of_cells is None:
                 print("Warining: No cell length or number of cells provided.")
-            else: 
+            else:
                 self._load_cells()
             self._save()
 

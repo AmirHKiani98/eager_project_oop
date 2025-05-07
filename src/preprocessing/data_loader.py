@@ -183,9 +183,10 @@ class DataLoader:
                         # Use tuple instead of set as dictionary key
                         raw_data_file_path = self._download_file(location, date, time)
                         exploded_file_address = self._explode_dataset(raw_data_file_path)
+                        processed_file_address = self._process_link_cell(exploded_file_address)
                         self.files_list[
                             (location, date, time)
-                        ] = exploded_file_address
+                        ] = processed_file_address
                         pbar.update(1)
         self.df.clear()
         self.df = pl.DataFrame({})
@@ -276,18 +277,50 @@ class DataLoader:
             self.df = pl.concat(dataframes)
         return self.df
 
-    def find_links(self):
+    def _process_link_cell(self, exploded_file_address):
+        """
+        Processes the link and cell data from the DataFrame.
+        This method is responsible for loading the geospatial data
+        and finding the closest links and cells for each point in the DataFrame.
+        """
+        processed_file_path = (
+            self.cache_dir + Path(exploded_file_address).stem + "_" +
+            self.geo_loader.hash_str() + ".csv"
+        )
+        if os.path.isfile(processed_file_path):
+            return (
+                self.cache_dir
+                + Path(exploded_file_address).stem
+                + "_"
+                + self.geo_loader.hash_str()
+                + ".csv"
+            )
+
+        df = self._find_links_cells(exploded_file_address)
+        df.write_csv(processed_file_path)
+        return processed_file_path
+
+
+    def _find_links_cells(self, exploded_file_address):
         """
         Finds the links in the DataFrame and assigns them to the GeoLoader.
         """
-        if self.df.is_empty():
+        raw_df = pl.read_csv(exploded_file_address)
+        if raw_df.is_empty():
             raise ValueError("DataFrame is empty. Cannot find links.")
-        # # Form the list of points from the DataFrame
         points = [
             POINT(row["lon"], row["lat"])
-            for row in tqdm(self.df.iter_rows(named=True))
+            for row in tqdm(raw_df.iter_rows(named=True))
         ]
-        # TODO: Check if the closests_links_cells is sorted according to the self.df
+        # TODO: Ensure that closests_links_cells is sorted according to the raw_df
+        # if len(closests_links_cells) != len(points):
+        #     raise ValueError("Mismatch between DataFrame points and closest links/cells results.")
+        # for i, point in enumerate(points):
+        #     if not point.equals(POINT(raw_df[i, "lon"], raw_df[i, "lat"])):
+        #         raise ValueError(
+        #             f"Mismatch at index {i}: DataFrame point and closest link/cell result "
+        #             f"are not aligned."
+        #         )
         with Pool(cpu_count()) as pool:
             closests_links_cells = list(
                 tqdm(
@@ -308,12 +341,13 @@ class DataLoader:
             cell_distances.append(cell_distance)
 
         # Add columns to the DataFrame
-        self.df = self.df.with_columns([
+        raw_df = raw_df.with_columns([
             pl.Series("link_id", link_ids),
             pl.Series("distance_from_link", link_distances),
             pl.Series("cell_id", cell_ids),
             pl.Series("distance_from_cell", cell_distances)
         ])
+        return raw_df
 
 
 # Run as script
