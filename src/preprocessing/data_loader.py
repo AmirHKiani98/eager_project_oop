@@ -22,6 +22,7 @@ from tqdm import tqdm
 import polars as pl
 from src.preprocessing.geo_loader import GeoLoader
 from src.preprocessing.utility import fill_missing_timestamps
+from src.preprocessing.intersection import Intersection
 
 class DataLoader:
     """
@@ -485,8 +486,19 @@ class DataLoader:
 # Run as script
 if __name__ == "__main__":
     # Example usage
-    intersection_locations = pl.read_csv(".cache/traffic_lights.csv").to_numpy().tolist()
-    intersection_locations = [POINT(loc[1], loc[0]) for loc in intersection_locations]
+    intersection_locations = (
+        pl.read_csv(".cache/traffic_lights.csv")
+        .to_numpy()
+        .tolist()  # It's format is [lat, lon]
+    )
+    intersection_locations = [
+        Intersection(
+            intersection_id=i,
+            location=POINT(loc[1], loc[0]),
+            is_tl=True
+        )
+        for i, loc in enumerate(intersection_locations)
+    ]
     model_geo_loader = GeoLoader(
         locations=intersection_locations,
         cell_length=20.0
