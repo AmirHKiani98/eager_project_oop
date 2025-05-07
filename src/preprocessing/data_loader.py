@@ -297,7 +297,6 @@ class DataLoader:
         """
         dataframes = []
         for (_, _, _), file_address in self.files_dict.items():
-            print("Address is", file_address)
             read_csv = pl.read_csv(file_address)
             dataframes.append(read_csv)
         if dataframes:
