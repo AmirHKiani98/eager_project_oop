@@ -21,6 +21,7 @@ import requests
 from tqdm import tqdm
 import polars as pl
 from src.preprocessing.geo_loader import GeoLoader
+from src.preprocessing.utility import fill_missing_timestamps
 
 class DataLoader:
     """
@@ -422,33 +423,46 @@ class DataLoader:
             return file_address
 
         wlc_df = pl.read_csv(fully_processed_file_address)
-
+        min_time = wlc_df["trajectory_time"].min()
+        max_time = wlc_df["trajectory_time"].max()
         counts = wlc_df.group_by(["link_id", "cell_id", "trajectory_time"]).agg([
             pl.col("track_id").alias("vehicle_ids")
         ])
-        print("Counts DataFrame:", counts)
-        counts
-        # lengths = counts.select([
-        #     pl.col("link_id"),
-        #     pl.col("cell_id"),
-        #     pl.struct(["link_id", "cell_id"]).map_elements(
-        #         lambda x: self.geo_loader.get_cell_length(x["cell_id"], x["link_id"]),
-        #         return_dtype=pl.Float64
-        #     ).alias("cell_length")
-        # ])
+        counts = counts.sort(["link_id", "cell_id", "trajectory_time"])
+        complete_counts = pl.DataFrame({})
+        groups = counts.group_by(["link_id", "cell_id"])
+        num_groups = wlc_df.select(["link_id", "cell_id"]).unique().height
+        for _, group in tqdm(groups, total=num_groups, desc="Counting vehicles"):
+            group = fill_missing_timestamps(group, min_time, max_time, self.time_interval)
+            group = group.with_columns(
+                pl.col("vehicle_ids").fill_null([])  # sets default to empty list
+            )
+            group = group.with_columns([
+                pl.col("vehicle_ids").shift(1).alias("prev_vehicles"),
+                pl.col("vehicle_ids").shift(-1).alias("next_vehicles")
+            ])
 
-        # # Step 3: Join and compute density = vehicle_count / cell_length
-        # density_df = counts.join(lengths, on=["link_id", "cell_id"])
-        # density_df = density_df.with_columns([
-        #     (pl.col("vehicle_count") / pl.col("cell_length")).alias("density")
-        # ])
+            group = group.with_columns([
+                # Vehicles that appeared now but weren’t there before = entries
+                pl.struct(["vehicle_ids", "prev_vehicles"])
+                .map_elements(lambda s: list(set(s["vehicle_ids"]) - set(s["prev_vehicles"] or [])))
+                .alias("entries"),
 
-        # # Optional: keep only necessary columns
-        # density_df = density_df.select(["link_id", "cell_id", "density"])
+                # Vehicles that were there but not anymore = exits
+                pl.struct(["vehicle_ids", "next_vehicles"])
+                .map_elements(lambda s: list(set(s["vehicle_ids"]) - set(s["next_vehicles"] or [])))
+                .alias("exits")
+            ])
+            group = group.drop(["prev_vehicles", "next_vehicles"])
+            complete_counts = pl.concat([complete_counts, group])
+        complete_counts = complete_counts.with_columns([
+            pl.col("entries").arr.lengths().alias("entry_count"),
+            pl.col("exits").arr.lengths().alias("exit_count")
+        ])
+        complete_counts.write_csv(file_address)
+        print(f"Density DataFrame saved to {file_address}")
+        return file_address
 
-        # density_df.write_csv(file_address)
-        # print(f"Density DataFrame saved to {file_address}")
-        # return file_address
 
 
 
