@@ -416,7 +416,7 @@ class DataLoader:
         """
         file_address = (
             self.cache_dir + "/" + self._get_filename(location, date, time)
-            + "_density_" + self.geo_loader.get_hash_str() + ".csv"
+            + "_density_" + self.geo_loader.get_hash_str() + ".parquet"
         )
 
         if os.path.isfile(file_address):
@@ -445,21 +445,23 @@ class DataLoader:
             group = group.with_columns([
                 # Vehicles that appeared now but weren’t there before = entries
                 pl.struct(["vehicle_ids", "prev_vehicles"])
-                .map_elements(lambda s: list(set(s["vehicle_ids"]) - set(s["prev_vehicles"] or [])))
+                .map_elements(lambda s: list(set(s["vehicle_ids"]) - set(s["prev_vehicles"] or [])),
+                                return_dtype=pl.List(pl.Int64))
                 .alias("entries"),
 
                 # Vehicles that were there but not anymore = exits
                 pl.struct(["vehicle_ids", "next_vehicles"])
-                .map_elements(lambda s: list(set(s["vehicle_ids"]) - set(s["next_vehicles"] or [])))
+                .map_elements(lambda s: list(set(s["vehicle_ids"]) - set(s["next_vehicles"] or [])),
+                              return_dtype=pl.List(pl.Int64))
                 .alias("exits")
             ])
             group = group.drop(["prev_vehicles", "next_vehicles"])
             complete_counts = pl.concat([complete_counts, group])
         complete_counts = complete_counts.with_columns([
-            pl.col("entries").arr.lengths().alias("entry_count"),
-            pl.col("exits").arr.lengths().alias("exit_count")
+            pl.col("entries").list.len().alias("entry_count"),
+            pl.col("exits").list.len().alias("exit_count")
         ])
-        complete_counts.write_csv(file_address)
+        complete_counts.write_parquet(file_address)
         print(f"Density DataFrame saved to {file_address}")
         return file_address
 
