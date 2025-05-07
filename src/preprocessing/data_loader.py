@@ -514,10 +514,20 @@ class DataLoader:
         groups = wlc_df.group_by(["loc_link_id", "trajectory_time"]).agg([
             pl.col("speed").mean().alias("avg_speed")
         ])
-        print(groups)
-        
-        
-
+        completed_groups = pl.DataFrame({})
+        groups = groups.group_by(["loc_link_id", "trajectory_time"])
+        num_groups = wlc_df.select(["loc_link_id"]).unique().height
+        min_time = wlc_df["trajectory_time"].min()
+        max_time = wlc_df["trajectory_time"].max()
+        # for _, group in tqdm(groups, total=num_groups, desc="Get the traffic light status"):
+        #     group = group.sort("trajectory_time")
+            
+        #     group = group.with_columns(
+        #         pl.col("avg_speed").fill_null(0.0)  # sets default to empty list
+        #     )
+        #     completed_groups = pl.concat([completed_groups, group])
+        # print(completed_groups)
+        exit()
 
         return file_address
 
