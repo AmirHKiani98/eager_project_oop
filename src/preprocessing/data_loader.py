@@ -314,7 +314,11 @@ class DataLoader:
         closests_links_cells = []
 
         with Pool(processes=int(cpu_count() / 2)) as pool:
-            for batch in tqdm(chunked(points, batch_size), total=(len(points) // batch_size) + 1, desc="Finding closest cells and links"):
+            for batch in tqdm(
+                chunked(points, batch_size),
+                total=(len(points) // batch_size) + 1,
+                desc="Finding closest cells and links"
+            ):
                 results = pool.map(self.geo_loader.find_closest_link, batch)
                 closests_links_cells.extend(results)
         link_ids = []
