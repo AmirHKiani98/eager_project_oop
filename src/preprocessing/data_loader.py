@@ -310,15 +310,6 @@ class DataLoader:
             POINT(row["lon"], row["lat"])
             for row in tqdm(raw_df.iter_rows(named=True), total=length, desc="Creating points")
         ]
-        # TODO: Ensure that closests_links_cells is sorted according to the raw_df
-        # if len(closests_links_cells) != len(points):
-        #     raise ValueError("Mismatch between DataFrame points and closest links/cells results.")
-        # for i, point in enumerate(points):
-        #     if not point.equals(POINT(raw_df[i, "lon"], raw_df[i, "lat"])):
-        #         raise ValueError(
-        #             f"Mismatch at index {i}: DataFrame point and closest link/cell result "
-        #             f"are not aligned."
-        #         )
         batch_size = 50000
         closests_links_cells = []
 
