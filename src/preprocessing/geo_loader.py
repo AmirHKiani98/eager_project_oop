@@ -79,7 +79,7 @@ class GeoLoader:
             self.links[link.link_id] = link
 
     def _load_cells_by_length(self):
-        for link_id, link in self.links.items():
+        for _, link in self.links.items():
             link_cells = link.load_cells_by_length(self.cell_length)
             self.cells.extend(link_cells)
 
@@ -88,7 +88,7 @@ class GeoLoader:
         Placeholder method to divide each link into a specified number 
         of cells.
         """
-        for link_id, link in self.links.items():
+        for _, link in self.links.items():
             link_cells = link.load_cells_by_number(self.number_of_cells)
             self.cells.extend(link_cells)
 
@@ -121,7 +121,7 @@ class GeoLoader:
         ax.set_title("Links and Cells")
         ax.set_xlabel("Longitude")
         ax.set_ylabel("Latitude")
-        for link_id, link in self.links.items():
+        for _, link in self.links.items():
             x, y = link.line.xy
             # ax.plot(x, y, color='blue', linewidth=2, alpha=0.5)
         for cell in self.cells:
@@ -217,7 +217,7 @@ class GeoLoader:
             cell_id = row['cell_id']
             link_id = row['link_id']
             link_found = False
-            for link_key, link in self.links.items():
+            for _, link in self.links.items():
                 if link.link_id == link_id:
                     link_found = True
                     break
