@@ -4,6 +4,8 @@ This module provides functionality to load geospatial data from various sources,
 transform coordinate reference systems, and perform spatial operations.
 
 """
+import polars as pl
+import matplotlib.pyplot as plt
 from shapely.geometry import Point as POINT
 from src.preprocessing.cell import Cell
 from src.preprocessing.link import Link
@@ -55,6 +57,8 @@ class GeoLoader:
         self.cells = []
         self.cell_length = cell_length
         self.number_of_cells = number_of_cells
+        self._load_links()
+        self._load_cells()
 
     def _load_links(self):
         """
@@ -65,12 +69,7 @@ class GeoLoader:
             end_point = self.intersection_locations[index + 1]
             link = Link(start_point, end_point)
             self.links.append(link)
-        if self.cell_length is not None:
-            self._load_cells_by_length()
-        elif self.number_of_cells is not None:
-            self._load_cells_by_number()
-        else:
-            raise ValueError("Either one of cell_length or number_of_cells must be provided.")
+    
 
     def _load_cells_by_length(self):
         for link in self.links:
@@ -101,6 +100,14 @@ class GeoLoader:
                 link.add_cell(cell)
                 self.cells.append(cell)
     
+    def _load_cells(self):
+        if self.cell_length is not None:
+            self._load_cells_by_length()
+        elif self.number_of_cells is not None:
+            self._load_cells_by_number()
+        else:
+            raise ValueError("Either one of cell_length or number_of_cells must be provided.")
+    
     def get_links(self):
         """
         Returns the list of links created from the intersection locations.
@@ -113,3 +120,46 @@ class GeoLoader:
         """
         return self.cells
 
+    def draw(self):
+        """
+        Draws the links and cells on a map.
+        """
+        fig, ax = plt.subplots()
+        fig.set_size_inches(10, 10)
+        ax.set_title("Links and Cells")
+        ax.set_xlabel("Longitude")
+        ax.set_ylabel("Latitude")
+        for link in self.links:
+            x, y = link.line.xy
+            ax.plot(x, y, color='blue', linewidth=2)
+        for cell in self.cells:
+            x, y = cell.line.xy
+            ax.plot(x, y, color='red', linewidth=1)
+        plt.show()
+        plt.axis('equal')
+
+    def save(self):
+        """
+        Saves the links and cells to a file.
+        """
+        # Placeholder for saving logic
+        pass
+
+
+if __name__ == "__main__":
+    # Example usage
+    intersection_locations = pl.read_csv(".cache/traffic_lights.csv").to_numpy().tolist()
+    intersection_locations = [POINT(loc[1], loc[0]) for loc in intersection_locations]
+    print(intersection_locations)
+    # intersection_locations = [POINT(loc) for loc in intersection_locations]
+
+    # geo_loader = GeoLoader(
+    #     fp_location="d1",
+    #     fp_date="20181029",
+    #     fp_time="0800_0830",
+    #     intersection_locations=intersection_locations,
+    #     cell_length=20
+    # )
+    # links = geo_loader.get_links()
+    # cells = geo_loader.get_cells()
+    # print(f"Loaded {len(links)} links and {len(cells)} cells.")
