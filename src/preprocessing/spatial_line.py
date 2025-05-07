@@ -69,7 +69,7 @@ class SpatialLine:
         """
         # Ensure the point is not metric
         if point.crs != self.source_crs:
-            raise ValueError("Point must be in the source CRS (EPSG:4326)")
+            raise ValueError(f"Point must be in the source CRS {self.source_crs}")
         # Ensure the distance is calculated in meters
         point_metric = transform(self._transformer_to_metric.transform, point)
         return self.line.distance(point_metric)

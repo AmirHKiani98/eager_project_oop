@@ -19,6 +19,8 @@ import requests
 from tqdm import tqdm
 import polars as pl
 from src.preprocessing.geo_loader import GeoLoader
+from multiprocessing import Pool, cpu_count
+
 class DataLoader:
     """
     DataLoader is a class designed to handle the downloading and caching of traffic data files 
@@ -274,6 +276,24 @@ class DataLoader:
             self.df = pl.concat(dataframes)
         return self.df
 
+    def find_links(self):
+        """
+        Finds the links in the DataFrame and assigns them to the GeoLoader.
+        """
+        if self.df.is_empty():
+            raise ValueError("DataFrame is empty. Cannot find links.")
+        
+        # # Form the list of points from the DataFrame
+        # points = [
+        #     POINT(row["lot"], row["lat"])
+        #     for row in self.df.iter_rows(named=True)
+        # ]
+        # # Find the closest link for each point
+        # with Pool(cpu_count()) as pool:
+        #     closest_links = pool.map(self.geo_loader.find_closest_link, points)
+        # # Assign the closest links to the df
+
+
 # Run as script
 if __name__ == "__main__":
     # Example usage
@@ -286,7 +306,7 @@ if __name__ == "__main__":
     )
     data_loader = DataLoader(
         fp_location=["d1"],
-        fp_date=["20230901"],
-        fp_time=["0000_0030"],
+        fp_date=["20181029"],
+        fp_time=["0800_0830"],
         geo_loader=model_geo_loader
     )

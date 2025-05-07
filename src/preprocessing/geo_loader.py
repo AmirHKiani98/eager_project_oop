@@ -152,8 +152,8 @@ class GeoLoader:
         # Save links to a CSV file
         links_data = [
             {"link_id": link.link_id,
-            "start_x": link.get_from().x, "start_y": link.get_from().y,
-             "end_x": link.get_to().x, "end_y": link.get_to().y, 
+            "start_lon": link.get_from().x, "start_lat": link.get_from().y,
+             "end_lon": link.get_to().x, "end_lat": link.get_to().y, 
              "length_meters": link.length_meters}
             for link in self.links
         ]
@@ -165,10 +165,10 @@ class GeoLoader:
             {
             "link_id": cell.link.link_id,
             "cell_id": cell.cell_id,
-            "cell_start_x": cell.get_line_source().coords[0][0],
-            "cell_start_y": cell.get_line_source().coords[0][1],
-            "cell_end_x": cell.get_line_source().coords[1][0],
-            "cell_end_y": cell.get_line_source().coords[1][1],
+            "cell_start_lon": cell.get_line_source().coords[0][0],
+            "cell_start_lat": cell.get_line_source().coords[0][1],
+            "cell_end_lon": cell.get_line_source().coords[1][0],
+            "cell_end_lat": cell.get_line_source().coords[1][1],
             "cell_length_meters": cell.length_meters,
             }
             for cell in self.cells
@@ -193,8 +193,8 @@ class GeoLoader:
         links_df = pl.read_csv(f".cache/links_{hash_str}.csv")
 
         for row in links_df.iter_rows(named=True):
-            start_point = POINT(row['start_x'], row['start_y'])
-            end_point = POINT(row['end_x'], row['end_y'])
+            start_point = POINT(row['start_lon'], row['start_lat'])
+            end_point = POINT(row['end_lon'], row['end_lat'])
             link_id = row['link_id']
             link = Link(start_point, end_point, link_id=link_id)
             self.links.append(link)
@@ -203,8 +203,8 @@ class GeoLoader:
         cells_df = pl.read_csv(f".cache/cells_{hash_str}.csv")
         print(self.links)
         for row in cells_df.iter_rows(named=True):
-            cell_start = POINT(row['cell_start_x'], row['cell_start_y'])
-            cell_end = POINT(row['cell_end_x'], row['cell_end_y'])
+            cell_start = POINT(row['cell_start_lon'], row['cell_start_lat'])
+            cell_end = POINT(row['cell_end_lon'], row['cell_end_lat'])
             cell_id = row['cell_id']
             link_id = row['link_id']
             link_found = False
@@ -228,3 +228,22 @@ class GeoLoader:
            os.path.exists(f".cache/cells_{hash_str}.csv"):
             return True
         return False
+
+    def find_closest_link(self, point: POINT) -> tuple[Link, float]:
+        """
+        Finds the closest link to a given point.
+
+        Args:
+            point (POINT): The point to find the closest link to.
+
+        Returns:
+            Link: The closest link to the given point.
+        """
+        min_distance = float("inf")
+        closest_link = None
+        for link in self.links:
+            distance = link.get_distance(point)
+            if distance < min_distance:
+                min_distance = distance
+                closest_link = link
+        return [closest_link, min_distance]
