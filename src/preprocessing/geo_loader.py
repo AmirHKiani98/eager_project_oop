@@ -142,6 +142,13 @@ class GeoLoader:
         hash_str = hashlib.md5(hash_input.encode()).hexdigest()[:8]
         return hash_str
 
+    def get_hash_str(self):
+        """
+        Returns a unique identifier based on the intersection locations and 
+        configuration parameters.
+        """
+        return self._get_hash_str()
+
     def _save(self):
         """
         Saves the links and cells to CSV files, including metadata about the configuration.

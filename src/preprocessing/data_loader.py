@@ -12,6 +12,7 @@ Example:
     To use the `DataLoader` class, initialize it with the desired parameters:
 """
 import os
+from multiprocessing import Pool, cpu_count
 from collections import defaultdict
 from pathlib import Path
 from shapely.geometry import Point as POINT
@@ -19,7 +20,6 @@ import requests
 from tqdm import tqdm
 import polars as pl
 from src.preprocessing.geo_loader import GeoLoader
-from multiprocessing import Pool, cpu_count
 
 class DataLoader:
     """
@@ -323,9 +323,8 @@ if __name__ == "__main__":
     intersection_locations = [POINT(loc[1], loc[0]) for loc in intersection_locations]
     model_geo_loader = GeoLoader(
         locations=intersection_locations,
-        cell_length=20.0,
-        number_of_cells=2
-    )
+        cell_length=20.0
+        )
     dl = DataLoader(
         fp_location=["d1"],
         fp_date=["20181029"],
