@@ -16,6 +16,20 @@ class TrafficModel:
         """
         self.params = params
     
+    def get_cell_length(self, cell_id, link_id):
+        """
+        Get the length of a specific cell.
+
+        Args:
+            cell_id (int): The ID of the cell.
+            link_id (int): The ID of the link.
+
+        Returns:
+            float: Length of the specified cell.
+        """
+        return self.geo_loader.get_cell_length(cell_id, link_id)
+    
+    
     @abstractmethod
     def predict(self, **args):
         """

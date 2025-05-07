@@ -55,7 +55,7 @@ class GeoLoader:
         self.locations = locations
         # Check if the link is already saved:
         self.links = {}
-        self.cells = {}
+        self.cells = []
         self.cell_length = cell_length
         self.number_of_cells = number_of_cells
         if self._geo_data_already_exists():
@@ -226,7 +226,7 @@ class GeoLoader:
                 cell = Cell(cell_start, cell_end, cell_id=cell_id)
                 cell.set_link(link)
                 link.add_cell(cell)
-                self.cells[cell.cell_id] = cell
+                self.cells.append(cell)
             else:
                 print(f"Link: {link_id} not found for cell {cell_id}")
 

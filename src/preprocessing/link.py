@@ -35,7 +35,7 @@ class Link(SpatialLine):
         else:
             self.link_id = link_id
             Link.Identification = max(Link.Identification, link_id)
-        self.cells = []
+        self.cells = {}
 
     def add_cell(self, cell):
         """
@@ -44,7 +44,7 @@ class Link(SpatialLine):
         Args:
             cell (Cell): The cell to be added to the link.
         """
-        self.cells.append(cell)
+        self.cells[cell.cell_id] = cell
 
     def load_cells_by_length(self, cell_length: float):
         """
