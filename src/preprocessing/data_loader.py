@@ -283,14 +283,14 @@ class DataLoader:
         if self.df.is_empty():
             raise ValueError("DataFrame is empty. Cannot find links.")
         # # Form the list of points from the DataFrame
-        # points = [
-        #     POINT(row["lon"], row["lat"])
-        #     for row in self.df.iter_rows(named=True)
-        # ]
-        # # Find the closest link for each point
-        # with Pool(cpu_count()) as pool:
-        #     closest_links = pool.map(self.geo_loader.find_closest_link, points)
-        # # Assign the closest links to the df
+        points = [
+            POINT(row["lon"], row["lat"])
+            for row in self.df.iter_rows(named=True)
+        ]
+        # Find the closest link for each point
+        with Pool(cpu_count()) as pool:
+            closest_links = pool.map(self.geo_loader.find_closest_link, points)
+        # Assign the closest links to the df
 
 
 # Run as script
@@ -309,6 +309,6 @@ if __name__ == "__main__":
         fp_time=["0800_0830"],
         geo_loader=model_geo_loader
     )
-    print(dl.df["lat"][0], dl.df["lon"][0])
-
-    
+    # for row in dl.df.iter_rows(named=True):
+    #     point = POINT(row["lon"], row["lat"])
+    #     print(model_geo_loader.find_closest_link(point))

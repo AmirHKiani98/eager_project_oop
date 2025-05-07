@@ -67,9 +67,9 @@ class SpatialLine:
         Returns:
             float: The distance from the spatial line to the point in meters.
         """
-        # Ensure the point is not metric
-        if point.crs != self.source_crs:
-            raise ValueError(f"Point must be in the source CRS {self.source_crs}")
+        # Ensure the point is within valid latitude and longitude ranges
+        if point.x > 180 or point.x < -180 or point.y > 90 or point.y < -90:
+            raise ValueError("Point must be within valid latitude and longitude ranges.")
         # Ensure the distance is calculated in meters
         point_metric = transform(self._transformer_to_metric.transform, point)
         return self.line.distance(point_metric)
