@@ -5,14 +5,15 @@ transform coordinate reference systems, and perform spatial operations.
 
 """
 import os
+import random
+import hashlib
 import polars as pl
 import matplotlib.pyplot as plt
 from shapely.geometry import Point as POINT
 from src.preprocessing.cell import Cell
 from src.preprocessing.link import Link
 from src.preprocessing.data_loader import DataLoader
-import random
-import hashlib
+
 
 class GeoLoader:
     """
@@ -132,7 +133,7 @@ class GeoLoader:
             ax.plot(x, y, color=random_color, linewidth=3, alpha=1)
         plt.show()
         plt.axis('equal')
-    
+
     def _get_hash_str(self):
         # Generate a unique identifier based on intersection locations
         hash_input = str([(point.x, point.y) for point in self.locations])
@@ -217,7 +218,6 @@ class GeoLoader:
                     link_found = True
                     break
             if link_found:
-                
                 cell = Cell(cell_start, cell_end, cell_id=cell_id)
                 cell.set_link(link)
                 self.cells.append(cell)
@@ -229,7 +229,8 @@ class GeoLoader:
         Check if the geospatial data already exists in the cache.
         """
         hash_str = self._get_hash_str()
-        if os.path.exists(f".cache/links_{hash_str}.csv") and os.path.exists(f".cache/cells_{hash_str}.csv"):
+        if os.path.exists(f".cache/links_{hash_str}.csv") and \
+           os.path.exists(f".cache/cells_{hash_str}.csv"):
             return True
         return False
 
