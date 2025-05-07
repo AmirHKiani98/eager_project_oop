@@ -374,7 +374,7 @@ class DataLoader:
         """
         file_address = (
             self.cache_dir + "/" + self._get_filename(location, date, time) +
-            "_vehicle_on_minor_roads_" + self.geo_loader.get_hash_str() + ".csv"
+            "_vehicle_on_minor_roads_removed_" + self.geo_loader.get_hash_str() + ".csv"
         )
         if os.path.isfile(file_address):
             return file_address
