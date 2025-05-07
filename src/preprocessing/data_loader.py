@@ -68,7 +68,6 @@ class DataLoader:
         self._validate_inputs()
         self._download_all_files()
         self._load_dataframe()
-        
 
     def _validate_inputs(self):
         """
@@ -186,8 +185,12 @@ class DataLoader:
                     for time in self.fp_time:
                         # Use tuple instead of set as dictionary key
                         raw_data_file_path = self._download_file(location, date, time)
-                        exploded_file_address = self._explode_dataset(raw_data_file_path, location, date, time)
-                        processed_file_address = self._process_link_cell(exploded_file_address, location, date, time)
+                        exploded_file_address = self._explode_dataset(
+                            raw_data_file_path, location, date, time
+                        )
+                        processed_file_address = self._process_link_cell(
+                            exploded_file_address, location, date, time
+                        )
                         vehicle_on_corridor_address = self._get_vehicle_on_corridor_df(
                             processed_file_address, location, date, time
                         )
@@ -407,6 +410,6 @@ if __name__ == "__main__":
     dl = DataLoader(
         fp_location=["d1"],
         fp_date=["20181029"],
-        fp_time=["0800_0830"],
+        fp_time=["0800_0830", "0830_0900", "0900_0930", "0930_1000", "1000_1030"],
         geo_loader=model_geo_loader
     )

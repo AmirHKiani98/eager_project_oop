@@ -264,3 +264,16 @@ class GeoLoader:
                 min_distance_cell = distance
                 closest_cell = cell
         return (closest_link, min_distance_link, closest_cell, min_distance_cell)
+
+    def get_cell_length(self, cell_id, link_id):
+        """
+        Get the length of a specific cell.
+
+        Args:
+            cell_id (int): The ID of the cell.
+            link_id (int): The ID of the link.
+
+        Returns:
+            float: Length of the specified cell.
+        """
+        return self.links[link_id].get_cell_length(cell_id)

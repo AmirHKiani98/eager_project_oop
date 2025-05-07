@@ -22,6 +22,7 @@ Dependencies:
 from abc import abstractmethod
 from src.model.params import Parameters
 from src.preprocessing.geo_loader import GeoLoader
+from src.preprocessing.data_loader import DataLoader
 class TrafficModel:
     """
     TrafficModel is an abstract base class that represents a traffic simulation model. 
@@ -42,11 +43,12 @@ class TrafficModel:
             Abstract method that must be implemented by subclasses to predict traffic flow 
             based on the model's logic and input arguments.
     """
-    def __init__(self, geo_loader: GeoLoader, params: Parameters):
+    def __init__(self, geo_loader: GeoLoader, params: Parameters, dl: DataLoader):
         self.geo_loader = geo_loader
         self.params = params
+        self.dl = dl
 
-    def set_params(self, params):
+    def set_params(self, params: Parameters):
         """
         Set the parameters for the traffic model.
         
@@ -67,6 +69,31 @@ class TrafficModel:
             float: Length of the specified cell.
         """
         return self.geo_loader.get_cell_length(cell_id, link_id)
+
+    def is_tl(self, link_id):
+        """
+        Check if a link has a traffic light.
+
+        Args:
+            link_id (int): The ID of the link.
+
+        Returns:
+            bool: True if the link has a traffic light, False otherwise.
+        """
+        return self.dl.is_tl(link_id)
+
+    def tl_status(self, time, link_id):
+        """
+        Get the status of a traffic light.
+
+        Args:
+            time (int): The current time.
+            link_id (int): The ID of the link.
+
+        Returns:
+            int: Status of the traffic light (1 for green, 0 for red).
+        """
+        return self.dl.tl_status(time, link_id)
 
     @abstractmethod
     def predict(self, **args):

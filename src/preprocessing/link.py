@@ -140,3 +140,9 @@ class Link(SpatialLine):
         Returns a hash value for the Link object.
         """
         return super().__hash__()
+
+    def get_cell_length(self, cell_id):
+        """
+        Returns the length of the specified cell in the link.
+        """
+        return self.cells[cell_id].length_meters
