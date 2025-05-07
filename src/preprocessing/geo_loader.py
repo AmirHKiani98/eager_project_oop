@@ -55,6 +55,7 @@ class GeoLoader:
         self.locations = locations
         # Check if the link is already saved:
         self.links = {}
+        self.links_to_location = {}
         self.cells = []
         self.cell_length = cell_length
         self.number_of_cells = number_of_cells
@@ -239,7 +240,7 @@ class GeoLoader:
             return True
         return False
 
-    def find_closest_link(self, point: POINT) -> tuple[Link, float]:
+    def find_closest_link_and_cell(self, point: POINT) -> tuple[Link, float]:
         """
         Finds the closest link to a given point.
 
@@ -277,3 +278,28 @@ class GeoLoader:
             float: Length of the specified cell.
         """
         return self.links[link_id].get_cell_length(cell_id)
+
+    def is_tl(self, link_id):
+        """
+        TODO: For now it only returns True, but in the future it will check if the link has a traffic light.
+        """
+        return True
+    
+    def find_closest_location(self, point: POINT) -> tuple[POINT, float]:
+        """
+        Finds the closest location to a given point.
+
+        Args:
+            point (POINT): The point to find the closest location to.
+
+        Returns:
+            tuple[POINT, float]: The closest location and its distance from the point.
+        """
+        min_distance = float("inf")
+        closest_location = None
+        for loc in self.locations:
+            distance = loc.distance(point)
+            if distance < min_distance:
+                min_distance = distance
+                closest_location = loc
+        return (closest_location, min_distance)

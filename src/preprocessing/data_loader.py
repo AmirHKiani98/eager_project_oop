@@ -322,7 +322,6 @@ class DataLoader:
         df.write_csv(processed_file_path)
         return processed_file_path
 
-
     def _find_links_cells(self, exploded_file_address):
         """
         Finds the links in the DataFrame and assigns them to the GeoLoader.
@@ -344,7 +343,7 @@ class DataLoader:
                 total=(len(points) // batch_size) + 1,
                 desc="Finding closest cells and links"
             ):
-                results = pool.map(self.geo_loader.find_closest_link, batch)
+                results = pool.map(self.geo_loader.find_closest_link_and_cell, batch)
                 closests_links_cells.extend(results)
         link_ids = []
         link_distances = []
@@ -375,9 +374,10 @@ class DataLoader:
         )
         if os.path.isfile(file_address):
             return file_address
-
+        # Loading the dataframe with link and cell (wlc_df)
         wlc_df = pl.read_csv(with_link_cell_address)
-        wlc_df.filter(pl.col("distance_from_link") < self.line_threshold).write_csv(file_address)
+        wlc_df = wlc_df.filter(pl.col("distance_from_link") < self.line_threshold)
+        wlc_df.write_csv(file_address)
         return file_address
 
     def _remove_vehicle_on_minor_roads(self, vehicle_on_corridor_address,  location, date, time):
@@ -464,7 +464,22 @@ class DataLoader:
         print(f"Density DataFrame saved to {file_address}")
         return file_address
 
+    def _get_traffic_light_status(self, fully_processed_file_address, location, date, time):
+        """
+        Returns the traffic light status for the specified location, date, and time.
+        """
+        file_address = (
+            self.cache_dir + "/" + self._get_filename(location, date, time) +
+            "_traffic_light_status_" + self.geo_loader.get_hash_str() + ".csv"
+        )
+        if os.path.isfile(file_address):
+            return file_address
 
+        # Traffic light locations
+        traffic_light_locations = self.geo_loader.get_locations()
+        wlc_df = pl.read_csv(fully_processed_file_address)
+
+        return file_address
 
 
 # Run as script
