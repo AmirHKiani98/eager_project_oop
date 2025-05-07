@@ -37,3 +37,27 @@ class Link(SpatialLine):
             cell (Cell): The cell to be added to the link.
         """
         self.cells.append(cell)
+    
+    def __str__(self):
+        """
+        Returns a string representation of the Link object.
+        """
+        return f"Link from {self.line.coords[0]} to {self.line.coords[1]} with length {self.length_meters} meters"
+    
+    def __repr__(self):
+        """
+        Returns a string representation of the Link object for debugging.
+        """
+        return f"Link(start_point={self.line.coords[0]}, end_point={self.line.coords[1]}, length_meters={self.length_meters})"
+    
+    def __len__(self):
+        """
+        Returns the number of cells in the link.
+        """
+        return len(self.cells)
+    
+    def __getitem__(self, index):
+        """
+        Returns the cell at the specified index.
+        """
+        return self.cells[index]
