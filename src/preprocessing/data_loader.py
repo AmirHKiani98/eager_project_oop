@@ -43,6 +43,7 @@ class DataLoader:
         fp_time: str | list,
         geo_loader: GeoLoader,
         cache_dir=".cache",
+        line_threshold=20,
     ):
         """
         Initializes the DataLoader with the specified parameters.
@@ -54,6 +55,7 @@ class DataLoader:
             cache_dir (str, optional): Directory where downloaded files will be cached. Defaults to
             ".cache".
         """
+        self.line_threshold = line_threshold
         self.base_url = "https://open-traffic.epfl.ch/wp-content/uploads/mydownloads.php"
         self.fp_location = [fp_location] if isinstance(fp_location, str) else fp_location
         self.fp_date = [fp_date] if isinstance(fp_date, str) else fp_date
@@ -66,6 +68,7 @@ class DataLoader:
         self._validate_inputs()
         self._download_all_files()
         self._load_dataframe()
+        
 
     def _validate_inputs(self):
         """
@@ -340,6 +343,20 @@ class DataLoader:
         ])
         return raw_df
 
+    def _dataframe_vehicle_on_corridor(self, with_link_cell_address):
+        """
+        Filters the DataFrame to include only vehicles on the corridor.
+        """
+        file_address = (
+            self.cache_dir + "/" + Path(with_link_cell_address).stem +
+            "_vehicle_on_corridor_" + self.geo_loader.get_hash_str() + ".csv"
+        )
+        if os.path.isfile(file_address):
+            return file_address
+
+        wlc_df = pl.read_csv(with_link_cell_address)
+        wlc_df.filter(pl.col("distance_from_link") < self.line_threshold).write_csv(file_address)
+        return file_address
 
 # Run as script
 if __name__ == "__main__":
