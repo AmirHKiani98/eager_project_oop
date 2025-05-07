@@ -300,13 +300,22 @@ class DataLoader:
             )
         # Assign the closest links to the df
         # Extract link IDs and distances
-        link_ids = [link.link_id for link, _ in closest_links]
-        distances = [distance for _, distance in closest_links]
+        link_ids = []
+        link_distances = []
+        cell_ids = []
+        cell_distances = []
+        for (link, link_distance, cell, cell_distance) in closest_links:
+            link_ids.append(link.link_id)
+            link_distances.append(link_distance)
+            cell_ids.append(cell.cell_id)
+            cell_distances.append(cell_distance)
 
         # Add columns to the DataFrame
         temp_df = temp_df.with_columns([
             pl.Series("link_id", link_ids),
-            pl.Series("distance_from_link", distances)
+            pl.Series("distance_from_link", link_distances),
+            pl.Series("cell_id", cell_ids),
+            pl.Series("distance_from_cell", cell_distances)
         ])
         return temp_df
 

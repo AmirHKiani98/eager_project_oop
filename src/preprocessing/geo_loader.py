@@ -62,7 +62,10 @@ class GeoLoader:
             self._load()
         else:
             self._load_links()
-            self._load_cells()
+            if self.cell_length is None and self.number_of_cells is None:
+                print("Warining: No cell length or number of cells provided.")
+            else: 
+                self._load_cells()
             self._save()
 
     def _load_links(self):
@@ -215,6 +218,7 @@ class GeoLoader:
             if link_found:
                 cell = Cell(cell_start, cell_end, cell_id=cell_id)
                 cell.set_link(link)
+                link.add_cell(cell)
                 self.cells.append(cell)
             else:
                 print(f"Link: {link_id} not found for cell {cell_id}")
@@ -239,11 +243,18 @@ class GeoLoader:
         Returns:
             Link: The closest link to the given point.
         """
-        min_distance = float("inf")
+        min_distance_link = float("inf")
         closest_link = None
         for link in self.links:
             distance = link.get_distance(point)
-            if distance < min_distance:
-                min_distance = distance
+            if distance < min_distance_link:
+                min_distance_link = distance
                 closest_link = link
-        return [closest_link, min_distance]
+        min_distance_cell = float("inf")
+        closest_cell = None
+        for cell in closest_link.cells:
+            distance = cell.get_distance(point)
+            if distance < min_distance_cell:
+                min_distance_cell = distance
+                closest_cell = cell
+        return (closest_link, min_distance_link, closest_cell, min_distance_cell)
