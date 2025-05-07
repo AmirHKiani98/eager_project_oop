@@ -131,10 +131,10 @@ class GeoLoader:
         ax.set_ylabel("Latitude")
         for link in self.links:
             x, y = link.line.xy
-            ax.plot(x, y, color='blue', linewidth=2)
+            ax.plot(x, y, color='blue', linewidth=2, alpha=0.5)
         for cell in self.cells:
             x, y = cell.line.xy
-            ax.plot(x, y, color='red', linewidth=1)
+            ax.plot(x, y, color='red', linewidth=3, alpha=0.2)
         plt.show()
         plt.axis('equal')
 
@@ -150,16 +150,14 @@ if __name__ == "__main__":
     # Example usage
     intersection_locations = pl.read_csv(".cache/traffic_lights.csv").to_numpy().tolist()
     intersection_locations = [POINT(loc[1], loc[0]) for loc in intersection_locations]
-    print(intersection_locations)
-    # intersection_locations = [POINT(loc) for loc in intersection_locations]
-
-    # geo_loader = GeoLoader(
-    #     fp_location="d1",
-    #     fp_date="20181029",
-    #     fp_time="0800_0830",
-    #     intersection_locations=intersection_locations,
-    #     cell_length=20
-    # )
-    # links = geo_loader.get_links()
-    # cells = geo_loader.get_cells()
-    # print(f"Loaded {len(links)} links and {len(cells)} cells.")
+    geo_loader = GeoLoader(
+        fp_location="d1",
+        fp_date="20181029",
+        fp_time="0800_0830",
+        intersection_locations=intersection_locations,
+        cell_length=20
+    )
+    links = geo_loader.get_links()
+    cells = geo_loader.get_cells()
+    print(f"Loaded {len(links)} links and {len(cells)} cells.")
+    geo_loader.draw()
