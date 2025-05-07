@@ -54,8 +54,8 @@ class GeoLoader:
                 number_of_cells: int = None):
         self.locations = locations
         # Check if the link is already saved:
-        self.links = []
-        self.cells = []
+        self.links = {}
+        self.cells = {}
         self.cell_length = cell_length
         self.number_of_cells = number_of_cells
         if self._geo_data_already_exists():
@@ -76,7 +76,7 @@ class GeoLoader:
             start_point = self.locations[index]
             end_point = self.locations[index + 1]
             link = Link(start_point, end_point)
-            self.links.append(link)
+            self.links[link.link_id] = link
 
     def _load_cells_by_length(self):
         for link in self.links:
@@ -207,7 +207,7 @@ class GeoLoader:
             end_point = POINT(row['end_lon'], row['end_lat'])
             link_id = row['link_id']
             link = Link(start_point, end_point, link_id=link_id)
-            self.links.append(link)
+            self.links[link_id] = link
 
 
         cells_df = pl.read_csv(f".cache/cells_{hash_str}.csv")
@@ -226,7 +226,7 @@ class GeoLoader:
                 cell = Cell(cell_start, cell_end, cell_id=cell_id)
                 cell.set_link(link)
                 link.add_cell(cell)
-                self.cells.append(cell)
+                self.cells[cell.cell_id] = cell
             else:
                 print(f"Link: {link_id} not found for cell {cell_id}")
 
