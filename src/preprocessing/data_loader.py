@@ -22,7 +22,6 @@ from tqdm import tqdm
 import polars as pl
 from src.preprocessing.geo_loader import GeoLoader
 from src.preprocessing.utility import fill_missing_timestamps
-from src.preprocessing.intersection import Intersection
 
 class DataLoader:
     """
@@ -210,6 +209,10 @@ class DataLoader:
                         self.density_files_dict[
                             (location, date, time)
                         ] = self._get_density_df(
+                            removed_vehicles_on_minor_roads, location, date, time
+                        )
+
+                        self._get_traffic_light_status(
                             removed_vehicles_on_minor_roads, location, date, time
                         )
 
@@ -477,8 +480,44 @@ class DataLoader:
             return file_address
 
         # Traffic light locations
-        traffic_light_locations = self.geo_loader.get_locations()
-        wlc_df = pl.read_csv(fully_processed_file_address)
+        wlc_df = pl.read_csv(fully_processed_file_address)[:1000]
+
+        points = [
+            POINT(row["lon"], row["lat"])
+            for row in tqdm(
+            wlc_df.iter_rows(named=True),
+            total=wlc_df.shape[0],
+            desc="Creating points"
+            )
+        ]
+        batch_size = 50000
+        closest_locations = []
+        with Pool(processes=int(cpu_count() / 2)) as pool:
+            for batch in tqdm(
+                chunked(points, batch_size),
+                total=(len(points) // batch_size) + 1,
+                desc="Finding closest traffic lights"
+            ):
+                results = pool.map(self.geo_loader.find_closest_location, batch)
+                closest_locations.extend(results)
+        links_id = []
+        loc_distances = []
+        for (link, loc_distance) in closest_locations:
+            links_id.append(link.link_id)
+            loc_distances.append(loc_distance)
+
+        wlc_df = wlc_df.with_columns([
+            pl.Series("loc_link_id", links_id),
+            pl.Series("distance_from_loc_link", loc_distances)
+        ])
+        wlc_df = wlc_df.sort(["link_id", "cell_id", "trajectory_time"])
+        groups = wlc_df.group_by(["loc_link_id", "trajectory_time"]).agg([
+            pl.col("speed").mean().alias("avg_speed")
+        ])
+        print(groups)
+        
+        
+
 
         return file_address
 
@@ -492,11 +531,7 @@ if __name__ == "__main__":
         .tolist()  # It's format is [lat, lon]
     )
     intersection_locations = [
-        Intersection(
-            intersection_id=i,
-            location=POINT(loc[1], loc[0]),
-            tl=True
-        )
+        POINT(loc[1], loc[0])
         for i, loc in enumerate(intersection_locations)
     ]
     model_geo_loader = GeoLoader(

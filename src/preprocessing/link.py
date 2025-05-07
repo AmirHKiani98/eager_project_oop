@@ -20,7 +20,7 @@ class Link(SpatialLine):
     Inherits from the SpatialLine class.
     """
     Identification = 0
-    def __init__(self, start_point: POINT, end_point: POINT, link_id: int = None):
+    def __init__(self, start_point: POINT, end_point: POINT, link_id: int = None, tl: bool = True):
         """
         Initializes a Link object.
 
@@ -36,6 +36,7 @@ class Link(SpatialLine):
             self.link_id = link_id
             Link.Identification = max(Link.Identification, link_id)
         self.cells = {}
+        self.tl = tl
 
     def add_cell(self, cell):
         """
@@ -45,6 +46,15 @@ class Link(SpatialLine):
             cell (Cell): The cell to be added to the link.
         """
         self.cells[cell.cell_id] = cell
+
+    def is_tl(self):
+        """
+        Returns whether the link has a traffic light.
+
+        Returns:
+            bool: True if the link has a traffic light, False otherwise.
+        """
+        return self.tl
 
     def load_cells_by_length(self, cell_length: float):
         """
@@ -145,4 +155,4 @@ class Link(SpatialLine):
         """
         Returns the length of the specified cell in the link.
         """
-        return self.cells[cell_id].length_meters
+        return self.cells[cell_id].length_meters    

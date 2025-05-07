@@ -12,7 +12,6 @@ import matplotlib.pyplot as plt
 from shapely.geometry import Point as POINT
 from src.preprocessing.cell import Cell
 from src.preprocessing.link import Link
-from src.preprocessing.intersection import Intersection
 
 
 class GeoLoader:
@@ -50,7 +49,7 @@ class GeoLoader:
 
 
     def __init__(self,
-                locations: list[Intersection] = None,
+                locations: list[POINT] = None,
                 cell_length: float = None,
                 number_of_cells: int = None):
         self.locations = locations
@@ -79,7 +78,6 @@ class GeoLoader:
             end_point = self.locations[index + 1].location
             link = Link(start_point, end_point)
             self.locations[index].set_link(link)
-            self.links_to_location[link.link_id] = self.locations[index]
             self.links[link.link_id] = link
 
     def _load_cells_by_length(self):
@@ -286,7 +284,7 @@ class GeoLoader:
         """
         In the future, it will check if the link has a traffic light.
         """
-        return self.links_to_location[link_id].is_tl()
+        return self.links[link_id].is_tl()
 
     def find_closest_location(self, point: POINT) -> tuple[POINT, float]:
         """
@@ -300,9 +298,10 @@ class GeoLoader:
         """
         min_distance = float("inf")
         closest_location = None
-        for loc in self.locations:
-            distance = loc.distance(point)
+        for _, link in self.links.items():
+            distance = link.get_distance_from_beginning(point)
             if distance < min_distance:
                 min_distance = distance
-                closest_location = loc
+                closest_location = link
         return (closest_location, min_distance)
+
