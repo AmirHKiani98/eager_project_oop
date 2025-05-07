@@ -283,14 +283,32 @@ class DataLoader:
         if self.df.is_empty():
             raise ValueError("DataFrame is empty. Cannot find links.")
         # # Form the list of points from the DataFrame
+        temp_df = self.df[500:800]
         points = [
             POINT(row["lon"], row["lat"])
-            for row in self.df.iter_rows(named=True)
+            for row in tqdm(temp_df.iter_rows(named=True))
         ]
         # Find the closest link for each point
         with Pool(cpu_count()) as pool:
-            closest_links = pool.map(self.geo_loader.find_closest_link, points)
+            closest_links = list(
+                tqdm(
+                    pool.imap(self.geo_loader.find_closest_link, points),
+                    total=len(points),
+                    desc="Finding closest links",
+                    dynamic_ncols=True
+                )
+            )
         # Assign the closest links to the df
+        # Extract link IDs and distances
+        link_ids = [link.link_id for link, _ in closest_links]
+        distances = [distance for _, distance in closest_links]
+
+        # Add columns to the DataFrame
+        temp_df = temp_df.with_columns([
+            pl.Series("link_id", link_ids),
+            pl.Series("distance_from_link", distances)
+        ])
+        return temp_df
 
 
 # Run as script
@@ -309,6 +327,7 @@ if __name__ == "__main__":
         fp_time=["0800_0830"],
         geo_loader=model_geo_loader
     )
+    print(dl.find_links())
     # for row in dl.df.iter_rows(named=True):
     #     point = POINT(row["lon"], row["lat"])
     #     print(model_geo_loader.find_closest_link(point))
