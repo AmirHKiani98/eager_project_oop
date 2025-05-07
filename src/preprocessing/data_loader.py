@@ -13,6 +13,7 @@ Example:
 """
 import os
 from multiprocessing import Pool, cpu_count
+from sklearn.linear_model import LinearRegression
 from collections import defaultdict
 from pathlib import Path
 from more_itertools import chunked
@@ -100,13 +101,13 @@ class DataLoader:
         """
         Constructs and returns the filename.
         """
-        return f"{location}_{date}_{time}.csv"
+        return f"{location}_{date}_{time}"
 
     def get_cached_filepath(self, location, date, time) -> str:
         """
         Constructs and returns the full file path for a cached file.
         """
-        return os.path.join(self.cache_dir, self._get_filename(location, date, time))
+        return os.path.join(self.cache_dir, self._get_filename(location, date, time) + ".csv")
 
     def check_file_exists_in_cache(self, location, date, time) -> bool:
         """
@@ -186,11 +187,18 @@ class DataLoader:
                     for time in self.fp_time:
                         # Use tuple instead of set as dictionary key
                         raw_data_file_path = self._download_file(location, date, time)
-                        exploded_file_address = self._explode_dataset(raw_data_file_path)
-                        processed_file_address = self._process_link_cell(exploded_file_address)
+                        exploded_file_address = self._explode_dataset(raw_data_file_path, location, date, time)
+                        processed_file_address = self._process_link_cell(exploded_file_address, location, date, time)
+                        vehicle_on_corridor_address = self._get_vehicle_on_corridor_df(
+                            processed_file_address, location, date, time
+                        )
+                        removed_vehicles_on_minor_roads = self._remove_vehicle_on_minor_roads(
+                            vehicle_on_corridor_address, location, date, time
+                        )
+
                         self.files_list[
                             (location, date, time)
-                        ] = processed_file_address
+                        ] = removed_vehicles_on_minor_roads
                         pbar.update(1)
         self.df.clear()
         self.df = pl.DataFrame({})
@@ -233,8 +241,10 @@ class DataLoader:
         return pl.DataFrame(data)
 
 
-    def _explode_dataset(self, raw_data_location):
-        file_address = '.cache/' + Path(raw_data_location).stem + "_exploded.csv"
+    def _explode_dataset(self, raw_data_location, location, date, time):
+        file_address = (
+            self.cache_dir + "/" + self._get_filename(location, date, time) + "_exploded.csv"
+        )
         if os.path.isfile(file_address):
             return file_address
         local_df = pl.DataFrame({})
@@ -281,14 +291,14 @@ class DataLoader:
             self.df = pl.concat(dataframes)
         return self.df
 
-    def _process_link_cell(self, exploded_file_address):
+    def _process_link_cell(self, exploded_file_address, location, date, time):
         """
         Processes the link and cell data from the DataFrame.
         This method is responsible for loading the geospatial data
         and finding the closest links and cells for each point in the DataFrame.
         """
         processed_file_path = (
-            self.cache_dir + "/" + Path(exploded_file_address).stem + "_withlinkcell_" +
+            self.cache_dir + "/" + self._get_filename(location, date, time) + "_withlinkcell_" +
             self.geo_loader.get_hash_str() + ".csv"
         )
         if os.path.isfile(processed_file_path):
@@ -343,12 +353,12 @@ class DataLoader:
         ])
         return raw_df
 
-    def _dataframe_vehicle_on_corridor(self, with_link_cell_address):
+    def _get_vehicle_on_corridor_df(self, with_link_cell_address, location, date, time):
         """
         Filters the DataFrame to include only vehicles on the corridor.
         """
         file_address = (
-            self.cache_dir + "/" + Path(with_link_cell_address).stem +
+            self.cache_dir + "/" + self._get_filename(location, date, time) +
             "_vehicle_on_corridor_" + self.geo_loader.get_hash_str() + ".csv"
         )
         if os.path.isfile(file_address):
@@ -356,6 +366,34 @@ class DataLoader:
 
         wlc_df = pl.read_csv(with_link_cell_address)
         wlc_df.filter(pl.col("distance_from_link") < self.line_threshold).write_csv(file_address)
+        return file_address
+
+    def _remove_vehicle_on_minor_roads(self, vehicle_on_corridor_address,  location, date, time):
+        """
+        Removes vehicles that are on minor roads from the DataFrame.
+        """
+        file_address = (
+            self.cache_dir + "/" + self._get_filename(location, date, time) +
+            "_vehicle_on_minor_roads_" + self.geo_loader.get_hash_str() + ".csv"
+        )
+        if os.path.isfile(file_address):
+            return file_address
+
+        wlc_df = pl.read_csv(vehicle_on_corridor_address)
+        groups = wlc_df.group_by("track_id")
+        removed_ids = []
+        length = wlc_df["track_id"].n_unique()
+        for name, group in tqdm(groups, total=length, desc="Removing vehicles on minor roads"):
+            if len(group) > 1:
+                lon = group["lon"].to_numpy()
+                lat = group["lat"].to_numpy()
+                reg = LinearRegression()
+                reg.fit(lon.reshape(-1, 1), lat)
+                if reg.coef_[0] > 0.5:
+                    removed_ids.append(name[0] if isinstance(name, (list, tuple)) else name)
+
+        wlc_df = wlc_df.filter(~pl.col("track_id").is_in(removed_ids))
+        wlc_df.write_csv(file_address)
         return file_address
 
 # Run as script
