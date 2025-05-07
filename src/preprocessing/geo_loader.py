@@ -12,7 +12,6 @@ import matplotlib.pyplot as plt
 from shapely.geometry import Point as POINT
 from src.preprocessing.cell import Cell
 from src.preprocessing.link import Link
-from src.preprocessing.data_loader import DataLoader
 
 
 class GeoLoader:
@@ -50,13 +49,9 @@ class GeoLoader:
 
 
     def __init__(self,
-                fp_location,
-                fp_date,
-                fp_time,
                 locations: list[POINT] = None,
                 cell_length: float = None,
                 number_of_cells: int = None):
-        self.data_loader = DataLoader(fp_location, fp_date, fp_time)
         self.locations = locations
         # Check if the link is already saved:
         self.links = []
@@ -233,19 +228,3 @@ class GeoLoader:
            os.path.exists(f".cache/cells_{hash_str}.csv"):
             return True
         return False
-
-if __name__ == "__main__":
-    # Example usage
-    intersection_locations = pl.read_csv(".cache/traffic_lights.csv").to_numpy().tolist()
-    intersection_locations = [POINT(loc[1], loc[0]) for loc in intersection_locations]
-    geo_loader = GeoLoader(
-        fp_location="d1",
-        fp_date="20181029",
-        fp_time="0800_0830",
-        locations=intersection_locations,
-        number_of_cells=2
-    )
-    links = geo_loader.get_links()
-    cells = geo_loader.get_cells()
-    print(f"Loaded {len(links)} links and {len(cells)} cells.")
-    geo_loader.draw()

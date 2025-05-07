@@ -11,14 +11,14 @@ retrieved programmatically and efficiently managed in a local environment.
 Example:
     To use the `DataLoader` class, initialize it with the desired parameters:
 """
+import os
 from collections import defaultdict
 from pathlib import Path
-
-import os
+from shapely.geometry import Point as POINT
 import requests
 from tqdm import tqdm
 import polars as pl
-
+from src.preprocessing.geo_loader import GeoLoader
 class DataLoader:
     """
     DataLoader is a class designed to handle the downloading and caching of traffic data files 
@@ -38,7 +38,8 @@ class DataLoader:
         fp_location: str | list,
         fp_date: str | list,
         fp_time: str | list,
-        cache_dir=".cache"
+        geo_loader: GeoLoader,
+        cache_dir=".cache",
     ):
         """
         Initializes the DataLoader with the specified parameters.
@@ -57,6 +58,7 @@ class DataLoader:
         self.cache_dir = cache_dir
         os.makedirs(self.cache_dir, exist_ok=True)
         self.files_list = {}
+        self.geo_loader = geo_loader
         self.df = pl.DataFrame({})
         self._validate_inputs()
         self._download_all_files()
@@ -274,8 +276,17 @@ class DataLoader:
 
 # Run as script
 if __name__ == "__main__":
-    dl = DataLoader(
+    # Example usage
+    intersection_locations = pl.read_csv(".cache/traffic_lights.csv").to_numpy().tolist()
+    intersection_locations = [POINT(loc[1], loc[0]) for loc in intersection_locations]
+    model_geo_loader = GeoLoader(
+        locations=intersection_locations,
+        cell_length=20.0,
+        number_of_cells=2
+    )
+    data_loader = DataLoader(
         fp_location=["d1"],
-        fp_date=["20181029"],
-        fp_time=["0800_0830"]
+        fp_date=["20230901"],
+        fp_time=["0000_0030"],
+        geo_loader=model_geo_loader
     )
