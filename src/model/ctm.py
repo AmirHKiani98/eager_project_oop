@@ -13,20 +13,19 @@ class CTM(TrafficModel):
     Class representing the Cell Transmission Model (CTM) for traffic flow simulation.
     """
 
-    def __init__(self, num_cells, cell_length, max_flow, min_flow):
-        """
-        Initialize the CTM with the number of cells, cell length, maximum flow, and minimum flow.
 
-        :param num_cells: Number of cells in the model.
-        :param cell_length: Length of each cell.
-        :param max_flow: Maximum flow rate for each cell.
-        :param min_flow: Minimum flow rate for each cell.
-        """
-        super().__init__(num_cells, cell_length)
-        self.max_flow = max_flow
-        self.min_flow = min_flow
+    def predict(self, **kwargs):
+        required_keys = {"time", "cell_id", "link_id", "densities", "outflows", "entry_flow"}
+        if not required_keys.issubset(kwargs):
+            missing = required_keys - kwargs.keys()
+            raise ValueError(f"Missing required parameters for CTM.predict(): {missing}")
 
-    def update_cell_status(self, time, cell_id, link_id, densities, outflows, entry_flow, traffic_lights_df, traffic_lights_dict_states): # Maz
+        time = kwargs["time"]
+        cell_id = kwargs["cell_id"]
+        link_id = kwargs["link_id"]
+        densities = kwargs["densities"]
+        outflows = kwargs["outflows"]
+        entry_flow = kwargs["entry_flow"]
         num_cells = len(densities)
         new_densities = densities.copy()
         new_outflows = outflows.copy()
@@ -46,9 +45,9 @@ class CTM(TrafficModel):
 
             if i == num_cells - 1:  # last cell
                 # check if there is a traffic light at the end of the segment
-                if self.is_tl(link_id, traffic_lights_df):
+                if self.is_tl(link_id):
                     # check the status of the traffic light
-                    if self.tl_status(time, link_id, traffic_lights_df, traffic_lights_dict_states) == 1: # green light
+                    if self.tl_status(time, link_id): # green light
                         outflow = min(
                             self.params.max_flow(cell_length),
                             self.params.free_flow_speed * densities[i] * dt,

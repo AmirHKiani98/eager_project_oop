@@ -62,7 +62,8 @@ class DataLoader:
         self.fp_time = [fp_time] if isinstance(fp_time, str) else fp_time
         self.cache_dir = cache_dir
         os.makedirs(self.cache_dir, exist_ok=True)
-        self.files_list = {}
+        self.files_dict = {}
+        self.density_files_dict = {}
         self.geo_loader = geo_loader
         self.df = pl.DataFrame({})
         self._validate_inputs()
@@ -198,9 +199,16 @@ class DataLoader:
                             vehicle_on_corridor_address, location, date, time
                         )
 
-                        self.files_list[
+                        self.files_dict[
                             (location, date, time)
                         ] = removed_vehicles_on_minor_roads
+
+                        self.density_files_dict[
+                            (location, date, time)
+                        ] = self._get_density_df(
+                            removed_vehicles_on_minor_roads, location, date, time
+                        )
+
                         pbar.update(1)
         self.df.clear()
         self.df = pl.DataFrame({})
@@ -274,7 +282,7 @@ class DataLoader:
         """
         Loads and concatenates multiple CSV files into a single DataFrame.
 
-        This method iterates over a list of file metadata (`self.files_list`),
+        This method iterates over a list of file metadata (`self.files_dict`),
         where each entry contains
         a tuple of (location, date, time) and the corresponding file address.
         It reads each CSV file, adds metadata columns (`location`, `data`, and `time`),
@@ -285,7 +293,7 @@ class DataLoader:
             with additional metadata columns.
         """
         dataframes = []
-        for (_, _, _), file_address in self.files_list.items():
+        for (_, _, _), file_address in self.files_dict.items():
             print("Address is", file_address)
             read_csv = pl.read_csv(file_address)
             dataframes.append(read_csv)
@@ -397,6 +405,50 @@ class DataLoader:
         wlc_df = wlc_df.filter(~pl.col("track_id").is_in(removed_ids))
         wlc_df.write_csv(file_address)
         return file_address
+
+    def _get_density_df(self, fully_processed_file_address, location, date, time):
+        """
+        The fully addressed file is the one that has been exploded, processed, and filtered
+        which refers to the file address _remove_vehicle_on_minor_roads returned.
+        """
+        file_address = (
+            self.cache_dir + "/" + self._get_filename(location, date, time)
+            + "_density_" + self.geo_loader.get_hash_str() + ".csv"
+        )
+
+        if os.path.isfile(file_address):
+            return file_address
+
+        wlc_df = pl.read_csv(fully_processed_file_address)
+
+        # Step 1: Count vehicles per group
+        counts = wlc_df.group_by(["link_id", "cell_id", "trajectory_time"]).agg(
+            pl.count().alias("vehicle_count")
+        )
+
+        # Step 2: Map cell length for each group
+        lengths = counts.select([
+            pl.col("link_id"),
+            pl.col("cell_id"),
+            pl.struct(["link_id", "cell_id"]).map_elements(
+                lambda x: self.geo_loader.get_cell_length(x["cell_id"], x["link_id"])
+            ).alias("cell_length")
+        ])
+
+        # Step 3: Join and compute density = vehicle_count / cell_length
+        density_df = counts.join(lengths, on=["link_id", "cell_id"])
+        density_df = density_df.with_columns([
+            (pl.col("vehicle_count") / pl.col("cell_length")).alias("density")
+        ])
+
+        # Optional: keep only necessary columns
+        density_df = density_df.select(["link_id", "cell_id", "density"])
+
+        density_df.write_csv(file_address)
+        print(f"Density DataFrame saved to {file_address}")
+        return file_address
+
+
 
 # Run as script
 if __name__ == "__main__":
