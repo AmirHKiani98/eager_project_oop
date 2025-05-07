@@ -18,7 +18,8 @@ class Cell(SpatialLine):
     Class representing a cell in a transportation network.
     Inherits from the SpatialLine class.
     """
-    def __init__(self, start_point: POINT, end_point: POINT):
+    Identification = 0
+    def __init__(self, start_point: POINT, end_point: POINT, cell_id: int = None):
         """
         Initializes a Cell object.
 
@@ -28,6 +29,12 @@ class Cell(SpatialLine):
         """
         super().__init__(start_point, end_point)
         self.link = None
+        if cell_id is None:
+            Cell.Identification += 1
+            self.cell_id = Cell.Identification
+        else:
+            self.cell_id = cell_id
+            Cell.Identification = max(Cell.Identification, cell_id)
 
     def set_link(self, link: Link):
         """
@@ -52,7 +59,9 @@ class Cell(SpatialLine):
         """
         # Ensure the distance is calculated in meters
         return self.line.distance(point) * 1  # Assuming the CRS is in meters
-
+    
+    
+    
     def __str__(self):
         """
         Returns a string representation of the Cell object.
@@ -61,3 +70,8 @@ class Cell(SpatialLine):
             str: String representation of the Cell object.
         """
         return f"Cell(start_point={self._from}, end_point={self._to}, length_meters={self.length_meters})"
+
+    def __eq__(self, other):
+        if not isinstance(other, Cell):
+            return False
+        return self._from == other._from and self._to == other._to and self.length_meters == other.length_meters

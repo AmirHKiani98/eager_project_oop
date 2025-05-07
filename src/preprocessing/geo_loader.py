@@ -4,6 +4,7 @@ This module provides functionality to load geospatial data from various sources,
 transform coordinate reference systems, and perform spatial operations.
 
 """
+import os
 import polars as pl
 import matplotlib.pyplot as plt
 from shapely.geometry import Point as POINT
@@ -11,6 +12,7 @@ from src.preprocessing.cell import Cell
 from src.preprocessing.link import Link
 from src.preprocessing.data_loader import DataLoader
 import random
+import hashlib
 
 class GeoLoader:
     """
@@ -55,12 +57,17 @@ class GeoLoader:
                 number_of_cells: int = None):
         self.data_loader = DataLoader(fp_location, fp_date, fp_time)
         self.locations = locations
+        # Check if the link is already saved:
         self.links = []
         self.cells = []
         self.cell_length = cell_length
         self.number_of_cells = number_of_cells
-        self._load_links()
-        self._load_cells()
+        if self._geo_data_already_exists():
+            self._load()
+        else:
+            self._load_links()
+            self._load_cells()
+            self._save()
 
     def _load_links(self):
         """
@@ -125,14 +132,106 @@ class GeoLoader:
             ax.plot(x, y, color=random_color, linewidth=3, alpha=1)
         plt.show()
         plt.axis('equal')
+    
+    def _get_hash_str(self):
+        # Generate a unique identifier based on intersection locations
+        hash_input = str([(point.x, point.y) for point in self.locations])
+        if self.cell_length is not None:
+            hash_input += f"_cell_length_{self.cell_length}"
+        elif self.number_of_cells is not None:
+            hash_input += f"_number_of_cells_{self.number_of_cells}"
+        hash_str = hashlib.md5(hash_input.encode()).hexdigest()[:8]
+        return hash_str
 
-    def save(self):
+    def _save(self):
         """
-        Saves the links and cells to a file.
-        """
-        # Placeholder for saving logic
-        pass
+        Saves the links and cells to CSV files, including metadata about the configuration.
 
+        The files will include information about the intersection locations, cell length, 
+        and number of cells used for processing. File names will include a hash of the 
+        intersection locations to avoid overlap.
+        """
+        hash_str = self._get_hash_str()
+
+        # Save links to a CSV file
+        links_data = [
+            {"link_id": link.link_id,
+            "start_x": link.get_from().x, "start_y": link.get_from().y,
+             "end_x": link.get_to().x, "end_y": link.get_to().y, 
+             "length_meters": link.length_meters}
+            for link in self.links
+        ]
+        links_df = pl.DataFrame(links_data)
+        links_df.write_csv(f".cache/links_{hash_str}.csv")
+
+        # Save cells to a CSV file
+        cells_data = [
+            {
+            "link_id": cell.link.link_id,
+            "cell_id": cell.cell_id,
+            "cell_start_x": cell.get_line_source().coords[0][0],
+            "cell_start_y": cell.get_line_source().coords[0][1],
+            "cell_end_x": cell.get_line_source().coords[1][0],
+            "cell_end_y": cell.get_line_source().coords[1][1],
+            "cell_length_meters": cell.length_meters,
+            }
+            for cell in self.cells
+        ]
+        cells_df = pl.DataFrame(cells_data)
+        cells_df.write_csv(f".cache/cells_{hash_str}.csv")
+
+        # Save metadata to a separate file
+        metadata = {
+            "intersection_count": len(self.locations),
+            "cell_length": self.cell_length,
+            "number_of_cells": self.number_of_cells,
+        }
+        metadata_df = pl.DataFrame([metadata])
+        metadata_df.write_csv(f".cache/metadata_{hash_str}.csv")
+
+    def _load(self):
+        """
+        Loads links and cells from saved CSV files.
+        """
+        hash_str = self._get_hash_str()
+        links_df = pl.read_csv(f".cache/links_{hash_str}.csv")
+
+        for row in links_df.iter_rows(named=True):
+            start_point = POINT(row['start_x'], row['start_y'])
+            end_point = POINT(row['end_x'], row['end_y'])
+            link_id = row['link_id']
+            link = Link(start_point, end_point, link_id=link_id)
+            self.links.append(link)
+
+
+        cells_df = pl.read_csv(f".cache/cells_{hash_str}.csv")
+        print(self.links)
+        for row in cells_df.iter_rows(named=True):
+            cell_start = POINT(row['cell_start_x'], row['cell_start_y'])
+            cell_end = POINT(row['cell_end_x'], row['cell_end_y'])
+            cell_id = row['cell_id']
+            link_id = row['link_id']
+            link_found = False
+            for link in self.links:
+                if link.link_id == link_id:
+                    link_found = True
+                    break
+            if link_found:
+                
+                cell = Cell(cell_start, cell_end, cell_id=cell_id)
+                cell.set_link(link)
+                self.cells.append(cell)
+            else:
+                print(f"Link: {link_id} not found for cell {cell_id}")
+
+    def _geo_data_already_exists(self):
+        """
+        Check if the geospatial data already exists in the cache.
+        """
+        hash_str = self._get_hash_str()
+        if os.path.exists(f".cache/links_{hash_str}.csv") and os.path.exists(f".cache/cells_{hash_str}.csv"):
+            return True
+        return False
 
 if __name__ == "__main__":
     # Example usage

@@ -17,6 +17,7 @@ from shapely.ops import transform
 from shapely.geometry import LineString as LINESTRING
 from shapely.geometry import Point as POINT
 from pyproj import Transformer
+from abc import abstractmethod
 
 class SpatialLine:
 
@@ -67,4 +68,38 @@ class SpatialLine:
         point_metric = transform(self._transformer_to_metric.transform, point)
         return self.line.distance(point_metric)
 
-    
+    @abstractmethod
+    def __eq__(self, other):
+        pass
+
+    def __hash__(self):
+        """
+        Returns a hash value for the SpatialLine object.
+        """
+        return hash((self._from, self._to, self.length_meters))
+
+
+    def get_from(self) -> POINT:
+        """
+        Returns the starting point of the cell.
+
+        Returns:
+            POINT: The starting point of the cell.
+        """
+        return self._from
+
+    def get_to(self) -> POINT:
+        """
+        Returns the ending point of the cell.
+        Returns:
+            POINT: The ending point of the cell.
+        """
+        return self._to
+
+    def get_line_source(self) -> LINESTRING:
+        """
+        Returns the line in its original CRS.
+        Returns:
+            LINESTRING: The line in its original CRS.
+        """
+        return transform(self._transformer_to_source.transform, self.line)

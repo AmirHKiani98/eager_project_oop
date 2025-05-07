@@ -19,7 +19,8 @@ class Link(SpatialLine):
     Class representing a link in a transportation network.
     Inherits from the SpatialLine class.
     """
-    def __init__(self, start_point: POINT, end_point: POINT):
+    Identification = 0
+    def __init__(self, start_point: POINT, end_point: POINT, link_id: int = None):
         """
         Initializes a Link object.
 
@@ -28,6 +29,12 @@ class Link(SpatialLine):
             end_point (POINT): The ending point of the link.
         """
         super().__init__(start_point, end_point)
+        if link_id is None:
+            Link.Identification += 1
+            self.link_id = Link.Identification
+        else:
+            self.link_id = link_id
+            Link.Identification = max(Link.Identification, link_id)
         self.cells = []
 
     def add_cell(self, cell):
@@ -102,9 +109,8 @@ class Link(SpatialLine):
         Returns a string representation of the Link object for debugging.
         """
         return (
-            f"Link(start_point={self.line.coords[0]}, "
-            f"end_point={self.line.coords[1]}, "
-            f"length_meters={self.length_meters})"
+            f"Link Id: {self.link_id}, "
+            f"Length: {self.length_meters} meters"
         )
     def __len__(self):
         """
@@ -117,3 +123,20 @@ class Link(SpatialLine):
         Returns the cell at the specified index.
         """
         return self.cells[index]
+
+    def __eq__(self, other):
+        """
+        Compares two Link objects for equality.
+        """
+        if not isinstance(other, Link):
+            return False
+        return (
+            self.line.equals(other.line) and
+            self.length_meters == other.length_meters
+        )
+
+    def __hash__(self):
+        """
+        Returns a hash value for the Link object.
+        """
+        return super().__hash__()
