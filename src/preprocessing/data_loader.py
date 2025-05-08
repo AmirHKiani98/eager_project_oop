@@ -15,6 +15,7 @@ import os
 from math import atan2, degrees
 from multiprocessing import Pool, cpu_count
 from collections import defaultdict
+import logging
 import chardet
 from sklearn.linear_model import LinearRegression
 from more_itertools import chunked
@@ -22,8 +23,16 @@ from shapely.geometry import Point as POINT
 import requests
 from tqdm import tqdm
 import polars as pl
+from rich.logging import RichHandler
 from src.preprocessing.geo_loader import GeoLoader
 from src.preprocessing.utility import fill_missing_timestamps
+logging.basicConfig(
+    level="DEBUG",
+    format="%(message)s",
+    datefmt="[%X]",
+    handlers=[RichHandler(rich_tracebacks=True)]
+)
+logger = logging.getLogger("rich")
 
 class DataLoader:
     """
@@ -182,7 +191,7 @@ class DataLoader:
                         progress_bar.update(len(chunk))
             progress_bar.close()
 
-            print(f"Downloaded to: {self.get_cached_filepath(location, date, time)}")
+            logger.info("Downloaded to: %s", self.get_cached_filepath(location, date, time))
             return self.get_cached_filepath(location, date, time)
         else:
             raise RuntimeError(f"Failed to download file: {response.status_code} - {response.text}")
@@ -568,8 +577,20 @@ class DataLoader:
                 group,
                 "trajectory_time",
                 self.time_interval,
-                min_time, # type: ignore # type: ignore
-                max_time # type: ignore # type: ignore
+                min_time, # type: ignore
+                max_time # type: ignore
+            )
+            group = group.with_columns(
+                pl.when(pl.col("link_id").is_null() & pl.col("cell_id").is_null())
+                .then(pl.col("link_id").forward_fill().backward_fill())
+                .otherwise(pl.col("link_id"))
+                .alias("link_id")
+            )
+            group = group.with_columns(
+                pl.when(pl.col("cell_id").is_null())
+                .then(pl.col("cell_id").forward_fill().backward_fill())
+                .otherwise(pl.col("cell_id"))
+                .alias("cell_id")
             )
             group = group.with_columns(
                 pl.col("vehicle_ids").fill_null([])  # sets default to empty list
@@ -599,11 +620,13 @@ class DataLoader:
             pl.col("exits").list.len().alias("exit_count"),
             pl.col("vehicle_ids").list.len().alias("on_cell"),
         ])
+        # Print columns in different color for better visibility
+
         complete_counts = complete_counts.with_columns([
             pl.struct(["link_id", "cell_id", "on_cell"]).map_elements(
             lambda row: (
-                row["on_cell"] /
-                self.geo_loader.links[row["link_id"]].get_cell_length(row["cell_id"])
+                row["on_cell"] / self.geo_loader.links[row["link_id"]]
+                .get_cell_length(row["cell_id"])
             ),
             return_dtype=pl.Float64
             ).alias("density")
@@ -808,7 +831,6 @@ class DataLoader:
             raise ValueError(f"File not found for {location}, {date}, {time}")
 
         df = pl.read_parquet(file_address)
-        print("df columns:", df.columns)
         result = (
             df.sort(["link_id", "trajectory_time", "cell_id"])  # Ensure consistent ordering
             .group_by(["link_id", "trajectory_time"])
@@ -816,7 +838,6 @@ class DataLoader:
                 pl.col("density").alias("density_vector")  # gives List[f64] per group
             ])
         )
-        print(f"Results: {result}")
         return result
 
 
@@ -831,6 +852,14 @@ class DataLoader:
         Returns the traffic light status for the specified time and link ID.
         """
         return self.traffic_light_status_dict[link_id][time]
+
+
+    def prepare(self, location, date, time):
+        """
+        Prepares the dictionaries and the df for further processing.
+        """
+        self.activate_tl_status_dict(location, date, time)
+        # self.prepare_density_entry_exit_dict(location, date, time)
 
 # Run as script
 if __name__ == "__main__":

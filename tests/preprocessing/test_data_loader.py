@@ -87,4 +87,27 @@ def test_density_exit_entered(sample_fully_modified_dataframe_path, simple_geo_l
     )
     assert density_row.shape[0] == 1
     expected_density = 3 / cell_length
+    # Check if the density is within a small tolerance of the expected value
     assert abs(density_row["density"][0] - expected_density) < 1e-6
+    link5_cell2 = result.filter(
+        (pl.col("link_id") == 5) & (pl.col("cell_id") == 2)
+    )
+    link2_cell2 = result.filter(
+        (pl.col("link_id") == 2) & (pl.col("cell_id") == 2)
+    )
+    link2_cell1 = result.filter(
+        (pl.col("link_id") == 2) & (pl.col("cell_id") == 1)
+    )
+    # Check if the time intervals for all rows/links are consistent
+    pl.testing.assert_series_equal(
+        link5_cell2["trajectory_time"], link2_cell1["trajectory_time"], check_dtypes=True,
+        check_order=False
+    )
+    pl.testing.assert_series_equal(
+        link5_cell2["trajectory_time"], link2_cell2["trajectory_time"], check_dtypes=True,
+        check_order=False
+    )
+    pl.testing.assert_series_equal(
+        link2_cell2["trajectory_time"], link2_cell1["trajectory_time"], check_dtypes=True,
+        check_order=False
+    )

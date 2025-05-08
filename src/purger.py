@@ -101,6 +101,26 @@ class CachePurger:
             except OSError as e:
                 raise OSError(f"Error purging cache: {e}") from e
         print("Completed purging traffic light files.")
+    
+    def purge_density_entry_exit_files(self):
+        """
+        Purges the cache by removing all density entry and exit files in the cache directory.
+
+        Raises:
+            Exception: If an error occurs while purging the cache.
+        """
+        pattern = os.path.join(
+            self.cache_directory,
+            f"*{self.specific_file}*_density_entry_exit_*"
+        )
+        files = glob(pattern)
+        for _file in tqdm(files, desc="Purging processed density entry/exit cache", unit="file"):
+            try:
+                os.remove(_file)
+                print(f"Removed file: {_file}")
+            except OSError as e:
+                raise OSError(f"Error purging cache: {e}") from e
+        print("Completed purging density entry/exit files.")
 
 def main():
     """
@@ -123,7 +143,7 @@ def main():
     parser.add_argument("--location", default="", help="Specific location")
     parser.add_argument("--date", default="", help="Specific date (yyyymmdd)")
     parser.add_argument("--time", default="", help="Specific time (hhmm_hhmm)")
-    parser.add_argument("--mode", choices=["all", "test", "traffic"], default="test")
+    parser.add_argument("--mode", choices=["all", "test", "traffic", "density_entry_exit"], default="test")
 
     args = parser.parse_args()
     purger = CachePurger(args.cache_dir, args.date, args.time, args.location)
@@ -134,6 +154,8 @@ def main():
         purger.purge_test_df_file()
     elif args.mode == "traffic":
         purger.purge_traffic_light_files()
+    elif args.mode == "density_entry_exit":
+        purger.purge_density_entry_exit_files()
 
 if __name__ == "__main__":
     main()
