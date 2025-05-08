@@ -7,12 +7,12 @@ transform coordinate reference systems, and perform spatial operations.
 import os
 import random
 import hashlib
+from typing import Optional
 import polars as pl
 import matplotlib.pyplot as plt
 from shapely.geometry import Point as POINT
 from src.preprocessing.cell import Cell
 from src.preprocessing.link import Link
-
 
 class GeoLoader:
     """
@@ -49,9 +49,9 @@ class GeoLoader:
 
 
     def __init__(self,
-                locations: list[POINT] = None,
-                cell_length: float = None,
-                number_of_cells: int = None):
+                locations: Optional[list[POINT]] = None,
+                cell_length: Optional[float] = None,
+                number_of_cells: Optional[int] = None):
         self.locations = locations
         # Check if the link is already saved:
         self.links = {}
@@ -73,6 +73,8 @@ class GeoLoader:
         """
         Load links from the data loader.
         """
+        if self.locations is None:
+            raise ValueError("No locations provided for loading links.")
         for index in range(len(self.locations) - 1):
             start_point = self.locations[index]
             end_point = self.locations[index + 1]
@@ -135,6 +137,8 @@ class GeoLoader:
 
     def _get_hash_str(self):
         # Generate a unique identifier based on intersection locations
+        if self.locations is None:
+            raise ValueError("No locations provided for generating hash.")
         hash_input = str([(point.x, point.y) for point in self.locations])
         if self.cell_length is not None:
             hash_input += f"_cell_length_{self.cell_length}"
@@ -188,6 +192,8 @@ class GeoLoader:
         cells_df.write_csv(f".cache/cells_{hash_str}.csv")
 
         # Save metadata to a separate file
+        if self.locations is None:
+            raise ValueError("No locations provided for saving metadata.")
         metadata = {
             "locations_count": len(self.locations),
             "cell_length": self.cell_length,
@@ -240,7 +246,9 @@ class GeoLoader:
             return True
         return False
 
-    def find_closest_link_and_cell(self, point: POINT) -> tuple[Link, float]:
+    def find_closest_link_and_cell(
+        self, point: POINT
+    ) -> tuple[Optional[Cell], float, Optional[Link], float]:
         """
         Finds the closest link to a given point.
 
@@ -248,7 +256,9 @@ class GeoLoader:
             point (POINT): The point to find the closest link to.
 
         Returns:
-            Link: The closest link to the given point.
+            tuple[Optional[Cell], float, Optional[Link], float]: 
+            The closest cell and its distance, and the closest link 
+            and its distance.
         """
         min_distance_link = float("inf")
         closest_link = None
@@ -257,9 +267,11 @@ class GeoLoader:
             if distance < min_distance_link:
                 min_distance_link = distance
                 closest_link = link
+        if closest_link is None:
+            raise ValueError("No link found for the given point.")
         min_distance_cell = float("inf")
         closest_cell = None
-        # TODO we might have found nothing (closest_link is None). What about that?
+
         for _, cell in closest_link.cells.items():
             distance = cell.get_distance(point)
             if distance < min_distance_cell:
@@ -286,7 +298,7 @@ class GeoLoader:
         """
         return self.links[link_id].is_tl()
 
-    def find_closest_location(self, point: POINT) -> tuple[POINT, float]:
+    def find_closest_location(self, point: POINT) -> tuple[Optional[POINT], float]:
         """
         Finds the closest location to a given point.
 
