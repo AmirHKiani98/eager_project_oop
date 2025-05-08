@@ -23,6 +23,7 @@ from abc import abstractmethod
 from src.model.params import Parameters
 from src.preprocessing.geo_loader import GeoLoader
 from src.preprocessing.data_loader import DataLoader
+from src.visulization.plotter import Plotter
 class TrafficModel:
     """
     TrafficModel is an abstract base class that represents a traffic simulation model. 
@@ -43,10 +44,20 @@ class TrafficModel:
             Abstract method that must be implemented by subclasses to predict traffic flow 
             based on the model's logic and input arguments.
     """
-    def __init__(self, geo_loader: GeoLoader, params: Parameters, dl: DataLoader):
+    def __init__(self, geo_loader: GeoLoader, params: Parameters, dl: DataLoader, plotter: Plotter):
+        """
+        Initialize the TrafficModel with a GeoLoader instance, Parameters object,
+        and a DataLoader instance.
+        Args:
+            geo_loader (GeoLoader): An instance of GeoLoader for geographical data.
+            params (Parameters): An instance of Parameters for model configuration.
+            dl (DataLoader): An instance of DataLoader for loading data.
+            plotter (Plotter): An instance of Plotter for visualizing data.
+        """
         self.geo_loader = geo_loader
         self.params = params
         self.dl = dl
+        self.plotter = plotter
 
     def set_params(self, params: Parameters):
         """
@@ -101,4 +112,3 @@ class TrafficModel:
         Abstract method to predict traffic flow.
         """
         raise NotImplementedError("Subclasses must implement this method.")
-    

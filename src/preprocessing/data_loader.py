@@ -72,9 +72,11 @@ class DataLoader:
         self.cache_dir = cache_dir
         os.makedirs(self.cache_dir, exist_ok=True)
         self.files_dict = {}
-        self.density_files_dict = {}
+        self.density_exit_entry_files_dict = {}
         self.traffic_light_status_dict = {}
         self.test_files = defaultdict(list)
+
+        self.traffic_light_status_dict = {}
         self.geo_loader = geo_loader
         self.df = pl.DataFrame({})
         self._validate_inputs()
@@ -255,14 +257,14 @@ class DataLoader:
                             (location, date, time)
                         ] = removed_vehicles_on_minor_roads
 
-                        self.density_files_dict[
+                        self.density_exit_entry_files_dict[
                             (location, date, time)
                         ] = self._get_density_entry_exit_df(
                             removed_vehicles_on_minor_roads, location, date, time
                         )
                         self.test_files[(location, date, time)].append(
                             self._get_test_df(
-                                self.density_files_dict[(location, date, time)],
+                                self.density_exit_entry_files_dict[(location, date, time)],
                                 location,
                                 date,
                                 time,
@@ -597,7 +599,7 @@ class DataLoader:
         if 90 <= theta_deg < 180:
             return False
         return True
-    
+
     def _get_traffic_light_status(self, fully_processed_file_address, location, date, time):
         """
         Returns the traffic light status for the specified location, date, and time.
@@ -690,14 +692,16 @@ class DataLoader:
             .otherwise(1)
             .alias("traffic_light_status")
         ])
-        traffic_df = traffic_df.select(["trajectory_time", "traffic_light_status"])
+        traffic_df = traffic_df.select(["trajectory_time", "traffic_light_status", "loc_link_id"])
         traffic_df.write_csv(file_address)
         return file_address
 
     def _get_test_df(self, file_location, location, date, time, what_test=""):
         """
-        Returns a test DataFrame for the specified file location, handling both CSV and Parquet files.
-        Detects file format and handles list columns (for Parquet) gracefully.
+        Returns a test DafsafsafsafsafsssstaFrame for the specified file location.
+
+        Handles both CSV and Parquet files. Detects file format and handles list columns
+        (for Parquet) gracefully.
         """
         file_ext = os.path.splitext(file_location)[1].lower()
         file_address = (
@@ -730,12 +734,39 @@ class DataLoader:
         file_address = self.traffic_light_status_dict.get((location, date, time), None)
         if file_address is None:
             raise ValueError(f"File not found for {location}, {date}, {time}")
-        
+
         df = pl.read_csv(file_address)
         tl_dict = {row["trajectory_time"]: row["traffic_light_status"]
                     for row in df.iter_rows(named=True)}
         return tl_dict
 
+    def get_density_exist_entry_df(self, location, date, time):
+        """
+        Returns the density entry DataFrame for the specified location, date, and time.
+        """
+        file_address = self.density_exit_entry_files_dict.get((location, date, time), None)
+        if file_address is None:
+            raise ValueError(f"File not found for {location}, {date}, {time}")
+
+        df = pl.read_parquet(file_address)
+        return df
+
+    def activate_tl_status_dict(self, location, date, time):
+        """
+        Returns the traffic light status dictionary for the specified location, date, and time.
+        """
+        self.traffic_light_status_dict = self.get_traffic_light_status_dict(location, date, time)
+
+    def tl_status(self, time, link_id):
+        """
+        Returns the traffic light status for the specified time and link ID.
+        """
+        
+
+        df = pl.read_csv(file_address)
+        tl_dict = {row["trajectory_time"]: row["traffic_light_status"]
+                    for row in df.iter_rows(named=True)}
+        return tl_dict.get(time, None)
 
 # Run as script
 if __name__ == "__main__":

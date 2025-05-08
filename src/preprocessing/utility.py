@@ -22,8 +22,8 @@ def fill_missing_timestamps(
     df: pl.DataFrame,
     column_name: str,
     interval: float = 0.04,
-    min_value = 0.0,
-    max_value = 1.0,
+    min_value: float = 0.0,
+    max_value: float = 1.0,
 ) -> pl.DataFrame:
     """
     Fills missing timestamps in a DataFrame by generating a complete range of values
