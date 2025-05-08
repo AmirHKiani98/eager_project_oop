@@ -11,6 +11,7 @@ Asserts:
 """
 import polars as pl
 from polars.testing import assert_frame_equal
+from shapely.geometry import Point as POINT
 from src.preprocessing.data_loader import DataLoader
 def test__get_trajectory_dataframe(sample_test_pneuma_dataframe_path, simple_geo_loader):
     """
@@ -47,4 +48,20 @@ def test__get_trajectory_dataframe(sample_test_pneuma_dataframe_path, simple_geo
         )
     assert expected_df.shape == result.shape
     assert_frame_equal(result, expected_df, check_column_order=False)
-    
+
+
+def test_is_vehicle_passed_traffic_light(simple_geo_loader):
+    """
+    Test the is_vehicle_passed_traffic_light function.
+
+    Args:
+        sample_test_pneuma_dataframe_path (pl.DataFrame): Sample DataFrame for testing.
+    """
+    # Bypassing the __init__ method of DataLoader
+    dl = DataLoader.__new__(DataLoader)
+
+    veh_before_traffic_light = POINT(23.735259282298564, 37.980360795602905)
+    intersection = POINT(23.7353800402736, 37.98021357743111)
+    veh_after_traffic_light = POINT(23.73546054559029, 37.98010443273381)
+    assert not dl.is_vehicle_passed_traffic_light(veh_before_traffic_light, intersection)
+    assert dl.is_vehicle_passed_traffic_light(veh_after_traffic_light, intersection)

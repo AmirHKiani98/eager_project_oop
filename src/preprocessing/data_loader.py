@@ -12,9 +12,10 @@ Example:
     To use the `DataLoader` class, initialize it with the desired parameters:
 """
 import os
-import chardet
-from collections import defaultdict
+from math import atan2, degrees
 from multiprocessing import Pool, cpu_count
+from collections import defaultdict
+import chardet
 from sklearn.linear_model import LinearRegression
 from more_itertools import chunked
 from shapely.geometry import Point as POINT
@@ -640,6 +641,34 @@ class DataLoader:
         completed_groups.write_csv(file_address)
         print(f"Traffic light status DataFrame saved to {file_address}")
         return file_address
+
+    def is_vehicle_passed_traffic_light(
+        self,
+        vehicle_loc: POINT,
+        traffic_light_loc: POINT,
+    ):
+
+        """
+        Determines if a vehicle has passed the specified traffic light location.
+
+        Args:
+            vehicle_loc (POINT): The location of the vehicle.
+            traffic_light_loc (POINT): The location of the traffic light.
+
+        Returns:
+            bool: True if the vehicle has passed the traffic light, False otherwise.
+        """
+        # This should the vector pointing from the traffic light to the vehicle
+        dx = vehicle_loc.x - traffic_light_loc.x
+        dy = vehicle_loc.y - traffic_light_loc.y
+        rad = atan2(dy, dx)
+        theta_deg = (degrees(rad) + 360) % 360  # normalize to [0, 360)
+        print(theta_deg)
+        if 90 <= theta_deg < 180:
+            return False
+        return True
+
+        
 
     def _get_processed_traffic_light_status(self, unprocessed_traffic_file, location, date, time):
         """
