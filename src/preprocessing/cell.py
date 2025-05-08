@@ -10,6 +10,7 @@ Dependencies:
     - shapely.geometry.Point: Used to define the starting and ending points of the cell.
     - src.preprocessing.spatial_line.SpatialLine: Base class for the `Cell` class.
 """
+from typing import Optional
 from shapely.geometry import Point as POINT
 from src.preprocessing.spatial_line import SpatialLine
 from src.preprocessing.link import Link
@@ -19,13 +20,14 @@ class Cell(SpatialLine):
     Inherits from the SpatialLine class.
     """
     Identification = 0
-    def __init__(self, start_point: POINT, end_point: POINT, cell_id: int = None):
+    def __init__(self, start_point: POINT, end_point: POINT, cell_id: Optional[int] = None):
         """
         Initializes a Cell object.
 
         Args:
             start_point (POINT): The starting point of the cell.
             end_point (POINT): The ending point of the cell.
+            cell_id (Optional[int]): The identifier for the cell.
         """
         super().__init__(start_point, end_point)
         self.link = None

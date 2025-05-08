@@ -1,4 +1,7 @@
 {
+    "python.linting.pylintArgs": [
+        "--extension-pkg-whitelist=astropy.units"
+    ],
     "github.copilot.enable": {
         "*": true,
         "yaml": true,
@@ -6,5 +9,7 @@
         "markdown": true,
         "python": true
     },
-    "editor.inlineSuggestionsEnabled": true
+    "editor.inlineSuggestionsEnabled": true,
+    
+    "python.linting.enabled": true
 }

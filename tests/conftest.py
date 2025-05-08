@@ -14,6 +14,28 @@ import polars as pl
 import pytest
 from shapely.geometry import Point as POINT
 from src.preprocessing.geo_loader import GeoLoader
+from src.preprocessing.data_loader import DataLoader
+from src.model.params import Parameters
+
+@pytest.fixture
+def simple_traffic_params():
+    """
+    Creates and returns a Parameters instance with bypassed parameters.
+
+    Returns:
+        Parameters: An instance of Parameters with bypassed parameters.
+    """
+    return Parameters(free_flow_speed=50.0, dt=30.0, jam_density_link=180.0, q_max=3000.0)
+
+@pytest.fixture
+def bypassed_data_loader():
+    """
+    Creates and returns a DataLoader instance with bypassed data loading.
+
+    Returns:
+        DataLoader: An instance of DataLoader with bypassed data loading.
+    """
+    return DataLoader.__new__(DataLoader)
 
 @pytest.fixture
 def simple_geo_loader():

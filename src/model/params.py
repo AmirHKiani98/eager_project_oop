@@ -24,6 +24,7 @@ Example:
     jam_density = params.get_jam_density(cell_length=500)
     ```
 """
+from src.common_utility.units import Units
 class Parameters():
     """
     Parameters:
@@ -59,22 +60,22 @@ class Parameters():
     """
 
     def __init__(
-        self, vehicle_length=5, free_flow_speed=15, wave_speed=10, 
-        num_lanes=3, jam_density_link=130
+        self, vehicle_length=5.0, free_flow_speed=15.0, wave_speed=10.0,
+        num_lanes=3, jam_density_link=180.0, dt=1.0, q_max=3000.0
     ):
         self.num_lanes = num_lanes
-        self.vehicle_length = vehicle_length
-        self.free_flow_speed = free_flow_speed
-        self.wave_speed = wave_speed
-        self.jam_density_link = jam_density_link
-        self.jam_density_fd = self.jam_density_link * self.num_lanes
-        self.max_flow_link = 2000 / 3600 * self.num_lanes
-        self.critical_density = 50 * self.num_lanes
-        self.tau = 1
-        self.c = 10.14
-        self.c0 = self.free_flow_speed/(self.tau*2)
+        self.vehicle_length = vehicle_length * Units.M # m
+        self.free_flow_speed = free_flow_speed * Units.KM_PER_HR # km/h
+        self.wave_speed = wave_speed * Units.KM_PER_HR # km/h
+        self.dt = dt * Units.S # seconds
+        self.jam_density_link = jam_density_link * Units.VEH_PER_KM # veh/km # Should be around 180
+        self.q_max = q_max * Units.VEH_PER_HR
+        # Calculate the maximum number of vehicles that can flow into the system per time step.
+        # TODO: flow_capacity should be an attribute of Cell model.
+        self.flow_capacity = self.q_max / self.dt
 
-    def max_flow(self, cell_length):
+
+    def get_max_flow(self, cell_length):
         """
         Calculate the maximum flow in the system based on the fundamental diagram.
 
@@ -82,12 +83,29 @@ class Parameters():
             float: Maximum flow (vehicles/second).
         """
         max_flow = min(
-            1800,
+            self.q_max,
             min(self.free_flow_speed, self.wave_speed)
             * self.get_jam_density(cell_length)
             * self.num_lanes
         )
         return max_flow
+
+    def get_cell_capacity(self, cell_length: Units.Quantity):
+        """
+        Calculate the maximum number of vehicles that can be on a link based on the cell length.
+
+        Args:
+            cell_length (Units.Quantity): The length of a cell in meters.
+
+        Returns:
+            float: The maximum number of vehicles that can be on the link.
+
+        Raises:
+            ValueError: If `cell_length` is not provided in meters.
+        """
+        if not isinstance(cell_length, Units.Quantity):
+            raise TypeError("cell_length must be an astropy Quantity with units")
+        return self.jam_density_link / cell_length
 
     def get_time_step(self, cell_length):
         """
@@ -99,9 +117,11 @@ class Parameters():
         Returns:
             float: The time step, calculated as the ratio of cell length to free flow speed.
         """
+        if not isinstance(cell_length, Units.Quantity):
+            raise TypeError("cell_length must be an astropy Quantity with units")
         return cell_length / self.free_flow_speed
 
-    def get_jam_density(self, cell_length):
+    def get_jam_density(self, cell_length: Units.Quantity):
         """
         Calculate the jam density for a given cell length.
 
@@ -115,4 +135,6 @@ class Parameters():
             float: The jam density for the given cell length, adjusted for
             the number of lanes and scaled by the jam density per kilometer.
         """
+        if not isinstance(cell_length, Units.Quantity):
+            raise TypeError("cell_length must be an astropy Quantity with units")
         return self.jam_density_link/1000 * cell_length * self.num_lanes

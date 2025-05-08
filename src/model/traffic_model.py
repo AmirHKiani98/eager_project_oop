@@ -22,9 +22,7 @@ Dependencies:
 import math
 from abc import abstractmethod
 from src.model.params import Parameters
-from src.preprocessing.geo_loader import GeoLoader
 from src.preprocessing.data_loader import DataLoader
-from src.visulization.plotter import Plotter
 class TrafficModel:
     """
     TrafficModel is an abstract base class that represents a traffic simulation model. 
@@ -45,7 +43,7 @@ class TrafficModel:
             Abstract method that must be implemented by subclasses to predict traffic flow 
             based on the model's logic and input arguments.
     """
-    def __init__(self, geo_loader: GeoLoader, params: Parameters, dl: DataLoader, plotter: Plotter):
+    def __init__(self, params: Parameters, dl: DataLoader):
         """
         Initialize the TrafficModel with a GeoLoader instance, Parameters object,
         and a DataLoader instance.
@@ -53,12 +51,9 @@ class TrafficModel:
             geo_loader (GeoLoader): An instance of GeoLoader for geographical data.
             params (Parameters): An instance of Parameters for model configuration.
             dl (DataLoader): An instance of DataLoader for loading data.
-            plotter (Plotter): An instance of Plotter for visualizing data.
         """
-        self.geo_loader = geo_loader
         self.params = params
         self.dl = dl
-        self.plotter = plotter
 
     def set_params(self, params: Parameters):
         """
@@ -80,7 +75,7 @@ class TrafficModel:
         Returns:
             float: Length of the specified cell.
         """
-        return self.geo_loader.get_cell_length(cell_id, link_id)
+        return self.dl.geo_loader.get_cell_length(cell_id, link_id)
 
     def is_tl(self, link_id):
         """
@@ -144,3 +139,24 @@ class TrafficModel:
         Abstract method to predict traffic flow.
         """
         raise NotImplementedError("Subclasses must implement this method.")
+
+    def run(self, **args):
+        """
+        Run the traffic model with the provided arguments.
+
+        Args:
+            **args: Additional arguments for the model.
+
+        Returns:
+            None
+        """
+        pass
+    
+    @abstractmethod
+    def compute_inflow(self, **args):
+        """
+        Abstract method to compute inflow.
+        """
+        raise NotImplementedError("Subclasses must implement this method.")
+    
+                       
