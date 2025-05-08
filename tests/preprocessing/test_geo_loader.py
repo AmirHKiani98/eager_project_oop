@@ -1,10 +1,13 @@
 """
 Module: test_geo_loader
-    This module contains unit tests for the geo_loader preprocessing functionality.
-    Functions:
-        test_find_closest_link_cell(simple_geo_loader):
-            Tests the 'find_closest_link_cell' method of the GeoLoader class.
-            Ensures that the function correctly identifies the closest cell in a link to a given point.
+
+This module contains unit tests for the geo_loader preprocessing functionality.
+
+Functions:
+    test_find_closest_link_cell(simple_geo_loader):
+        Tests the 'find_closest_link_cell' method of the GeoLoader class.
+        Ensures that the function correctly identifies the closest cell in a link
+        to a given point.
 """
 from shapely.geometry import Point as POINT
 def test_find_closest_link_cell(simple_geo_loader):
