@@ -269,17 +269,22 @@ class DataLoader:
 
     def prepare_explode_dataset(self, raw_data_location):
         """
-        Processes a raw data file and constructs a concatenated Polars DataFrame from its contents.
+        Processes a raw data file and constructs a concatenated Polars DataFrame
+        from its contents.
 
-        This method reads a file line by line, skipping the header, and parses each line into its components:
-        track ID, vehicle type, traveled distance, average speed, and trajectory points. For each line, it
-        generates a DataFrame using the `_get_trajectory_dataframe` method and concatenates it to a local DataFrame.
+        This method reads a file line by line, skipping the header, and parses
+        each line into its components: track ID, vehicle type, traveled distance,
+        average speed, and trajectory points. For each line, it generates a
+        DataFrame using the `_get_trajectory_dataframe` method and concatenates
+        it to a local DataFrame.
 
         Args:
-            raw_data_location (str): The file path to the raw data file to be processed.
+            raw_data_location (str): The file path to the raw data file to be
+            processed.
 
         Returns:
-            pl.DataFrame: A Polars DataFrame containing the processed and exploded dataset.
+            pl.DataFrame: A Polars DataFrame containing the processed and
+            exploded dataset.
         """
         local_df = pl.DataFrame({})
         with open(raw_data_location, "r", encoding="utf-8") as f:
