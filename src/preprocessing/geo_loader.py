@@ -74,8 +74,8 @@ class GeoLoader:
         Load links from the data loader.
         """
         for index in range(len(self.locations) - 1):
-            start_point = self.locations[index]
-            end_point = self.locations[index + 1]
+            start_point = self.locations[index].location
+            end_point = self.locations[index + 1].location
             link = Link(start_point, end_point)
             self.locations[index].set_link(link)
             self.links[link.link_id] = link

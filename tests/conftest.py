@@ -24,7 +24,21 @@ def simple_geo_loader():
     Returns:
         GeoLoader: An instance of GeoLoader with predefined locations and cell length.
     """
-    return GeoLoader(locations=[POINT(0.0, 0.0), POINT(0.0, 1.0)], cell_length=20.0)
+    # Example usage
+    intersection_locations = (
+        pl.read_csv(".cache/traffic_lights.csv")
+        .to_numpy()
+        .tolist()   # It's format is [lat, lon]
+    )
+    intersection_locations = [
+        POINT(loc[1], loc[0])
+        for loc in intersection_locations
+    ]  # It's format is [lat, lon]
+    model_geo_loader = GeoLoader(
+        locations=intersection_locations,
+        cell_length=20.0
+    )
+    return model_geo_loader
 
 @pytest.fixture
 def sample_dataframe():
@@ -50,4 +64,4 @@ def sample_test_pneuma_dataframe_path():
         str: The path to a CSV file containing
             example data with timestamps and corresponding traffic values.
     """
-    return "tests/test_data/pneuma_test.csv"
+    return "tests/assets/test_pneuma_df.csv"
