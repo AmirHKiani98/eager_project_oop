@@ -1,32 +1,34 @@
+"""
+Module: test_utils
+------------------
+This module contains unit tests for utility functions used in the preprocessing
+pipeline. Specifically, it tests the functionality of filling missing timestamps
+in a Polars DataFrame.
+
+Functions:
+----------
+- test_fill_missing_timestamps(sample_dataframe): 
+    Tests the 'fill_missing_timestamps' function to ensure it correctly fills
+    missing timestamps in a DataFrame, producing the expected output.
+"""
 import polars as pl
-import numpy as np
-import pytest
 
 from src.preprocessing.utility import fill_missing_timestamps
 
-def test_fill_missing_timestamps_fills_gaps():
-    # Create a DataFrame with missing timestamps
-    df = pl.DataFrame({
-        "timestamp": [0.0, 0.08, 0.12],  # Missing 0.04
-        "value": [10, 20, 30]
-    })
+def test_fill_missing_timestamps(sample_dataframe):
+    """
+    Test the fill_missing_timestamps function to ensure it correctly fills missing
+    timestamps in a DataFrame.
+    """
 
-    # Call the function
-    result = fill_missing_timestamps(
-        df, 
-        column_name="timestamp", 
-        interval=0.04, 
-        min_value=0.0, 
-        max_value=0.12
-    )
+    expected_data = {
+        "timestamp": [0.0, 0.04, 0.08, 0.12, 0.16, 0.20, 0.24, 0.28, 0.32],
+        "value": [10, None, 20, 30, None, 40, None, 50, 60]
+    }
+    expected_df = pl.DataFrame(expected_data)
+    min_sdf = sample_dataframe["timestamp"].min()
+    max_sdf = sample_dataframe["timestamp"].max()
 
-    # Expected timestamps: 0.00, 0.04, 0.08, 0.12
-    expected_timestamps = np.array([0.00, 0.04, 0.08, 0.12])
-    assert np.allclose(result["timestamp"].to_numpy(), expected_timestamps)
+    result_df = fill_missing_timestamps(sample_dataframe, "timestamp", 0.04, min_sdf, max_sdf)
 
-    # Check that the missing row (0.04) has null in 'value'
-    value_list = result["value"].to_list()
-    assert value_list[1] is None  # 0.04 row should be None
-    assert value_list[0] == 10
-    assert value_list[2] == 20
-    assert value_list[3] == 30
+    assert result_df.equals(expected_df)

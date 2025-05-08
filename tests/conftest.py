@@ -22,6 +22,6 @@ def sample_dataframe():
         pl.DataFrame: A DataFrame containing example data with timestamps and corresponding values.
     """
     return pl.DataFrame({
-        "timestamp": [0.0, 0.08, 0.12, 0.20, 0.48, 0.96],
+        "timestamp": [0.0, 0.08, 0.12, 0.20, 0.28, 0.32],
         "value": [10, 20, 30, 40, 50, 60]
     })
