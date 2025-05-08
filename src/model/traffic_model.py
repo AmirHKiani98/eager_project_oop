@@ -19,6 +19,7 @@ Dependencies:
     - src.preprocessing.geo_loader.GeoLoader: Provides geographical data 
       related to the traffic model.
 """
+import math
 from abc import abstractmethod
 from src.model.params import Parameters
 from src.preprocessing.geo_loader import GeoLoader
@@ -105,6 +106,37 @@ class TrafficModel:
             int: Status of the traffic light (1 for green, 0 for red).
         """
         return self.dl.tl_status(time, link_id)
+
+    def compute_outflow(
+        self,
+        free_flow_speed, dt, jam_density, wave_speed,
+        max_flow, density_current, density_next=None
+    ):
+        """
+        Computes the outflow of traffic based on the given parameters.
+
+        Parameters:
+            free_flow_speed (float): The speed of traffic under free-flow 
+            conditions (e.g., vehicles per unit time).
+            dt (float): The time step duration.
+            jam_density (float): The maximum vehicle density (e.g., vehicles 
+            per unit length) at which traffic is completely jammed.
+            wave_speed (float): The speed at which traffic congestion 
+            propagates backward.
+            density_current (float): The current traffic density.
+            density_next (float, optional): The traffic density at the next 
+            location. Defaults to None.
+
+        Returns:
+            float: The computed outflow, which is the minimum of the maximum 
+            flow, demand, and supply.
+        """
+        demand = free_flow_speed * density_current * dt
+        if density_next is None:
+            supply = math.inf
+        else:
+            supply = wave_speed * (jam_density - density_next) * dt
+        return min(max_flow, demand, supply)
 
     @abstractmethod
     def predict(self, **args):

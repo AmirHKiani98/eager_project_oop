@@ -7,80 +7,68 @@ updating cell status based on traffic density, outflows, and entry flow.
 """
 
 import math
+import numpy as np
 from src.model.traffic_model import TrafficModel
 class CTM(TrafficModel):
     """
     Class representing the Cell Transmission Model (CTM) for traffic flow simulation.
     """
     def predict(self, **kwargs):
-        required_keys = {"time", "cell_id", "link_id", "densities", "outflows", "entry_flow"}
+        required_keys = {
+            "time", "cell_length", "link_id", 
+            "densities", "outflows", "entry_flow", "dt",
+            "max_flow", "free_flow_speed", "jam_density",
+            "wave_speed", "is_tl", "tl_status"
+        }
         if not required_keys.issubset(kwargs):
             missing = required_keys - kwargs.keys()
             raise ValueError(f"Missing required parameters for CTM.predict(): {missing}")
 
-        time = kwargs["time"]
-        cell_id = kwargs["cell_id"]
-        link_id = kwargs["link_id"]
-        
-        densities = self.dl.get_link_density(
-            time, link_id
-        )
-        outflows = self.dl.get_cell_exit(
-            time, link_id, cell_id
-        )
-        entry_flow = self.dl.get_cell_entry(
-            time, link_id, cell_id
-        )
+        cell_length = kwargs["cell_length"]
+        densities = kwargs["densities"]
+        outflows = kwargs["outflows"]
+        entry_flow = kwargs["entry_flow"]
+        dt = kwargs["dt"]
+        max_flow = kwargs["max_flow"]
+        free_flow_speed = kwargs["free_flow_speed"]
+        jam_density = kwargs["jam_density"]
+        wave_speed = kwargs["wave_speed"]
+        is_tl = kwargs["is_tl"]
+        tl_status = kwargs.get("tl_status", None)
 
         num_cells = len(densities)
+        if isinstance(densities, list):
+            densities = np.array(densities)
+        if isinstance(outflows, list):
+            outflows = np.array(outflows)
+
         new_densities = densities.copy()
         new_outflows = outflows.copy()
-        cell_length = self.get_cell_length(cell_id, link_id)
-        dt = self.params.get_time_step(cell_length)
+        # dt = self.params.get_time_step(cell_length)
         for i in range(num_cells):
             if i == 0:
                 inflow = entry_flow
             else:
-                inflow = min(
-                    self.params.max_flow(cell_length),
-                    self.params.free_flow_speed * densities[i-1] * dt,
-                    self.params.wave_speed * (
-                        self.params.get_jam_density(cell_length) - densities[i]
-                    ) * dt
+                inflow = self.compute_outflow(
+                    free_flow_speed, dt, jam_density, wave_speed,
+                    max_flow, densities[i-1], densities[i]
                 )
 
             if i == num_cells - 1:
-                # check if there is a traffic light at the end of the segment
-                if self.is_tl(link_id):
-                    # check the status of the traffic light
-                    if self.tl_status(time, link_id): # green light
-                        outflow = min(
-                            self.params.max_flow(cell_length),
-                            self.params.free_flow_speed * densities[i] * dt,
-                            math.inf
-                        )
-                        new_outflows[i] = outflow
-                    else:
-                        outflow = 0
-                        new_outflows[i] = outflow
+                if is_tl and not tl_status:
+                    outflow = 0
                 else:
-                    outflow = min(
-                        self.params.max_flow(cell_length),
-                        self.params.free_flow_speed * densities[i] * dt,
-                        math.inf
+                    outflow = self.compute_outflow(
+                        free_flow_speed, dt, jam_density, wave_speed,
+                        max_flow, densities[i], None
                     )
-                    new_outflows[i] = outflow # Maz
-            else:  # for all other cells: minimum of max flow and the flow to the next cell
-                outflow = min(
-                    self.params.max_flow(cell_length),
-                    self.params.free_flow_speed * densities[i] * dt,
-                    self.params.wave_speed * (
-                        self.params.get_jam_density(cell_length) - densities[i+1]
-                    ) * dt
+            else:
+                outflow = self.compute_outflow(
+                    free_flow_speed, dt, jam_density, wave_speed,
+                    max_flow, densities[i], densities[i+1]
                 )
-                new_outflows[i] = outflow # Maz
-            new_densities[i] = densities[i] + (
-                (inflow - outflow) / cell_length
-            )  # n(t+1) = n(t) + (y(i) - y(i+1))/dx
 
-        return new_densities, new_outflows # Maz
+            new_outflows[i] = outflow
+            new_densities[i] = densities[i] + (inflow - outflow) / cell_length
+
+        return new_densities, new_outflows

@@ -900,6 +900,14 @@ class DataLoader:
         """
         return self.cell_exits_dict[link_id][cell_id][time]
 
+    def is_tl(self, link_id):
+        """
+        Returns True if the specified link ID has a traffic light, False otherwise.
+        Right now, all the links are assumed to have traffic lights. TODO: Later
+        write a function to check if the link has a traffic light or not.
+        """
+        return True
+
     def prepare(self, location, date, time):
         """
         Prepares the dictionaries and the df for further processing.
