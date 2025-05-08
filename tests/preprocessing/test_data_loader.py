@@ -50,7 +50,7 @@ def test__get_trajectory_dataframe(sample_test_pneuma_dataframe_path, simple_geo
     assert_frame_equal(result, expected_df, check_column_order=False)
 
 
-def test_is_vehicle_passed_traffic_light(simple_geo_loader):
+def test_is_vehicle_passed_traffic_light():
     """
     Test the is_vehicle_passed_traffic_light function.
 
