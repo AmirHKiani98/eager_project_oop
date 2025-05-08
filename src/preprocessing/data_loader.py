@@ -267,12 +267,7 @@ class DataLoader:
         return pl.DataFrame(data)
 
 
-    def _explode_dataset(self, raw_data_location, location, date, time):
-        file_address = (
-            self.cache_dir + "/" + self._get_filename(location, date, time) + "_exploded.csv"
-        )
-        if os.path.isfile(file_address):
-            return file_address
+    def prepare_explode_dataset(self, raw_data_location):
         local_df = pl.DataFrame({})
         with open(raw_data_location, "r", encoding="utf-8") as f:
             for i, line in enumerate(tqdm(f, desc="Processing...")):
@@ -291,6 +286,15 @@ class DataLoader:
                         trajectory
                     )
                     local_df = pl.concat([local_df, dataframe])
+        return local_df
+
+    def _explode_dataset(self, raw_data_location, location, date, time):
+        file_address = (
+            self.cache_dir + "/" + self._get_filename(location, date, time) + "_exploded.csv"
+        )
+        if os.path.isfile(file_address):
+            return file_address
+        local_df = self.prepare_explode_dataset(raw_data_location)
         local_df.write_csv(file_address)
         return file_address
 

@@ -12,6 +12,19 @@ Raises:
 """
 import polars as pl
 import pytest
+from shapely.geometry import Point as POINT
+from src.preprocessing.geo_loader import GeoLoader
+
+@pytest.fixture
+def simple_geo_loader():
+    """
+    Creates and returns a GeoLoader instance initialized with two POINT locations
+    and a cell length of 20.0.
+
+    Returns:
+        GeoLoader: An instance of GeoLoader with predefined locations and cell length.
+    """
+    return GeoLoader(locations=[POINT(0.0, 0.0), POINT(0.0, 1.0)], cell_length=20.0)
 
 @pytest.fixture
 def sample_dataframe():
@@ -27,3 +40,14 @@ def sample_dataframe():
         "b": [1, 2, 3, 4, 5, 6],
         "c": [0.1, 0.2, 0.3, 0.4, 0.5, 0.6],
     })
+
+@pytest.fixture
+def sample_test_pneuma_dataframe_path():
+    """
+    Creates a sample Polars DataFrame with 'timestamp' and 'traffic' columns.
+
+    Returns:
+        str: The path to a CSV file containing
+            example data with timestamps and corresponding traffic values.
+    """
+    return "tests/test_data/pneuma_test.csv"
