@@ -23,7 +23,9 @@ def test_fill_missing_timestamps(sample_dataframe):
 
     expected_data = {
         "timestamp": [0.0, 0.04, 0.08, 0.12, 0.16, 0.20, 0.24, 0.28, 0.32],
-        "value": [10, None, 20, 30, None, 40, None, 50, 60]
+        "a": [10, None, 20, 30, None, 40, None, 50, 60],
+        "b": [1, None, 2, 3, None, 4, None, 5, 6],
+        "c": [0.1, None, 0.2, 0.3, None, 0.4, None, 0.5, 0.6],
     }
     expected_df = pl.DataFrame(expected_data)
     min_sdf = sample_dataframe["timestamp"].min()
