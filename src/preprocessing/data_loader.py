@@ -579,7 +579,6 @@ class DataLoader:
         vehicle_loc: POINT,
         traffic_light_loc: POINT,
     ):
-
         """
         Determines if a vehicle has passed the specified traffic light location.
 
@@ -641,9 +640,13 @@ class DataLoader:
             pl.Series("loc_link_id", links_id),
             pl.Series("distance_from_loc_link", loc_distances)
         ])
+        # We'll use the same distance threshold as the one we used
+        # to find the vehicles on the corridor: self.line_threshold
+
+        wlc_df = wlc_df.filter(pl.col("distance_from_loc_link") < self.line_threshold)
         wlc_df = wlc_df.sort(["link_id", "cell_id", "trajectory_time"])
         groups = wlc_df.group_by(["loc_link_id", "trajectory_time"]).agg([
-            pl.col("speed").mean().alias("avg_speed")
+            pl.col("speed").mean().alias("all_veh_avg_speed")
         ])
         completed_groups = pl.DataFrame({})
         groups = groups.group_by(["loc_link_id"])
@@ -660,13 +663,13 @@ class DataLoader:
                 max_time
             )
             group = group.with_columns(
-                pl.col("avg_speed").fill_null(0.0)
+                pl.col("all_veh_avg_speed").fill_null(0.0)
             )
             completed_groups = pl.concat([completed_groups, group])
         completed_groups.write_csv(file_address)
         print(f"Traffic light status DataFrame saved to {file_address}")
         return file_address
-
+    
     def _get_processed_traffic_light_status(self, unprocessed_traffic_file, location, date, time):
         """
         Returns the traffic status for the specified location, date, and time.
@@ -680,7 +683,7 @@ class DataLoader:
             return file_address
 
         traffic_df = pl.read_csv(unprocessed_traffic_file)
-        green_or_red_column = traffic_df["avg_speed"] < self.traffic_light_speed_threshold
+        green_or_red_column = traffic_df["all_veh_avg_speed"] < self.traffic_light_speed_threshold
         traffic_df = traffic_df.with_columns([
             pl.when(green_or_red_column)
             .then(0)
