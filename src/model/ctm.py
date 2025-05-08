@@ -21,9 +21,16 @@ class CTM(TrafficModel):
         time = kwargs["time"]
         cell_id = kwargs["cell_id"]
         link_id = kwargs["link_id"]
-        densities = kwargs["densities"]
-        outflows = kwargs["outflows"]
-        entry_flow = kwargs["entry_flow"]
+        
+        densities = self.dl.get_link_density(
+            time, link_id
+        )
+        outflows = self.dl.get_cell_exit(
+            time, link_id, cell_id
+        )
+        entry_flow = self.dl.get_cell_entry(
+            time, link_id, cell_id
+        )
 
         num_cells = len(densities)
         new_densities = densities.copy()

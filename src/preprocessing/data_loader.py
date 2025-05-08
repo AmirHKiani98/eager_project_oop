@@ -825,6 +825,7 @@ class DataLoader:
         return tl_dict
 
     def get_density_entry_exit_dict(self, location, date, time):
+        # TODO: Needs test
         """
         Returns the density entry DataFrame for the specified location, date, and time.
         """
@@ -853,9 +854,12 @@ class DataLoader:
                 entries_dict[row["link_id"]] = {}
             if row["link_id"] not in exits_dict:
                 exits_dict[row["link_id"]] = {}
-            entries_dict[row["link_id"]][row["trajectory_time"]] = row["entry_count"]
-            exits_dict[row["link_id"]][row["trajectory_time"]] = row["exit_count"]
-
+            if row["cell_id"] in entries_dict[row["link_id"]]:
+                entries_dict[row["link_id"]][row["cell_id"]] = {}
+            if row["cell_id"] in exits_dict[row["link_id"]]:
+                exits_dict[row["link_id"]][row["cell_id"]] = {}
+            entries_dict[row["link_id"]][row["cell_id"]][row["trajectory_time"]] = row["entry_count"]
+            exits_dict[row["link_id"]][row["cell_id"]][row["trajectory_time"]] = row["exit_count"]
         return cell_vector_density_dict, entries_dict, exits_dict
 
     def activate_tl_status_dict(self, location, date, time):
@@ -868,7 +872,9 @@ class DataLoader:
         """
         Returns the density entry DataFrame for the specified location, date, and time.
         """
-        self.cell_vector_density_dict, self.cell_entries_dict, self.cell_exits_dict = self.get_density_entry_exit_dict(location, date, time)
+        self.cell_vector_density_dict, self.cell_entries_dict, self.cell_exits_dict = (
+            self.get_density_entry_exit_dict(location, date, time)
+        )
 
     def tl_status(self, time, link_id):
         """
@@ -881,6 +887,18 @@ class DataLoader:
         Returns the density for the specified time and link ID.
         """
         return self.cell_vector_density_dict[link_id][time]
+
+    def get_cell_entry(self, time, link_id, cell_id):
+        """
+        Returns the entry count for the specified time, link ID, and cell ID.
+        """
+        return self.cell_entries_dict[link_id][cell_id][time]
+
+    def get_cell_exit(self, time, link_id, cell_id):
+        """
+        Returns the exit count for the specified time, link ID, and cell ID.
+        """
+        return self.cell_exits_dict[link_id][cell_id][time]
 
     def prepare(self, location, date, time):
         """
