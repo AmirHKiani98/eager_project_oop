@@ -46,7 +46,8 @@ class DataLoader:
         cache_dir=".cache",
         line_threshold=20,
         time_interval=0.04,
-        traffic_light_speed_threshold=0.5
+        traffic_light_speed_threshold=0.5,
+        test_row_numbers=1000
     ):
         """
         Initializes the DataLoader with the specified parameters.
@@ -61,6 +62,7 @@ class DataLoader:
         self.line_threshold = line_threshold
         self.time_interval = time_interval
         self.traffic_light_speed_threshold = traffic_light_speed_threshold
+        self.test_row_numbers = test_row_numbers
         self.base_url = "https://open-traffic.epfl.ch/wp-content/uploads/mydownloads.php"
         self.fp_location = [fp_location] if isinstance(fp_location, str) else fp_location
         self.fp_date = [fp_date] if isinstance(fp_date, str) else fp_date
@@ -70,6 +72,7 @@ class DataLoader:
         self.files_dict = {}
         self.density_files_dict = {}
         self.traffic_light_status_dict = {}
+        self.test_files = defaultdict(list)
         self.geo_loader = geo_loader
         self.df = pl.DataFrame({})
         self._validate_inputs()
@@ -192,17 +195,36 @@ class DataLoader:
                     for time in self.fp_time:
                         # Use tuple instead of set as dictionary key
                         raw_data_file_path = self._download_file(location, date, time)
+                        self.test_files[(location, date, time)].append(
+                            self._get_test_df(raw_data_file_path)
+                        )
+
                         exploded_file_address = self._explode_dataset(
                             raw_data_file_path, location, date, time
                         )
+                        self.test_files[(location, date, time)].append(
+                            self._get_test_df(exploded_file_address)
+                        )
+
                         processed_file_address = self._process_link_cell(
                             exploded_file_address, location, date, time
                         )
+                        self.test_files[(location, date, time)].append(
+                            self._get_test_df(processed_file_address)
+                        )
+
                         vehicle_on_corridor_address = self._get_vehicle_on_corridor_df(
                             processed_file_address, location, date, time
                         )
+                        self.test_files[(location, date, time)].append(
+                            self._get_test_df(vehicle_on_corridor_address)
+                        )
+
                         removed_vehicles_on_minor_roads = self._remove_vehicle_on_minor_roads(
                             vehicle_on_corridor_address, location, date, time
+                        )
+                        self.test_files[(location, date, time)].append(
+                            self._get_test_df(removed_vehicles_on_minor_roads)
                         )
 
                         self.files_dict[
@@ -211,20 +233,31 @@ class DataLoader:
 
                         self.density_files_dict[
                             (location, date, time)
-                        ] = self._get_density_df(
+                        ] = self._get_density_entry_exit_df(
                             removed_vehicles_on_minor_roads, location, date, time
+                        )
+                        self.test_files[(location, date, time)].append(
+                            self._get_test_df(self.density_files_dict[(location, date, time)])
                         )
 
                         unprocessed_traffic_file = self._get_traffic_light_status(
                             removed_vehicles_on_minor_roads, location, date, time
                         )
+                        self.test_files[(location, date, time)].append(
+                            self._get_test_df(unprocessed_traffic_file)
+                        )
+
                         # _get_processed_traffic_light_status
                         self.traffic_light_status_dict[(location, date, time)] = (
                             self._get_processed_traffic_light_status(
                                 unprocessed_traffic_file, location, date, time
                             )
                         )
-
+                        self.test_files[(location, date, time)].append(
+                            self._get_test_df(
+                                self.traffic_light_status_dict[(location, date, time)]
+                            )
+                        )
                         pbar.update(1)
         self.df.clear()
         self.df = pl.DataFrame({})
@@ -443,7 +476,7 @@ class DataLoader:
         wlc_df.write_csv(file_address)
         return file_address
 
-    def _get_density_df(self, fully_processed_file_address, location, date, time):
+    def _get_density_entry_exit_df(self, fully_processed_file_address, location, date, time):
         """
         The fully addressed file is the one that has been exploded, processed, and filtered
         which refers to the file address _remove_vehicle_on_minor_roads returned.
@@ -597,6 +630,20 @@ class DataLoader:
         traffic_df.write_csv(file_address)
         return file_address
 
+    def _get_test_df(self, file_location):
+        """
+        Returns the test DataFrame for the specified file location.
+        """
+        file_address = (
+            self.cache_dir + "/" + file_location +
+            "_test_df_" + self.geo_loader.get_hash_str() + ".csv"
+        )
+        if os.path.isfile(file_address):
+            return file_address
+        whole_df = pl.read_csv(file_location)
+        test_df = whole_df[:1000]
+        test_df.write_csv(file_address)
+        return file_address
 
 
 # Run as script
