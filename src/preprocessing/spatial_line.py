@@ -13,11 +13,12 @@ USAGE:
 
 """
 from abc import abstractmethod
-from src.common_utility.units import Units
 from shapely.ops import transform
 from shapely.geometry import LineString as LINESTRING
 from shapely.geometry import Point as POINT
 from pyproj import Transformer
+from src.common_utility.units import Units
+
 
 class SpatialLine:
 
@@ -73,7 +74,7 @@ class SpatialLine:
             raise ValueError("Point must be within valid latitude and longitude ranges.")
         # Ensure the distance is calculated in meters
         point_metric = transform(self._transformer_to_metric.transform, point)
-        return Q_(self.line.distance(point_metric), "meters")
+        return self.line.distance(point_metric) * Units.M
 
     @abstractmethod
     def __eq__(self, other):
@@ -119,4 +120,4 @@ class SpatialLine:
             raise ValueError("Point must be within valid latitude and longitude ranges.")
         # Ensure the distance is calculated in meters
         point = transform(self._transformer_to_metric.transform, point)
-        return Q_(self._from_metric.distance(point), "meters")
+        return self._from_metric.distance(point) * Units.M
