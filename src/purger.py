@@ -91,7 +91,7 @@ class CachePurger:
         """
         pattern = os.path.join(
             self.cache_directory,
-            f"*{self.specific_file}*processed_traffic_light*"
+            f"*{self.specific_file}*_traffic_light_*"
         )
         files = glob(pattern)
         for _file in tqdm(files, desc="Purging processed traffic light cache", unit="file"):
