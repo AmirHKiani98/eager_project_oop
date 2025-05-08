@@ -140,7 +140,6 @@ class DataLoader:
         Downloads a file from a specified URL and saves it to a local cache.
         """
         if self.check_file_exists_in_cache(location, date, time):
-            print(f"File already exists: {self.get_cached_filepath(location, date, time)}")
             return self.get_cached_filepath(location, date, time)
 
         headers = {
