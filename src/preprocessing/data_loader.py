@@ -12,6 +12,7 @@ Example:
     To use the `DataLoader` class, initialize it with the desired parameters:
 """
 import os
+import chardet
 from collections import defaultdict
 from multiprocessing import Pool, cpu_count
 from sklearn.linear_model import LinearRegression
@@ -196,35 +197,58 @@ class DataLoader:
                         # Use tuple instead of set as dictionary key
                         raw_data_file_path = self._download_file(location, date, time)
                         self.test_files[(location, date, time)].append(
-                            self._get_test_df(raw_data_file_path)
+                            self._get_test_df(raw_data_file_path,
+                            location,
+                            date,
+                            time,
+                            what_test="raw_data_file_path")
                         )
 
                         exploded_file_address = self._explode_dataset(
                             raw_data_file_path, location, date, time
                         )
                         self.test_files[(location, date, time)].append(
-                            self._get_test_df(exploded_file_address)
+                            self._get_test_df(exploded_file_address,
+                            location,
+                            date,
+                            time,
+                            what_test="exploded_file_address")
                         )
 
                         processed_file_address = self._process_link_cell(
                             exploded_file_address, location, date, time
                         )
                         self.test_files[(location, date, time)].append(
-                            self._get_test_df(processed_file_address)
+                            self._get_test_df(processed_file_address,
+                            location,
+                            date,
+                            time,
+                            what_test="processed_file_address")
                         )
 
-                        vehicle_on_corridor_address = self._get_vehicle_on_corridor_df(
+                        vehicle_on_corridor = self._get_vehicle_on_corridor_df(
                             processed_file_address, location, date, time
                         )
                         self.test_files[(location, date, time)].append(
-                            self._get_test_df(vehicle_on_corridor_address)
+                            self._get_test_df(vehicle_on_corridor,
+                            location, date, time,
+                            what_test="vehicle_on_corridor")
                         )
 
                         removed_vehicles_on_minor_roads = self._remove_vehicle_on_minor_roads(
-                            vehicle_on_corridor_address, location, date, time
+                            vehicle_on_corridor,
+                            location,
+                            date,
+                            time
                         )
                         self.test_files[(location, date, time)].append(
-                            self._get_test_df(removed_vehicles_on_minor_roads)
+                            self._get_test_df(
+                                removed_vehicles_on_minor_roads,
+                                location,
+                                date,
+                                time,
+                                what_test="removed_vehicles_on_minor_roads"
+                            )
                         )
 
                         self.files_dict[
@@ -237,14 +261,24 @@ class DataLoader:
                             removed_vehicles_on_minor_roads, location, date, time
                         )
                         self.test_files[(location, date, time)].append(
-                            self._get_test_df(self.density_files_dict[(location, date, time)])
+                            self._get_test_df(
+                                self.density_files_dict[(location, date, time)],
+                                location,
+                                date,
+                                time,
+                                what_test="density_entry_exit"
+                            )
                         )
 
                         unprocessed_traffic_file = self._get_traffic_light_status(
                             removed_vehicles_on_minor_roads, location, date, time
                         )
                         self.test_files[(location, date, time)].append(
-                            self._get_test_df(unprocessed_traffic_file)
+                            self._get_test_df(unprocessed_traffic_file,
+                            location,
+                            date,
+                            time,
+                            what_test="unprocessed_traffic_light_status")
                         )
 
                         # _get_processed_traffic_light_status
@@ -255,7 +289,9 @@ class DataLoader:
                         )
                         self.test_files[(location, date, time)].append(
                             self._get_test_df(
-                                self.traffic_light_status_dict[(location, date, time)]
+                                self.traffic_light_status_dict[(location, date, time)],
+                                location, date, time,
+                                what_test="processed_traffic_light_status"
                             )
                         )
                         pbar.update(1)
@@ -448,7 +484,7 @@ class DataLoader:
         wlc_df.write_csv(file_address)
         return file_address
 
-    def _remove_vehicle_on_minor_roads(self, vehicle_on_corridor_address,  location, date, time):
+    def _remove_vehicle_on_minor_roads(self, vehicle_on_corridor,  location, date, time):
         """
         Removes vehicles that are on minor roads from the DataFrame.
         """
@@ -459,7 +495,7 @@ class DataLoader:
         if os.path.isfile(file_address):
             return file_address
 
-        wlc_df = pl.read_csv(vehicle_on_corridor_address)
+        wlc_df = pl.read_csv(vehicle_on_corridor)
         groups = wlc_df.group_by("track_id")
         removed_ids = []
         length = wlc_df["track_id"].n_unique()
@@ -630,19 +666,34 @@ class DataLoader:
         traffic_df.write_csv(file_address)
         return file_address
 
-    def _get_test_df(self, file_location):
+    def _get_test_df(self, file_location, location, date, time, what_test=""):
         """
-        Returns the test DataFrame for the specified file location.
+        Returns a test DataFrame for the specified file location, handling both CSV and Parquet files.
+        Detects file format and handles list columns (for Parquet) gracefully.
         """
+        file_ext = os.path.splitext(file_location)[1].lower()
         file_address = (
-            self.cache_dir + "/" + file_location +
-            "_test_df_" + self.geo_loader.get_hash_str() + ".csv"
+            self.cache_dir + "/" + self._get_filename(location, date, time) +
+            f"_test_df_{what_test}_" + self.geo_loader.get_hash_str() +
+            (".parquet" if file_ext == ".parquet" else ".csv")
         )
         if os.path.isfile(file_address):
             return file_address
-        whole_df = pl.read_csv(file_location)
-        test_df = whole_df[:1000]
-        test_df.write_csv(file_address)
+
+        # Read depending on input format
+        if file_ext == ".parquet":
+            df = pl.read_parquet(file_location)
+            df[:self.test_row_numbers].write_parquet(file_address)
+        else:
+            try:
+                df = pl.read_csv(file_location)
+            except pl.exceptions.ComputeError:
+                with open(file_location, "rb") as f:
+                    raw_data = f.read()
+                    detected_encoding = chardet.detect(raw_data)['encoding'] or "ISO-8859-1"
+                df = pl.read_csv(file_location, encoding=detected_encoding)
+            df[:self.test_row_numbers].write_csv(file_address)
+
         return file_address
 
 
