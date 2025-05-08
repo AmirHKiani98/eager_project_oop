@@ -45,7 +45,8 @@ class DataLoader:
         geo_loader: GeoLoader,
         cache_dir=".cache",
         line_threshold=20,
-        time_interval=0.04
+        time_interval=0.04,
+        traffic_light_speed_threshold=0.5
     ):
         """
         Initializes the DataLoader with the specified parameters.
@@ -59,6 +60,7 @@ class DataLoader:
         """
         self.line_threshold = line_threshold
         self.time_interval = time_interval
+        self.traffic_light_speed_threshold = traffic_light_speed_threshold
         self.base_url = "https://open-traffic.epfl.ch/wp-content/uploads/mydownloads.php"
         self.fp_location = [fp_location] if isinstance(fp_location, str) else fp_location
         self.fp_date = [fp_date] if isinstance(fp_date, str) else fp_date
@@ -213,8 +215,14 @@ class DataLoader:
                             removed_vehicles_on_minor_roads, location, date, time
                         )
 
-                        self.traffic_light_status_dict[(location, date, time)] = self._get_traffic_light_status(
+                        unprocessed_traffic_file = self._get_traffic_light_status(
                             removed_vehicles_on_minor_roads, location, date, time
+                        )
+                        # _get_processed_traffic_light_status
+                        self.traffic_light_status_dict[(location, date, time)] = (
+                            self._get_processed_traffic_light_status(
+                                unprocessed_traffic_file, location, date, time
+                            )
                         )
 
                         pbar.update(1)
@@ -542,6 +550,31 @@ class DataLoader:
         completed_groups.write_csv(file_address)
         print(f"Traffic light status DataFrame saved to {file_address}")
         return file_address
+
+    def _get_processed_traffic_light_status(self, unprocessed_traffic_file, location, date, time):
+        """
+        Returns the traffic status for the specified location, date, and time.
+        """
+        file_address = (
+            self.cache_dir + "/" + self._get_filename(location, date, time) +
+            "_processed_traffic_light_status_" + self.geo_loader.get_hash_str() + ".csv"
+        )
+
+        if os.path.isfile(file_address):
+            return file_address
+
+        traffic_df = pl.read_csv(unprocessed_traffic_file)
+        green_or_red_column = traffic_df["avg_speed"] < self.traffic_light_speed_threshold
+        traffic_df = traffic_df.with_columns([
+            pl.when(green_or_red_column)
+            .then(0)
+            .otherwise(1)
+            .alias("traffic_light_status")
+        ])
+        traffic_df = traffic_df.select(["trajectory_time", "traffic_light_status"])
+        traffic_df.write_csv(file_address)
+        return file_address
+
 
 
 # Run as script
