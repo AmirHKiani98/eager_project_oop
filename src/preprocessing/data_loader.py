@@ -48,7 +48,7 @@ class DataLoader:
         line_threshold=20,
         time_interval=0.04,
         traffic_light_speed_threshold=0.5,
-        test_row_numbers=1000
+        test_row_numbers=10
     ):
         """
         Initializes the DataLoader with the specified parameters.
