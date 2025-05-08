@@ -12,8 +12,6 @@ class CTM(TrafficModel):
     """
     Class representing the Cell Transmission Model (CTM) for traffic flow simulation.
     """
-
-
     def predict(self, **kwargs):
         required_keys = {"time", "cell_id", "link_id", "densities", "outflows", "entry_flow"}
         if not required_keys.issubset(kwargs):
@@ -26,13 +24,14 @@ class CTM(TrafficModel):
         densities = kwargs["densities"]
         outflows = kwargs["outflows"]
         entry_flow = kwargs["entry_flow"]
+
         num_cells = len(densities)
         new_densities = densities.copy()
         new_outflows = outflows.copy()
         cell_length = self.get_cell_length(cell_id, link_id)
         dt = self.params.get_time_step(cell_length)
         for i in range(num_cells):
-            if i == 0: 
+            if i == 0:
                 inflow = entry_flow
             else:
                 inflow = min(
@@ -43,7 +42,7 @@ class CTM(TrafficModel):
                     ) * dt
                 )
 
-            if i == num_cells - 1:  # last cell
+            if i == num_cells - 1:
                 # check if there is a traffic light at the end of the segment
                 if self.is_tl(link_id):
                     # check the status of the traffic light

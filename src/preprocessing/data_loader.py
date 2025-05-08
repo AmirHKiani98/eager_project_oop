@@ -259,9 +259,10 @@ class DataLoader:
 
                         self.density_exit_entry_files_dict[
                             (location, date, time)
-                        ] = self._get_density_entry_exit_df(
+                        ] = self._write_density_entry_exit_df(
                             removed_vehicles_on_minor_roads, location, date, time
                         )
+                        self.get_density_entry_exit_dict(location, date, time)
                         self.test_files[(location, date, time)].append(
                             self._get_test_df(
                                 self.density_exit_entry_files_dict[(location, date, time)],
@@ -514,19 +515,44 @@ class DataLoader:
         wlc_df.write_csv(file_address)
         return file_address
 
-    def _get_density_entry_exit_df(self, fully_processed_file_address, location, date, time):
+    def get_density_entry_exist_df(self, fully_processed_file_address):
         """
-        The fully addressed file is the one that has been exploded, processed, and filtered
-        which refers to the file address _remove_vehicle_on_minor_roads returned.
+        Computes vehicle entry, exit, and density statistics for each cell and time interval
+        from a processed trajectory CSV file.
+
+        This method reads a CSV file containing vehicle trajectory data, groups the data by
+        link, cell, and time, and calculates:
+          - The list of vehicle IDs present in each cell at each time interval.
+          - The number of vehicles entering and exiting each cell at each time interval.
+          - The number of vehicles present ("on_cell") in each cell at each time interval.
+          - The normalized density of vehicles in each cell, based on geometric information.
+
+        Missing timestamps for each (link_id, cell_id) group are filled to ensure continuity.
+        Entry and exit events are determined by comparing vehicle lists between consecutive
+        time intervals.
+
+        Args:
+            fully_processed_file_address (str): Path to the CSV file containing fully processed
+            trajectory data.
+
+        Returns:
+            pl.DataFrame: A Polars DataFrame with the following columns:
+            - link_id: Identifier for the road link.
+            - cell_id: Identifier for the cell within the link.
+            - trajectory_time: Timestamp of the observation.
+            - vehicle_ids: List of vehicle IDs present in the cell at the given time.
+            - entries: List of vehicle IDs that entered the cell at this time.
+            - exits: List of vehicle IDs that exited the cell at this time.
+            - entry_count: Number of vehicles that entered the cell at this time.
+            - exit_count: Number of vehicles that exited the cell at this time.
+            - on_cell: Number of vehicles present in the cell at this time.
+            - normalized_on_cell: Density of vehicles in the cell, normalized by cell geometry.
+
+        Note:
+            Requires `self.time_interval` and `self.geo_loader` to be defined in the class.
+            Assumes the existence of a `fill_missing_timestamps` function and that
+            `self.geo_loader.links` provides geometric information for normalization.
         """
-        file_address = (
-            self.cache_dir + "/" + self._get_filename(location, date, time)
-            + "_density_entry_exit_" + self.geo_loader.get_hash_str() + ".parquet"
-        )
-
-        if os.path.isfile(file_address):
-            return file_address
-
         wlc_df = pl.read_csv(fully_processed_file_address)
         min_time = wlc_df["trajectory_time"].min()
         max_time = wlc_df["trajectory_time"].max()
@@ -542,8 +568,8 @@ class DataLoader:
                 group,
                 "trajectory_time",
                 self.time_interval,
-                min_time,
-                max_time
+                min_time, # type: ignore # type: ignore
+                max_time # type: ignore # type: ignore
             )
             group = group.with_columns(
                 pl.col("vehicle_ids").fill_null([])  # sets default to empty list
@@ -570,8 +596,34 @@ class DataLoader:
             complete_counts = pl.concat([complete_counts, group])
         complete_counts = complete_counts.with_columns([
             pl.col("entries").list.len().alias("entry_count"),
-            pl.col("exits").list.len().alias("exit_count")
+            pl.col("exits").list.len().alias("exit_count"),
+            pl.col("vehicle_ids").list.len().alias("on_cell"),
         ])
+        complete_counts = complete_counts.with_columns([
+            pl.struct(["link_id", "cell_id", "on_cell"]).map_elements(
+            lambda row: (
+                row["on_cell"] /
+                self.geo_loader.links[row["link_id"]].get_cell(row["cell_id"])
+            ),
+            return_dtype=pl.Float64
+            ).alias("normalized_on_cell")
+        ])
+        return complete_counts
+
+    def _write_density_entry_exit_df(self, fully_processed_file_address, location, date, time):
+        """
+        The fully addressed file is the one that has been exploded, processed, and filtered
+        which refers to the file address _remove_vehicle_on_minor_roads returned.
+        """
+        file_address = (
+            self.cache_dir + "/" + self._get_filename(location, date, time)
+            + "_density_entry_exit_" + self.geo_loader.get_hash_str() + ".parquet"
+        )
+
+        if os.path.isfile(file_address):
+            return file_address
+
+        complete_counts = self.get_density_entry_exist_df(fully_processed_file_address)
         complete_counts.write_parquet(file_address)
         print(f"Density DataFrame saved to {file_address}")
         return file_address
@@ -661,8 +713,8 @@ class DataLoader:
                 group,
                 "trajectory_time",
                 self.time_interval,
-                min_time,
-                max_time
+                min_time, # type: ignore
+                max_time # type: ignore
             )
             group = group.with_columns(
                 pl.col("all_veh_avg_speed").fill_null(0.0)
@@ -736,11 +788,18 @@ class DataLoader:
             raise ValueError(f"File not found for {location}, {date}, {time}")
 
         df = pl.read_csv(file_address)
-        tl_dict = {row["trajectory_time"]: row["traffic_light_status"]
-                    for row in df.iter_rows(named=True)}
+        tl_dict = {}
+        for row in df.iter_rows(named=True):
+            trajectory_time = row["trajectory_time"]
+            traffic_light_status = row["traffic_light_status"]
+            loc_link_id = row["loc_link_id"]
+            if loc_link_id not in tl_dict:
+                tl_dict[loc_link_id] = {}
+            tl_dict[loc_link_id][trajectory_time] = traffic_light_status
+
         return tl_dict
 
-    def get_density_exist_entry_df(self, location, date, time):
+    def get_density_entry_exit_dict(self, location, date, time):
         """
         Returns the density entry DataFrame for the specified location, date, and time.
         """
@@ -749,7 +808,17 @@ class DataLoader:
             raise ValueError(f"File not found for {location}, {date}, {time}")
 
         df = pl.read_parquet(file_address)
-        return df
+        print("df columns:", df.columns)
+        result = (
+            df.sort(["link_id", "trajectory_time", "cell_id"])  # Ensure consistent ordering
+            .group_by(["link_id", "trajectory_time"])
+            .agg([
+                pl.col("density").alias("density_vector")  # gives List[f64] per group
+            ])
+        )
+        print(f"Results: {result}")
+        return result
+
 
     def activate_tl_status_dict(self, location, date, time):
         """
@@ -761,12 +830,7 @@ class DataLoader:
         """
         Returns the traffic light status for the specified time and link ID.
         """
-        
-
-        df = pl.read_csv(file_address)
-        tl_dict = {row["trajectory_time"]: row["traffic_light_status"]
-                    for row in df.iter_rows(named=True)}
-        return tl_dict.get(time, None)
+        return self.traffic_light_status_dict[link_id][time]
 
 # Run as script
 if __name__ == "__main__":

@@ -156,3 +156,9 @@ class Link(SpatialLine):
         Returns the length of the specified cell in the link.
         """
         return self.cells[cell_id].length_meters    
+
+    def get_cell(self, cell_id):
+        """
+        Returns the specified cell in the link.
+        """
+        return self.cells[cell_id]
