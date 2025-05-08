@@ -84,8 +84,10 @@ class DataLoader:
         self.density_exit_entry_files_dict = {}
         self.traffic_light_status_dict = {}
         self.test_files = defaultdict(list)
-
         self.traffic_light_status_dict = {}
+        self.cell_vector_density_dict = {}
+        self.cell_entries_dict = {}
+        self.cell_exits_dict = {}
         self.geo_loader = geo_loader
         self.df = pl.DataFrame({})
         self._validate_inputs()
@@ -271,7 +273,7 @@ class DataLoader:
                         ] = self._write_density_entry_exit_df(
                             removed_vehicles_on_minor_roads, location, date, time
                         )
-                        self.get_density_entry_exit_dict(location, date, time)
+
                         self.test_files[(location, date, time)].append(
                             self._get_test_df(
                                 self.density_exit_entry_files_dict[(location, date, time)],
@@ -832,14 +834,29 @@ class DataLoader:
 
         df = pl.read_parquet(file_address)
         result = (
-            df.sort(["link_id", "trajectory_time", "cell_id"])  # Ensure consistent ordering
+            df.sort(["link_id", "trajectory_time", "cell_id"])
             .group_by(["link_id", "trajectory_time"])
             .agg([
-                pl.col("density").alias("density_vector")  # gives List[f64] per group
+                pl.col("density").alias("density_vector")
             ])
         )
-        return result
+        cell_vector_density_dict = {}
+        for row in result.iter_rows(named=True):
+            if row["link_id"] not in cell_vector_density_dict:
+                cell_vector_density_dict[row["link_id"]] = {}
+            cell_vector_density_dict[row["link_id"]][row["trajectory_time"]] = row["density_vector"]
 
+        entries_dict = {}
+        exits_dict = {}
+        for row in df.iter_rows(named=True):
+            if row["link_id"] not in entries_dict:
+                entries_dict[row["link_id"]] = {}
+            if row["link_id"] not in exits_dict:
+                exits_dict[row["link_id"]] = {}
+            entries_dict[row["link_id"]][row["trajectory_time"]] = row["entry_count"]
+            exits_dict[row["link_id"]][row["trajectory_time"]] = row["exit_count"]
+
+        return cell_vector_density_dict, entries_dict, exits_dict
 
     def activate_tl_status_dict(self, location, date, time):
         """
@@ -847,12 +864,23 @@ class DataLoader:
         """
         self.traffic_light_status_dict = self.get_traffic_light_status_dict(location, date, time)
 
+    def activate_density_entry_exit_dict(self, location, date, time):
+        """
+        Returns the density entry DataFrame for the specified location, date, and time.
+        """
+        self.cell_vector_density_dict, self.cell_entries_dict, self.cell_exits_dict = self.get_density_entry_exit_dict(location, date, time)
+
     def tl_status(self, time, link_id):
         """
         Returns the traffic light status for the specified time and link ID.
         """
         return self.traffic_light_status_dict[link_id][time]
 
+    def get_link_density(self, time, link_id):
+        """
+        Returns the density for the specified time and link ID.
+        """
+        return self.cell_vector_density_dict[link_id][time]
 
     def prepare(self, location, date, time):
         """

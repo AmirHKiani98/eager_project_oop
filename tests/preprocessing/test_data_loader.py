@@ -98,6 +98,7 @@ def test_density_exit_entered(sample_fully_modified_dataframe_path, simple_geo_l
     link2_cell1 = result.filter(
         (pl.col("link_id") == 2) & (pl.col("cell_id") == 1)
     )
+
     # Check if the time intervals for all rows/links are consistent
     pl.testing.assert_series_equal(
         link5_cell2["trajectory_time"], link2_cell1["trajectory_time"], check_dtypes=True,
