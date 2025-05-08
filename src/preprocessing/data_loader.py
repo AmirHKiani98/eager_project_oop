@@ -669,7 +669,7 @@ class DataLoader:
         completed_groups.write_csv(file_address)
         print(f"Traffic light status DataFrame saved to {file_address}")
         return file_address
-    
+
     def _get_processed_traffic_light_status(self, unprocessed_traffic_file, location, date, time):
         """
         Returns the traffic status for the specified location, date, and time.
@@ -721,8 +721,20 @@ class DataLoader:
                     detected_encoding = chardet.detect(raw_data)['encoding'] or "ISO-8859-1"
                 df = pl.read_csv(file_location, encoding=detected_encoding)
             df[:self.test_row_numbers].write_csv(file_address)
-
         return file_address
+
+    def get_traffic_light_status_dict(self, location, date, time):
+        """
+        Returns the traffic light status dictionary for the specified location, date, and time.
+        """
+        file_address = self.traffic_light_status_dict.get((location, date, time), None)
+        if file_address is None:
+            raise ValueError(f"File not found for {location}, {date}, {time}")
+        
+        df = pl.read_csv(file_address)
+        tl_dict = {row["trajectory_time"]: row["traffic_light_status"]
+                    for row in df.iter_rows(named=True)}
+        return tl_dict
 
 
 # Run as script
