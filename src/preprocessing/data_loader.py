@@ -67,6 +67,7 @@ class DataLoader:
         os.makedirs(self.cache_dir, exist_ok=True)
         self.files_dict = {}
         self.density_files_dict = {}
+        self.traffic_light_status_dict = {}
         self.geo_loader = geo_loader
         self.df = pl.DataFrame({})
         self._validate_inputs()
@@ -212,7 +213,7 @@ class DataLoader:
                             removed_vehicles_on_minor_roads, location, date, time
                         )
 
-                        self._get_traffic_light_status(
+                        self.traffic_light_status_dict[(location, date, time)] = self._get_traffic_light_status(
                             removed_vehicles_on_minor_roads, location, date, time
                         )
 
@@ -419,7 +420,7 @@ class DataLoader:
         """
         file_address = (
             self.cache_dir + "/" + self._get_filename(location, date, time)
-            + "_density_" + self.geo_loader.get_hash_str() + ".parquet"
+            + "_density_entry_exit_" + self.geo_loader.get_hash_str() + ".parquet"
         )
 
         if os.path.isfile(file_address):
@@ -436,7 +437,13 @@ class DataLoader:
         groups = counts.group_by(["link_id", "cell_id"])
         num_groups = wlc_df.select(["link_id", "cell_id"]).unique().height
         for _, group in tqdm(groups, total=num_groups, desc="Counting vehicles"):
-            group = fill_missing_timestamps(group, min_time, max_time, self.time_interval)
+            group = fill_missing_timestamps(
+                group,
+                "trajectory_time",
+                self.time_interval,
+                min_time,
+                max_time
+            )
             group = group.with_columns(
                 pl.col("vehicle_ids").fill_null([])  # sets default to empty list
             )
@@ -480,7 +487,7 @@ class DataLoader:
             return file_address
 
         # Traffic light locations
-        wlc_df = pl.read_csv(fully_processed_file_address)[:1000]
+        wlc_df = pl.read_csv(fully_processed_file_address)
 
         points = [
             POINT(row["lon"], row["lat"])
@@ -515,20 +522,25 @@ class DataLoader:
             pl.col("speed").mean().alias("avg_speed")
         ])
         completed_groups = pl.DataFrame({})
-        groups = groups.group_by(["loc_link_id", "trajectory_time"])
+        groups = groups.group_by(["loc_link_id"])
         num_groups = wlc_df.select(["loc_link_id"]).unique().height
         min_time = wlc_df["trajectory_time"].min()
         max_time = wlc_df["trajectory_time"].max()
-        # for _, group in tqdm(groups, total=num_groups, desc="Get the traffic light status"):
-        #     group = group.sort("trajectory_time")
-            
-        #     group = group.with_columns(
-        #         pl.col("avg_speed").fill_null(0.0)  # sets default to empty list
-        #     )
-        #     completed_groups = pl.concat([completed_groups, group])
-        # print(completed_groups)
-        exit()
 
+        for _, group in tqdm(groups, total=num_groups, desc="Extending the traffic data"):
+            group = fill_missing_timestamps(
+                group,
+                "trajectory_time",
+                self.time_interval,
+                min_time,
+                max_time
+            )
+            group = group.with_columns(
+                pl.col("avg_speed").fill_null(0.0)
+            )
+            completed_groups = pl.concat([completed_groups, group])
+        completed_groups.write_csv(file_address)
+        print(f"Traffic light status DataFrame saved to {file_address}")
         return file_address
 
 
@@ -538,12 +550,12 @@ if __name__ == "__main__":
     intersection_locations = (
         pl.read_csv(".cache/traffic_lights.csv")
         .to_numpy()
-        .tolist()  # It's format is [lat, lon]
+        .tolist()   # It's format is [lat, lon]
     )
     intersection_locations = [
         POINT(loc[1], loc[0])
-        for i, loc in enumerate(intersection_locations)
-    ]
+        for loc in intersection_locations
+    ]  # It's format is [lat, lon]
     model_geo_loader = GeoLoader(
         locations=intersection_locations,
         cell_length=20.0
