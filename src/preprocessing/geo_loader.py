@@ -74,10 +74,9 @@ class GeoLoader:
         Load links from the data loader.
         """
         for index in range(len(self.locations) - 1):
-            start_point = self.locations[index].location
-            end_point = self.locations[index + 1].location
+            start_point = self.locations[index]
+            end_point = self.locations[index + 1]
             link = Link(start_point, end_point)
-            self.locations[index].set_link(link)
             self.links[link.link_id] = link
 
     def _load_cells_by_length(self):
@@ -167,7 +166,7 @@ class GeoLoader:
             "start_lon": link.get_from().x, "start_lat": link.get_from().y,
              "end_lon": link.get_to().x, "end_lat": link.get_to().y, 
              "length_meters": link.length_meters}
-            for link in self.links
+            for link in self.links.values()
         ]
         links_df = pl.DataFrame(links_data)
         links_df.write_csv(f".cache/links_{hash_str}.csv")
@@ -190,7 +189,7 @@ class GeoLoader:
 
         # Save metadata to a separate file
         metadata = {
-            "intersection_count": len(self.locations),
+            "locations_count": len(self.locations),
             "cell_length": self.cell_length,
             "number_of_cells": self.number_of_cells,
         }
@@ -260,6 +259,7 @@ class GeoLoader:
                 closest_link = link
         min_distance_cell = float("inf")
         closest_cell = None
+        # TODO we might have found nothing (closest_link is None). What about that?
         for _, cell in closest_link.cells.items():
             distance = cell.get_distance(point)
             if distance < min_distance_cell:
@@ -304,4 +304,3 @@ class GeoLoader:
                 min_distance = distance
                 closest_location = link
         return (closest_location, min_distance)
-
