@@ -603,10 +603,10 @@ class DataLoader:
             pl.struct(["link_id", "cell_id", "on_cell"]).map_elements(
             lambda row: (
                 row["on_cell"] /
-                self.geo_loader.links[row["link_id"]].get_cell(row["cell_id"])
+                self.geo_loader.links[row["link_id"]].get_cell_length(row["cell_id"])
             ),
             return_dtype=pl.Float64
-            ).alias("normalized_on_cell")
+            ).alias("density")
         ])
         return complete_counts
 

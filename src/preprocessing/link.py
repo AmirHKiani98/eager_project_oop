@@ -10,6 +10,7 @@ Dependencies:
     - shapely.geometry.Point: Used to define the start and end points of the link.
 """
 import math
+from typing import Optional
 from shapely.geometry import Point as POINT
 from shapely.ops import substring
 from src.preprocessing.spatial_line import SpatialLine
@@ -20,7 +21,7 @@ class Link(SpatialLine):
     Inherits from the SpatialLine class.
     """
     Identification = 0
-    def __init__(self, start_point: POINT, end_point: POINT, link_id: int = None, tl: bool = True):
+    def __init__(self, start_point: POINT, end_point: POINT, link_id: Optional[int] = None, tl: bool = True):
         """
         Initializes a Link object.
 
@@ -155,7 +156,7 @@ class Link(SpatialLine):
         """
         Returns the length of the specified cell in the link.
         """
-        return self.cells[cell_id].length_meters    
+        return self.cells[cell_id].length_meters
 
     def get_cell(self, cell_id):
         """

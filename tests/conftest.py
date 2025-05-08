@@ -65,3 +65,14 @@ def sample_test_pneuma_dataframe_path():
             example data with timestamps and corresponding traffic values.
     """
     return "tests/assets/test_pneuma_df.csv"
+
+
+@pytest.fixture
+def sample_fully_modified_dataframe_path():
+    """
+    Creates a sample Polars DataFrame with 'timestamp' and 'traffic' columns.
+    Returns:
+        str: The path to a CSV file containing
+            example data with timestamps and corresponding traffic values.
+    """
+    return "tests/assets/test_fully_modified_data_df.csv"
