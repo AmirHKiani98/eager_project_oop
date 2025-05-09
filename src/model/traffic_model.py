@@ -21,12 +21,10 @@ Dependencies:
 """
 import math
 from abc import abstractmethod
-from functools import partial
 from multiprocessing import Pool, cpu_count
 from more_itertools import chunked
 from tqdm import tqdm
 from src.preprocessing.data_loader import DataLoader
-from src.model.utility import run_wrapper
 class TrafficModel:
     """
     TrafficModel is an abstract base class that represents a traffic simulation model. 
@@ -189,5 +187,3 @@ class TrafficModel:
         Abstract method to compute flow.
         """
         raise NotImplementedError("Subclasses must implement this method.")
-
-
