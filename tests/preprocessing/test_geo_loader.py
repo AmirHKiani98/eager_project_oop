@@ -9,7 +9,17 @@ Functions:
         Ensures that the function correctly identifies the closest cell in a link
         to a given point.
 """
+import logging
+from rich.logging import RichHandler
 from shapely.geometry import Point as POINT
+from src.preprocessing.geo_loader import GeoLoader
+logging.basicConfig(
+    level="DEBUG",
+    format="%(message)s",
+    datefmt="[%X]",
+    handlers=[RichHandler(rich_tracebacks=True)]
+)
+logger = logging.getLogger("rich")
 def test_find_closest_link_cell(simple_geo_loader):
     """
     Test the find_closest_link_cell function.
@@ -33,3 +43,14 @@ def test_find_closest_link_cell(simple_geo_loader):
     assert closest_cell3.cell_id == 1
     assert closest_cell4.cell_id == len(closeset_link4.cells)
     # Check the result
+
+
+def test_length_of_cells(corridor_geo_information):
+    geo_loader = GeoLoader(
+        locations=corridor_geo_information,
+        cell_length=10
+    )
+    logger.info(f"Length of cells: {len(geo_loader.cells)}")
+    logger.info(f"Length of links: {len(geo_loader.links)}")
+    
+    assert False

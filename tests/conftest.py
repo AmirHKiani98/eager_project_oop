@@ -44,13 +44,12 @@ def bypassed_data_loader():
     return DataLoader.__new__(DataLoader)
 
 @pytest.fixture
-def simple_geo_loader():
+def corridor_geo_information():
     """
-    Creates and returns a GeoLoader instance initialized with two POINT locations
-    and a cell length of 20.0.
+    Creates and returns a list of POINT objects representing intersection locations.
 
     Returns:
-        GeoLoader: An instance of GeoLoader with predefined locations and cell length.
+        list: A list of POINT objects representing intersection locations.
     """
     # Example usage
     intersection_locations = (
@@ -62,8 +61,20 @@ def simple_geo_loader():
         POINT(loc[1], loc[0])
         for loc in intersection_locations
     ]  # It's format is [lat, lon]
+    return intersection_locations
+
+@pytest.fixture
+def simple_geo_loader(corridor_geo_information): # pylint: disable=redefined-outer-name
+    """
+    Creates and returns a GeoLoader instance initialized with two POINT locations
+    and a cell length of 20.0.
+
+    Returns:
+        GeoLoader: An instance of GeoLoader with predefined locations and cell length.
+    """
+
     model_geo_loader = GeoLoader(
-        locations=intersection_locations,
+        locations=corridor_geo_information,
         cell_length=20.0
     )
     return model_geo_loader

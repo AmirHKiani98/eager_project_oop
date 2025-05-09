@@ -40,7 +40,7 @@ def main():
       the CSV file.
     """
     logging.basicConfig(level=logging.INFO)
-    
+
     params = Parameters(
         vehicle_length=5,
         free_flow_speed=50,
