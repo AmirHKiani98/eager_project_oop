@@ -6,9 +6,8 @@ It is designed to be used in conjunction with the TrafficModel class and provide
 updating cell status based on traffic density, outflows, and entry flow.
 """
 
-import math
-import numpy as np
 import logging
+import numpy as np
 from rich.logging import RichHandler
 from src.model.traffic_model import TrafficModel
 from src.common_utility.units import Units
@@ -26,8 +25,7 @@ class CTM(TrafficModel):
     Class representing the Cell Transmission Model (CTM) for traffic flow simulation.
     """
 
-    def compute_flow(self, prev_cell_occupancy, current_cell_occupancy,
-                       cell_length, flow_capacity):
+    def compute_flow(self, **kwargs):
         """
         Computes the inflow into a cell based on the previous cell's occupancy 
         and the current cell's occupancy. The inflow is limited by the maximum 
@@ -38,6 +36,18 @@ class CTM(TrafficModel):
         returns:
             inflow: The number of vehicles that can flow into the cell. Type: Units.Quantity
         """
+        required_keys = {
+            "prev_cell_occupancy", "current_cell_occupancy",
+                       "cell_length", "flow_capacity"
+        }
+        if not required_keys.issubset(kwargs):
+            missing = required_keys - kwargs.keys()
+            raise ValueError(f"Missing required parameters for CTM.compute_flow(): {missing}")
+        prev_cell_occupancy = kwargs["prev_cell_occupancy"]
+        current_cell_occupancy = kwargs["current_cell_occupancy"]
+        cell_length = kwargs["cell_length"]
+        flow_capacity = kwargs["flow_capacity"]
+        
         cell_capacity = self.params.get_cell_capacity(cell_length)
         if isinstance(cell_capacity, Units.Quantity):
             cell_capacity = int(cell_capacity.to(1).value)
@@ -90,16 +100,20 @@ class CTM(TrafficModel):
                 inflow = first_cell_inflow
             else:
                 inflow = self.compute_flow(
-                    cell_occupancies[i-1], cell_occupancies[i],
-                    cell_length, self.params.flow_capacity
+                    prev_cell_occupancy=cell_occupancies[i-1],
+                    current_cell_occupancy=cell_occupancies[i],
+                    cell_length=cell_length,
+                    flow_capacity=self.params.flow_capacity
                 )
 
             if i == len(cell_occupancies) - 1:
                 outflow = min(self.params.get_max_flow(), cell_occupancies[i])
             else:
                 outflow = self.compute_flow(
-                    cell_occupancies[i], cell_occupancies[i+1],
-                    cell_length, self.params.flow_capacity
+                    prev_cell_occupancy=cell_occupancies[i],
+                    current_cell_occupancy=cell_occupancies[i+1],
+                    cell_length=cell_length,
+                    flow_capacity=self.params.flow_capacity
                 )
             if isinstance(inflow, Units.Quantity):
                 inflow = int(inflow.to(1).value)
