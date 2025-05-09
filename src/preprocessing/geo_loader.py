@@ -260,7 +260,7 @@ class GeoLoader:
 
     def find_closest_link_and_cell(
         self, point: POINT
-    ) -> tuple[Optional[Cell], float, Optional[Link], float]:
+    ) -> tuple[Optional[Cell], Units.Quantity, Optional[Link], Units.Quantity]:
         """
         Finds the closest link to a given point.
 
@@ -268,25 +268,28 @@ class GeoLoader:
             point (POINT): The point to find the closest link to.
 
         Returns:
-            tuple[Optional[Cell], float, Optional[Link], float]: 
+            tuple[Optional[Cell], Units.Quantity, Optional[Link], Units.Quantity]: 
             The closest cell and its distance, and the closest link 
             and its distance.
         """
         min_distance_link = float("inf")
         closest_link = None
         for _, link in self.links.items():
+            if not isinstance(link, Link):
+                raise TypeError("Link must be of type Link")
             distance = link.get_distance(point)
             if distance < min_distance_link:
                 min_distance_link = distance
                 closest_link = link
-        
+
         if closest_link is None:
             raise ValueError("No link found for the given point.")
         min_distance_cell = float("inf")
         closest_cell = None
 
         for _, cell in closest_link.cells.items():
-            
+            if not isinstance(cell, Cell):
+                raise TypeError("Cell must be of type Cell")
             distance = cell.get_distance(point)
             if distance < min_distance_cell:
                 min_distance_cell = distance

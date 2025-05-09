@@ -96,7 +96,6 @@ class DataLoader:
         self.first_cell_inflow_dict = {}
         self.cell_exits_dict = {}
         self.tasks = {}
-        
         self.df = pl.DataFrame({})
         self._validate_inputs()
         self._download_all_files()
@@ -235,7 +234,6 @@ class DataLoader:
                             time,
                             what_test="exploded_file_address")
                         )
-
                         processed_file_address = self._process_link_cell(
                             exploded_file_address, location, date, time
                         )
@@ -246,7 +244,6 @@ class DataLoader:
                             time,
                             what_test="processed_file_address")
                         )
-
                         vehicle_on_corridor = self._get_vehicle_on_corridor_df(
                             processed_file_address, location, date, time
                         )
@@ -255,7 +252,6 @@ class DataLoader:
                             location, date, time,
                             what_test="vehicle_on_corridor")
                         )
-
                         removed_vehicles_on_minor_roads = self._remove_vehicle_on_minor_roads(
                             vehicle_on_corridor,
                             location,
@@ -271,7 +267,6 @@ class DataLoader:
                                 what_test="removed_vehicles_on_minor_roads"
                             )
                         )
-
                         self.files_dict[
                             (location, date, time)
                         ] = removed_vehicles_on_minor_roads
@@ -281,7 +276,6 @@ class DataLoader:
                         ] = self._write_density_entry_exit_df(
                             removed_vehicles_on_minor_roads, location, date, time
                         )
-
                         self.test_files[(location, date, time)].append(
                             self._get_test_df(
                                 self.density_exit_entry_files_dict[(location, date, time)],
@@ -291,7 +285,6 @@ class DataLoader:
                                 what_test="density_entry_exit"
                             )
                         )
-
                         unprocessed_traffic_file = self._get_traffic_light_status(
                             removed_vehicles_on_minor_roads, location, date, time
                         )
@@ -302,7 +295,6 @@ class DataLoader:
                             time,
                             what_test="unprocessed_traffic_light_status")
                         )
-
                         # _get_processed_traffic_light_status
                         self.traffic_light_status_dict[(location, date, time)] = (
                             self._get_processed_traffic_light_status(
@@ -334,7 +326,6 @@ class DataLoader:
                 f"  Start: {start_preview}\n"
                 f"  End:   {end_preview}"
             )
-            # return pl.DataFrame({})  # Skip bad line
 
         data = defaultdict(list)
         for jndex, item in enumerate(trajectory):
@@ -356,7 +347,6 @@ class DataLoader:
                 data["traveled_d"].append(traveled_d)
                 data["avg_speed"].append(avg_speed)
         return pl.DataFrame(data)
-
 
     def prepare_explode_dataset(self, raw_data_location):
         """
@@ -481,7 +471,6 @@ class DataLoader:
             cell_ids.append(cell.cell_id)
             cell_distances.append(cell_distance)
 
-        # Add columns to the DataFrame
         raw_df = raw_df.with_columns([
             pl.Series("link_id", link_ids),
             pl.Series("distance_from_link", link_distances),
@@ -500,13 +489,12 @@ class DataLoader:
         )
         if os.path.isfile(file_address):
             return file_address
-        # Loading the dataframe with link and cell (wlc_df)
         wlc_df = pl.read_csv(with_link_cell_address)
         wlc_df = wlc_df.filter(pl.col("distance_from_link") < self.line_threshold)
         wlc_df.write_csv(file_address)
         return file_address
 
-    def _remove_vehicle_on_minor_roads(self, vehicle_on_corridor,  location, date, time):
+    def _remove_vehicle_on_minor_roads(self, vehicle_on_corridor, location, date, time):
         """
         Removes vehicles that are on minor roads from the DataFrame.
         """
