@@ -18,22 +18,23 @@ def test_ctm_model(bypassed_data_loader, simple_traffic_params):
     cell_occupancies = [27, 87, 3]
     first_cell_inflow = (1440 * Units.PER_HR) * model.params.dt
     # 1440 * 1/60 = 24 veh/min
-    new_cell_occupancies, _ = model.run(
+    new_cell_occupancies, _ = model.predict(
         cell_occupancies=cell_occupancies,
         first_cell_inflow=first_cell_inflow,
         cell_length=cell_length,
     )
-    # Adjust the expected value based on the actual output of model.run
+    # Adjust the expected value based on the actual output of model.predict
     assert new_cell_occupancies == [36, 75, 15]
 
-    new_cell_occupancies, _ = model.run(
+    new_cell_occupancies, _ = model.predict(
         cell_occupancies=new_cell_occupancies,
         first_cell_inflow=first_cell_inflow,
         cell_length=cell_length,
+
     )
     assert new_cell_occupancies == [33, 75, 15]
 
-    new_cell_occupancies, _ = model.run(
+    new_cell_occupancies, _ = model.predict(
         cell_occupancies=new_cell_occupancies,
         first_cell_inflow=first_cell_inflow,
         cell_length=cell_length,
