@@ -25,7 +25,9 @@ from tqdm import tqdm
 import polars as pl
 from rich.logging import RichHandler
 from src.preprocessing.geo_loader import GeoLoader
+from src.model.params import Parameters
 from src.preprocessing.utility import fill_missing_timestamps
+from src.common_utility.units import Units
 logging.basicConfig(
     level="DEBUG",
     format="%(message)s",
@@ -54,6 +56,7 @@ class DataLoader:
         fp_date: str | list,
         fp_time: str | list,
         geo_loader: GeoLoader,
+        params: Parameters,
         cache_dir=".cache",
         line_threshold=20,
         time_interval=0.04,
@@ -74,12 +77,15 @@ class DataLoader:
         self.time_interval = time_interval
         self.traffic_light_speed_threshold = traffic_light_speed_threshold
         self.test_row_numbers = test_row_numbers
+        self.params = params
+        self.geo_loader = geo_loader
         self.base_url = "https://open-traffic.epfl.ch/wp-content/uploads/mydownloads.php"
         self.fp_location = [fp_location] if isinstance(fp_location, str) else fp_location
         self.fp_date = [fp_date] if isinstance(fp_date, str) else fp_date
         self.fp_time = [fp_time] if isinstance(fp_time, str) else fp_time
         self.cache_dir = cache_dir
         os.makedirs(self.cache_dir, exist_ok=True)
+        # Dicts:
         self.files_dict = {}
         self.density_exit_entry_files_dict = {}
         self.traffic_light_status_dict = {}
@@ -87,8 +93,10 @@ class DataLoader:
         self.traffic_light_status_dict = {}
         self.cell_vector_occupancy_or_density_dict = {}
         self.cell_entries_dict = {}
+        self.first_cell_inflow_dict = {}
         self.cell_exits_dict = {}
-        self.geo_loader = geo_loader
+        self.tasks = {}
+        
         self.df = pl.DataFrame({})
         self._validate_inputs()
         self._download_all_files()
@@ -863,7 +871,7 @@ class DataLoader:
                 entries_dict[row["link_id"]][row["cell_id"]] = {}
             if row["cell_id"] not in exits_dict[row["link_id"]]:
                 exits_dict[row["link_id"]][row["cell_id"]] = {}
-            
+
             entries_dict[row["link_id"]][row["cell_id"]][row["trajectory_time"]] = (
                 row["entry_count"]
             )
@@ -916,9 +924,89 @@ class DataLoader:
         """
         return True
 
+    def get_first_cell_inflow_dict(self, location, date, time):
+        """
+        Returns the first self inflow for the specified location, date, and time.
+        """
+        file_address = self.density_exit_entry_files_dict.get((location, date, time), None)
+        if file_address is None:
+            raise ValueError(f"File not found for {location}, {date}, {time}")
+        df = pl.read_parquet(file_address).filter(
+            pl.col("cell_id") == 1
+        )
+        df = df.sort(["link_id", "trajectory_time"])
+        first_cell_inflow_dict = {}
+        groups = df.group_by(["link_id"])
+        num_groups = df.select(["link_id"]).unique().height
+        for link_id, group in tqdm(groups, total=num_groups, desc="Finding first self inflow"):
+            link_first_cell_inflow_dict = {
+                t: group.filter(
+                    (pl.col("trajectory_time") >= t) &
+                    (pl.col("trajectory_time") < t + self.params.dt.to(Units.S).value)
+                )["entry_count"].sum()
+                for t in group["trajectory_time"]
+            }
+            first_cell_inflow_dict[link_id] = link_first_cell_inflow_dict
+        return first_cell_inflow_dict
+
+    def activate_first_cell_inflow_dict(self, location, date, time):
+        """
+        Returns the first cell inflow dictionary for the specified location, date, and time.
+        """
+        self.first_cell_inflow_dict = self.get_first_cell_inflow_dict(location, date, time)
+
+    def set_params(self, params: Parameters):
+        """
+        Set the parameters for the traffic model.
+        
+        Args:
+            params (Parameters): Parameters object containing traffic model parameters.
+        """
+        self.params = params
+
+
     def prepare(self, location, date, time):
         """
         Prepares the dictionaries and the df for further processing.
         """
         self.activate_tl_status_dict(location, date, time)
         self.activate_occupancy_density_entry_exit_dict(location, date, time, coi="on_cell")
+        self.activate_first_cell_inflow_dict(location, date, time)
+
+
+    def destruct(self):
+        """
+        Clears the dictionaries and the df.
+        """
+        self.cell_vector_occupancy_or_density_dict.clear()
+        self.first_cell_inflow_dict.clear()
+        self.traffic_light_status_dict.clear()
+        self.cell_entries_dict.clear()
+        self.cell_exits_dict.clear()
+        self.df = pl.DataFrame({})
+
+    def prepare_ctm_tasks(self, location, date, time):
+
+        """
+        Prepares the dictionaries and the df for further processing.
+        """
+        self.prepare(
+            location=location,
+            date=date,
+            time=time
+        )
+        tasks = [] # ["cell_occupancies list", "first_cell_inflow", "link_id", "is_tl", "tl_status"]
+        for link_id, cell_dict in self.cell_vector_occupancy_or_density_dict.items():
+            for trajectory_time, occupancy_list in cell_dict.items():
+                tasks.append(
+                    [
+                        occupancy_list,
+                        self.first_cell_inflow_dict[link_id][trajectory_time],
+                        link_id,
+                        self.is_tl(link_id),
+                        self.tl_status(trajectory_time, link_id)
+                    ]
+                )
+        self.tasks = tasks
+        self.destruct()
+

@@ -48,7 +48,7 @@ class CTM(TrafficModel):
         cell_length = kwargs["cell_length"]
         flow_capacity = kwargs["flow_capacity"]
 
-        cell_capacity = self.params.get_cell_capacity(cell_length)
+        cell_capacity = self.dl.params.get_cell_capacity(cell_length)
         if isinstance(cell_capacity, Units.Quantity):
             cell_capacity = int(cell_capacity.to(1).value)
         if isinstance(flow_capacity, Units.Quantity):
@@ -75,7 +75,7 @@ class CTM(TrafficModel):
             tuple: Updated densities and outflows after applying the CTM model.
         """
         required_keys = {
-            "cell_occupancies", "first_cell_inflow", "cell_length", "is_tl", "tl_status"
+            "cell_occupancies", "first_cell_inflow", "link_id", "is_tl", "tl_status"
         }
         if not required_keys.issubset(kwargs):
             missing = required_keys - kwargs.keys()
@@ -85,8 +85,8 @@ class CTM(TrafficModel):
         first_cell_inflow = kwargs["first_cell_inflow"]
         if not isinstance(first_cell_inflow, Units.Quantity):
             raise TypeError("first_cell_inflow must be an astropy Quantity with units")
-        cell_length = kwargs["cell_length"]
 
+        link_id = kwargs["link_id"]
         is_tl = kwargs["is_tl"]
         tl_status = kwargs["tl_status"]
         if not isinstance(cell_occupancies, list) and not isinstance(cell_occupancies, np.ndarray):
@@ -96,6 +96,10 @@ class CTM(TrafficModel):
         new_occupancy = cell_occupancies.copy()
         new_outflow = cell_occupancies.copy()
         for i, _ in enumerate(cell_occupancies):
+            cell_length = self.dl.geo_loader.get_cell_length(
+                cell_id=i+1,
+                link_id=link_id
+            )
             # First cell
             if i == 0:
                 inflow = first_cell_inflow
@@ -104,21 +108,21 @@ class CTM(TrafficModel):
                     prev_cell_occupancy=cell_occupancies[i-1],
                     current_cell_occupancy=cell_occupancies[i],
                     cell_length=cell_length,
-                    flow_capacity=self.params.flow_capacity
+                    flow_capacity=self.dl.params.flow_capacity
                 )
 
             if i == len(cell_occupancies) - 1:
                 if is_tl and tl_status:
                     outflow = 0
                 else:
-                    max_flow = self.params.get_max_flow().to(1).value
+                    max_flow = self.dl.params.get_max_flow().to(1).value
                     outflow = min(max_flow, cell_occupancies[i])
             else:
                 outflow = self.compute_flow(
                     prev_cell_occupancy=cell_occupancies[i],
                     current_cell_occupancy=cell_occupancies[i+1],
                     cell_length=cell_length,
-                    flow_capacity=self.params.flow_capacity
+                    flow_capacity=self.dl.params.flow_capacity
                 )
             if isinstance(inflow, Units.Quantity):
                 inflow = int(inflow.to(1).value)
@@ -132,3 +136,18 @@ class CTM(TrafficModel):
             if new_occupancy[i] < 0:
                 new_occupancy[i] = 0
         return new_occupancy, new_outflow
+
+    def run(self, trajectory_timestamp, **args):
+        """
+        Run the traffic model with the provided arguments.
+
+        Args:
+            cell_id (int): The ID of the cell.
+            link_id (int): The ID of the link.
+            trajectory_timestamp (int): The timestamp of the trajectory.
+            **args: Additional arguments for the model.
+
+        Returns:
+            None
+        """
+        return trajectory_timestamp, self.predict(**args)

@@ -92,16 +92,21 @@ def main():
         cell_length=20.0
         )
     dl = DataLoader(
+        params=params,
         fp_location=args.fp_location,
         fp_date=args.fp_date,
         fp_time=args.fp_time,
         geo_loader=model_geo_loader
     )
-    dl.prepare(location=args.fp_location, date=args.fp_date, time=args.fp_time)
+    dl.prepare_ctm_tasks(location=args.fp_location, date=args.fp_date, time=args.fp_time)
     if args.model == "ctm":
-        pass
+        model = CTM(
+            dl=dl
+        )
+        
     elif False:
         pass
+    
 
 
 if __name__ == "__main__":

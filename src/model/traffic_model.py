@@ -43,7 +43,7 @@ class TrafficModel:
             Abstract method that must be implemented by subclasses to predict traffic flow 
             based on the model's logic and input arguments.
     """
-    def __init__(self, params: Parameters, dl: DataLoader):
+    def __init__(self, dl: DataLoader):
         """
         Initialize the TrafficModel with a GeoLoader instance, Parameters object,
         and a DataLoader instance.
@@ -52,17 +52,7 @@ class TrafficModel:
             params (Parameters): An instance of Parameters for model configuration.
             dl (DataLoader): An instance of DataLoader for loading data.
         """
-        self.params = params
         self.dl = dl
-
-    def set_params(self, params: Parameters):
-        """
-        Set the parameters for the traffic model.
-        
-        Args:
-            params (Parameters): Parameters object containing traffic model parameters.
-        """
-        self.params = params
 
     def get_cell_length(self, cell_id, link_id):
         """
@@ -139,18 +129,13 @@ class TrafficModel:
         Abstract method to predict traffic flow.
         """
         raise NotImplementedError("Subclasses must implement this method.")
-
-    def run(self, **args):
+    
+    @abstractmethod
+    def run(self, trajectory_timestamp, **args):
         """
-        Run the traffic model with the provided arguments.
-
-        Args:
-            **args: Additional arguments for the model.
-
-        Returns:
-            None
+        Abstract method to run the traffic model.
         """
-        return self.predict(**args)
+        raise NotImplementedError("Subclasses must implement this method.")
 
     @abstractmethod
     def compute_flow(self, **args):
