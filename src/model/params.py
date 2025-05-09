@@ -24,7 +24,17 @@ Example:
     jam_density = params.get_jam_density(cell_length=500)
     ```
 """
+import logging
+from rich.logging import RichHandler
 from src.common_utility.units import Units
+# Configure logging
+logging.basicConfig(
+    level="DEBUG",
+    format="%(message)s",
+    datefmt="[%X]",
+    handlers=[RichHandler(rich_tracebacks=True)]
+)
+logger = logging.getLogger("rich")
 class Parameters():
     """
     Parameters:
@@ -74,8 +84,16 @@ class Parameters():
         # nbbi: flow_capacity should be an attribute of Cell model.
         self.flow_capacity = self.q_max * self.dt # veh
 
+        logger.debug(
+            "Parameters initialized with: Vehicle Length: %s m, Free Flow Speed: %s km/h, "
+            "Wave Speed: %s km/h, Number of Lanes: %s, Jam Density Link: %s veh/km, "
+            "Flow Capacity: %s veh, Time Step: %s s",
+            self.vehicle_length, self.free_flow_speed, self.wave_speed, self.num_lanes,
+            self.jam_density_link, self.flow_capacity, self.dt
+        )
 
-    def get_max_flow(self, *args):
+
+    def get_max_flow(self, *args) -> Units.Quantity:
         """
         Calculate the maximum flow in the system based on the fundamental diagram.
 
@@ -100,6 +118,7 @@ class Parameters():
                 * self.num_lanes
             )
         elif len(args) == 0:
+            # TODO: Check if you need to multiple this by the number of lanes
             return self.q_max * self.dt
         else:
             raise ValueError("Invalid number of arguments. Expected 0 or 1 argument.")

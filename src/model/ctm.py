@@ -111,7 +111,8 @@ class CTM(TrafficModel):
                 if is_tl and tl_status:
                     outflow = 0
                 else:
-                    outflow = min(self.params.get_max_flow(), cell_occupancies[i])
+                    max_flow = self.params.get_max_flow().to(1).value
+                    outflow = min(max_flow, cell_occupancies[i])
             else:
                 outflow = self.compute_flow(
                     prev_cell_occupancy=cell_occupancies[i],

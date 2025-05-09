@@ -85,7 +85,7 @@ class DataLoader:
         self.traffic_light_status_dict = {}
         self.test_files = defaultdict(list)
         self.traffic_light_status_dict = {}
-        self.cell_vector_density_dict = {}
+        self.cell_vector_occupancy_or_density_dict = {}
         self.cell_entries_dict = {}
         self.cell_exits_dict = {}
         self.geo_loader = geo_loader
@@ -825,10 +825,12 @@ class DataLoader:
 
         return tl_dict
 
-    def get_density_entry_exit_dict(self, location, date, time):
+    def get_occupancy_density_entry_exit_dict(self, location, date, time, coi="on_cell"):
         # nbbi: Needs test
         """
-        Returns the density entry DataFrame for the specified location, date, and time.
+        Returns the occupancy or density entry DataFrame for the specified location, date, and time.
+        on_cell -> occupancy
+        density -> density
         """
         file_address = self.density_exit_entry_files_dict.get((location, date, time), None)
         if file_address is None:
@@ -839,14 +841,16 @@ class DataLoader:
             df.sort(["link_id", "trajectory_time", "cell_id"])
             .group_by(["link_id", "trajectory_time"])
             .agg([
-                pl.col("density").alias("density_vector")
+                pl.col(coi).alias(f"{coi}_vector")
             ])
         )
-        cell_vector_density_dict = {}
+        cell_vector_occupancy_or_density_dict = {}
         for row in result.iter_rows(named=True):
-            if row["link_id"] not in cell_vector_density_dict:
-                cell_vector_density_dict[row["link_id"]] = {}
-            cell_vector_density_dict[row["link_id"]][row["trajectory_time"]] = row["density_vector"]
+            if row["link_id"] not in cell_vector_occupancy_or_density_dict:
+                cell_vector_occupancy_or_density_dict[row["link_id"]] = {}
+            cell_vector_occupancy_or_density_dict[row["link_id"]][row["trajectory_time"]] = (
+                row[f"{coi}_vector"]
+            )
 
         entries_dict = {}
         exits_dict = {}
@@ -863,7 +867,7 @@ class DataLoader:
                 row["entry_count"]
             )
             exits_dict[row["link_id"]][row["cell_id"]][row["trajectory_time"]] = row["exit_count"]
-        return cell_vector_density_dict, entries_dict, exits_dict
+        return cell_vector_occupancy_or_density_dict, entries_dict, exits_dict
 
     def activate_tl_status_dict(self, location, date, time):
         """
@@ -871,12 +875,12 @@ class DataLoader:
         """
         self.traffic_light_status_dict = self.get_traffic_light_status_dict(location, date, time)
 
-    def activate_density_entry_exit_dict(self, location, date, time):
+    def activate_occupancy_density_entry_exit_dict(self, location, date, time, coi="on_cell"):
         """
         Returns the density entry DataFrame for the specified location, date, and time.
         """
-        self.cell_vector_density_dict, self.cell_entries_dict, self.cell_exits_dict = (
-            self.get_density_entry_exit_dict(location, date, time)
+        self.cell_vector_occupancy_or_density_dict, self.cell_entries_dict, self.cell_exits_dict = (
+            self.get_occupancy_density_entry_exit_dict(location, date, time, coi)
         )
 
     def tl_status(self, time, link_id):
@@ -889,7 +893,7 @@ class DataLoader:
         """
         Returns the density for the specified time and link ID.
         """
-        return self.cell_vector_density_dict[link_id][time]
+        return self.cell_vector_occupancy_or_density_dict[link_id][time]
 
     def get_cell_entry(self, time, link_id, cell_id):
         """
@@ -903,10 +907,10 @@ class DataLoader:
         """
         return self.cell_exits_dict[link_id][cell_id][time]
 
-    def is_tl(self, link_id):
+    def is_tl(self, _):
         """
         Returns True if the specified link ID has a traffic light, False otherwise.
-        Right now, all the links are assumed to have traffic lights. TODO: Later
+        Right now, all the links are assumed to have traffic lights. nbbi: Later
         write a function to check if the link has a traffic light or not.
         """
         return True
@@ -916,6 +920,7 @@ class DataLoader:
         Prepares the dictionaries and the df for further processing.
         """
         self.activate_tl_status_dict(location, date, time)
+        self.activate_occupancy_density_entry_exit_dict(location, date, time, coi="on_cell")
         # self.prepare_density_entry_exit_dict(location, date, time)
 
 # Run as script
