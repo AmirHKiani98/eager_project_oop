@@ -153,8 +153,8 @@ class TrafficModel:
         return self.predict(**args)
 
     @abstractmethod
-    def compute_inflow(self, **args):
+    def compute_flow(self, **args):
         """
-        Abstract method to compute inflow.
+        Abstract method to compute flow.
         """
         raise NotImplementedError("Subclasses must implement this method.")
