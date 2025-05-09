@@ -1,5 +1,108 @@
+"""
+This is the main entry point for the application.
+# It initializes the necessary components and starts the traffic simulation.
+"""
+import argparse
+import logging
+from shapely.geometry import Point as POINT
+import polars as pl
+
 from src.model.ctm import CTM
 from src.model.params import Parameters
 from src.preprocessing.data_loader import DataLoader
 from src.preprocessing.geo_loader import GeoLoader
-from src.visualization.plotter import Plotter
+# from src.visualization.plotter import Plotter
+
+def main():
+    """
+    Main function to initialize and configure the traffic simulation.
+
+    This function sets up logging, loads intersection locations from a CSV file,
+    initializes the GeoLoader and DataLoader with the required parameters, and
+    defines simulation parameters using the Parameters class. It also initializes
+    an argument parser for handling command-line arguments.
+
+    Steps:
+    1. Reads intersection locations from a CSV file and converts them into a list
+        of POINT objects.
+    2. Initializes a GeoLoader instance with the intersection locations and a
+        specified cell length.
+    3. Configures a DataLoader instance with file paths, dates, times, and the
+        GeoLoader instance.
+    4. Sets up simulation parameters such as vehicle length, free flow speed, wave
+        speed, number of lanes, and jam density per link.
+    5. Prepares an argument parser for handling command-line arguments.
+
+    Note:
+    - The CSV file containing intersection locations is expected to be located at
+      `.cache/traffic_lights.csv`.
+    - The POINT objects are created using the latitude and longitude values from
+      the CSV file.
+    """
+    logging.basicConfig(level=logging.INFO)
+    
+    params = Parameters(
+        vehicle_length=5,
+        free_flow_speed=50,
+        wave_speed=10,
+        num_lanes=3,
+        jam_density_link=150
+    )
+
+    # Initialize argparse
+    parser = argparse.ArgumentParser(description="Traffic Simulation")
+    parser.add_argument(
+        "--model",
+        type=str,
+        default="ctm"
+    )
+    parser.add_argument(
+        "--fp-location",
+        type=str,
+        default="d1"
+    )
+    parser.add_argument(
+        "--fp-date",
+        type=str,
+        default="20181029"
+    )
+    parser.add_argument(
+        "--fp-time",
+        type=str,
+        default="0800_0830"
+    )
+    parser.add_argument(
+        "--fp-geo",
+        type=str,
+        default=".cache/traffic_lights.csv"
+    )
+    args = parser.parse_args()
+    # Example usage
+    intersection_locations = (
+        pl.read_csv(args.fp_geo)
+        .to_numpy()
+        .tolist()   # It's format is [lat, lon]
+    )
+    intersection_locations = [
+        POINT(loc[1], loc[0])
+        for loc in intersection_locations
+    ]  # It's format is [lat, lon]
+    model_geo_loader = GeoLoader(
+        locations=intersection_locations,
+        cell_length=20.0
+        )
+    dl = DataLoader(
+        fp_location=args.fp_location,
+        fp_date=args.fp_date,
+        fp_time=args.fp_time,
+        geo_loader=model_geo_loader
+    )
+    dl.prepare(location=args.fp_location, date=args.fp_date, time=args.fp_time)
+    if args.model == "ctm":
+        pass
+    elif False:
+        pass
+
+
+if __name__ == "__main__":
+    main()

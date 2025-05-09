@@ -859,10 +859,11 @@ class DataLoader:
                 entries_dict[row["link_id"]] = {}
             if row["link_id"] not in exits_dict:
                 exits_dict[row["link_id"]] = {}
-            if row["cell_id"] in entries_dict[row["link_id"]]:
+            if row["cell_id"] not in entries_dict[row["link_id"]]:
                 entries_dict[row["link_id"]][row["cell_id"]] = {}
-            if row["cell_id"] in exits_dict[row["link_id"]]:
+            if row["cell_id"] not in exits_dict[row["link_id"]]:
                 exits_dict[row["link_id"]][row["cell_id"]] = {}
+            
             entries_dict[row["link_id"]][row["cell_id"]][row["trajectory_time"]] = (
                 row["entry_count"]
             )
@@ -921,27 +922,3 @@ class DataLoader:
         """
         self.activate_tl_status_dict(location, date, time)
         self.activate_occupancy_density_entry_exit_dict(location, date, time, coi="on_cell")
-        # self.prepare_density_entry_exit_dict(location, date, time)
-
-# Run as script
-if __name__ == "__main__":
-    # Example usage
-    intersection_locations = (
-        pl.read_csv(".cache/traffic_lights.csv")
-        .to_numpy()
-        .tolist()   # It's format is [lat, lon]
-    )
-    intersection_locations = [
-        POINT(loc[1], loc[0])
-        for loc in intersection_locations
-    ]  # It's format is [lat, lon]
-    model_geo_loader = GeoLoader(
-        locations=intersection_locations,
-        cell_length=20.0
-        )
-    dl = DataLoader(
-        fp_location=["d1"],
-        fp_date=["20181029"],
-        fp_time=["0800_0830", "0830_0900", "0900_0930", "0930_1000", "1000_1030"],
-        geo_loader=model_geo_loader
-    )

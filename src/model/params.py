@@ -85,9 +85,9 @@ class Parameters():
         self.flow_capacity = self.q_max * self.dt # veh
 
         logger.debug(
-            "Parameters initialized with: Vehicle Length: %s m, Free Flow Speed: %s km/h, "
-            "Wave Speed: %s km/h, Number of Lanes: %s, Jam Density Link: %s veh/km, "
-            "Flow Capacity: %s veh, Time Step: %s s",
+            "Parameters initialized with: Vehicle Length: %s, Free Flow Speed: %s, "
+            "Wave Speed: %s, Number of Lanes: %s, Jam Density Link: %s, "
+            "Flow Capacity: %s, Time Step: %s",
             self.vehicle_length, self.free_flow_speed, self.wave_speed, self.num_lanes,
             self.jam_density_link, self.flow_capacity, self.dt
         )
