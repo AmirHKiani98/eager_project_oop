@@ -11,7 +11,6 @@ import numpy as np
 from rich.logging import RichHandler
 from src.model.traffic_model import TrafficModel
 from src.common_utility.units import Units
-import math
 logging.basicConfig(
     level="DEBUG",
     format="%(message)s",
