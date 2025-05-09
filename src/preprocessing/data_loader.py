@@ -466,10 +466,14 @@ class DataLoader:
         cell_ids = []
         cell_distances = []
         for (link, link_distance, cell, cell_distance) in closests_links_cells:
+            if not isinstance(link_distance, Units.Quantity):
+                raise ValueError("Link distance is not a valid Units.M object.")
+            if not isinstance(cell_distance, Units.Quantity):
+                raise ValueError("Cell distance is not a valid Units.M object.")
             link_ids.append(link.link_id)
-            link_distances.append(link_distance)
+            link_distances.append(link_distance.to(Units.M).value)
             cell_ids.append(cell.cell_id)
-            cell_distances.append(cell_distance)
+            cell_distances.append(cell_distance.to(Units.M).value)
 
         raw_df = raw_df.with_columns([
             pl.Series("link_id", link_ids),
