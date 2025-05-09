@@ -99,13 +99,13 @@ def main():
         fp_time=args.fp_time,
         geo_loader=model_geo_loader
     )
-        
+
     if args.model == "ctm":
         dl.prepare_ctm_tasks(location=args.fp_location, date=args.fp_date, time=args.fp_time)
         model = CTM(
             dl=dl
         )
-        model.run_with_multiprocessing(num_processes=cpu_count(), batch_size=10000)    
+        model.run_with_multiprocessing(num_processes=cpu_count(), batch_size=10000)
 
 
 if __name__ == "__main__":
