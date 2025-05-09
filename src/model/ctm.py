@@ -47,7 +47,7 @@ class CTM(TrafficModel):
         current_cell_occupancy = kwargs["current_cell_occupancy"]
         cell_length = kwargs["cell_length"]
         flow_capacity = kwargs["flow_capacity"]
-        
+
         cell_capacity = self.params.get_cell_capacity(cell_length)
         if isinstance(cell_capacity, Units.Quantity):
             cell_capacity = int(cell_capacity.to(1).value)
