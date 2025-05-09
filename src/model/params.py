@@ -68,27 +68,41 @@ class Parameters():
         self.free_flow_speed = free_flow_speed * Units.KM_PER_HR # km/h
         self.wave_speed = wave_speed * Units.KM_PER_HR # km/h
         self.dt = dt * Units.S # seconds
-        self.jam_density_link = jam_density_link * Units.VEH_PER_KM # veh/km # Should be around 180
-        self.q_max = q_max * Units.VEH_PER_HR
+        self.jam_density_link = jam_density_link * Units.PER_KM # veh/km # Should be around 180
+        self.q_max = q_max * Units.PER_HR # veh/hr
         # Calculate the maximum number of vehicles that can flow into the system per time step.
         # nbbi: flow_capacity should be an attribute of Cell model.
-        self.flow_capacity = self.q_max / self.dt
+        self.flow_capacity = self.q_max * self.dt # veh
 
 
-    def get_max_flow(self, cell_length):
+    def get_max_flow(self, *args):
         """
         Calculate the maximum flow in the system based on the fundamental diagram.
+
+        Overloaded method:
+        - If `cell_length` is provided, calculate maximum flow based on cell length.
+        - If no arguments are provided, calculate maximum flow using default parameters.
+
+        Args:
+            *args: Optional argument `cell_length` (Units.Quantity).
 
         Returns:
             float: Maximum flow (vehicles/second).
         """
-        max_flow = min(
-            self.q_max,
-            min(self.free_flow_speed, self.wave_speed)
-            * self.get_jam_density(cell_length)
-            * self.num_lanes
-        )
-        return max_flow
+        if len(args) == 1:
+            cell_length = args[0]
+            if not isinstance(cell_length, Units.Quantity):
+                raise TypeError("cell_length must be an astropy Quantity with units")
+            return min(
+                self.q_max,
+                min(self.free_flow_speed, self.wave_speed)
+                * self.get_jam_density(cell_length)
+                * self.num_lanes
+            )
+        elif len(args) == 0:
+            return self.q_max * self.dt
+        else:
+            raise ValueError("Invalid number of arguments. Expected 0 or 1 argument.")
 
     def get_cell_capacity(self, cell_length: Units.Quantity):
         """
@@ -105,7 +119,7 @@ class Parameters():
         """
         if not isinstance(cell_length, Units.Quantity):
             raise TypeError("cell_length must be an astropy Quantity with units")
-        return self.jam_density_link / cell_length
+        return cell_length * self.jam_density_link
 
     def get_time_step(self, cell_length):
         """

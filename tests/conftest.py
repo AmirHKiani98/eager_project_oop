@@ -22,10 +22,16 @@ def simple_traffic_params():
     """
     Creates and returns a Parameters instance with bypassed parameters.
 
+    Based on (the link address in in multiple lines):
+    https://msclab.wordpress.com/wp-content/uploads/2017/03/
+    icce-asia-2016-computation-of-cell-transmission-model-for-
+    congestion-and-recovery-traffic-flow.pdf
+
     Returns:
         Parameters: An instance of Parameters with bypassed parameters.
     """
-    return Parameters(free_flow_speed=50.0, dt=30.0, jam_density_link=180.0, q_max=3000.0)
+
+    return Parameters(free_flow_speed=60.0, dt=30.0, jam_density_link=180.0, q_max=1800.0)
 
 @pytest.fixture
 def bypassed_data_loader():

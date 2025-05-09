@@ -150,7 +150,7 @@ class TrafficModel:
         Returns:
             None
         """
-        pass
+        return self.predict(**args)
 
     @abstractmethod
     def compute_inflow(self, **args):

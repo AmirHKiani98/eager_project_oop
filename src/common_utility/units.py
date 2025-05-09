@@ -6,9 +6,9 @@ This module is part of a larger traffic simulation framework
 and is intended to be used in conjunction with other modules
 and classes within the framework.
 """
-
-
 from astropy import units as u
+
+
 
 class Units:
     """
@@ -24,15 +24,14 @@ class Units:
     M = u.meter
     HR = u.hour
     S = u.second
-    VEH = u.def_unit("veh", 1)
 
     # Density
-    VEH_PER_KM = VEH / KM
-    VEH_PER_M = VEH / M
+    PER_KM = 1 / KM
+    PER_M = 1 / M
 
     # Flow
-    VEH_PER_HR = VEH / HR
-    VEH_PER_SEC = VEH / S
+    PER_HR = 1 / HR
+    PER_SEC = 1 / S
 
     # Speed
     KM_PER_HR = KM / HR

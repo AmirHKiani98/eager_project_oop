@@ -628,7 +628,8 @@ class DataLoader:
             pl.struct(["link_id", "cell_id", "on_cell"]).map_elements(
             lambda row: (
                 row["on_cell"] / self.geo_loader.links[row["link_id"]]
-                .get_cell_length(row["cell_id"])
+                .get_cell_length(row["cell_id"]).value
+                # .value because get_cell_length returns a Quantity
             ),
             return_dtype=pl.Float64
             ).alias("density")
@@ -825,7 +826,7 @@ class DataLoader:
         return tl_dict
 
     def get_density_entry_exit_dict(self, location, date, time):
-        # TODO: Needs test
+        # nbbi: Needs test
         """
         Returns the density entry DataFrame for the specified location, date, and time.
         """
@@ -858,7 +859,9 @@ class DataLoader:
                 entries_dict[row["link_id"]][row["cell_id"]] = {}
             if row["cell_id"] in exits_dict[row["link_id"]]:
                 exits_dict[row["link_id"]][row["cell_id"]] = {}
-            entries_dict[row["link_id"]][row["cell_id"]][row["trajectory_time"]] = row["entry_count"]
+            entries_dict[row["link_id"]][row["cell_id"]][row["trajectory_time"]] = (
+                row["entry_count"]
+            )
             exits_dict[row["link_id"]][row["cell_id"]][row["trajectory_time"]] = row["exit_count"]
         return cell_vector_density_dict, entries_dict, exits_dict
 

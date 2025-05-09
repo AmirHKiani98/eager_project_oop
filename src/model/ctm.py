@@ -8,8 +8,19 @@ updating cell status based on traffic density, outflows, and entry flow.
 
 import math
 import numpy as np
+import logging
+from rich.logging import RichHandler
 from src.model.traffic_model import TrafficModel
 from src.common_utility.units import Units
+
+logging.basicConfig(
+    level="DEBUG",
+    format="%(message)s",
+    datefmt="[%X]",
+    handlers=[RichHandler(rich_tracebacks=True)]
+)
+logger = logging.getLogger("rich")
+
 class CTM(TrafficModel):
     """
     Class representing the Cell Transmission Model (CTM) for traffic flow simulation.
@@ -87,6 +98,10 @@ class CTM(TrafficModel):
             inflow: The number of vehicles that can flow into the cell. Type: Units.Quantity
         """
         cell_capacity = self.params.get_cell_capacity(cell_length)
+        if isinstance(cell_capacity, Units.Quantity):
+            cell_capacity = int(cell_capacity.to(1).value)
+        if isinstance(flow_capacity, Units.Quantity):
+            flow_capacity = int(flow_capacity.to(1).value)
         inflow = min(
             prev_cell_occupancy,
             flow_capacity,
@@ -95,7 +110,7 @@ class CTM(TrafficModel):
         if inflow < 0:
             raise ValueError("Inflow cannot be negative.")
 
-        return inflow * Units.VEH
+        return inflow
 
 
     def predict(self, **kwargs):
@@ -109,48 +124,51 @@ class CTM(TrafficModel):
             tuple: Updated densities and outflows after applying the CTM model.
         """
         required_keys = {
-            "cell_occupancy", "first_cell_inflow", "outflow", "cell_length",
+            "cell_occupancies", "first_cell_inflow", "cell_length",
         }
         if not required_keys.issubset(kwargs):
             missing = required_keys - kwargs.keys()
             raise ValueError(f"Missing required parameters for CTM.predict(): {missing}")
 
-        cell_occupancy = kwargs["cell_occupancy"]
+        cell_occupancies = kwargs["cell_occupancies"]
         first_cell_inflow = kwargs["first_cell_inflow"]
-        outflow = kwargs["outflow"]
+        if not isinstance(first_cell_inflow, Units.Quantity):
+            raise TypeError("first_cell_inflow must be an astropy Quantity with units")
         cell_length = kwargs["cell_length"]
 
 
-        if not isinstance(cell_occupancy, list) and not isinstance(cell_occupancy, np.ndarray):
-            raise TypeError("cell_occupancy must be a list or numpy array.")
-        if isinstance(outflow, list) :
-            cell_occupancy = np.array(cell_occupancy)
+        if not isinstance(cell_occupancies, list) and not isinstance(cell_occupancies, np.ndarray):
+            raise TypeError("cell_occupancies must be a list or numpy array.")
 
-        if len(cell_occupancy) != len(outflow):
-            raise ValueError("Length of cell_occupancy, and outflow must be the same.")
-        # TODO: I user enumerate to get rid of the warning
-        new_occupancy = cell_occupancy.copy()
-        new_outflow = outflow.copy()
-        for i, _ in enumerate(cell_occupancy):
+        # nbbi: I user enumerate to get rid of the warning
+        new_occupancy = cell_occupancies.copy()
+        new_outflow = cell_occupancies.copy()
+        for i, _ in enumerate(cell_occupancies):
             # First cell
             if i == 0:
                 inflow = first_cell_inflow
             else:
                 inflow = self.compute_flow(
-                    cell_occupancy[i-1], cell_occupancy[i],
+                    cell_occupancies[i-1], cell_occupancies[i],
                     cell_length, self.params.flow_capacity
                 )
-                if i == len(cell_occupancy) - 1:
-                    outflow = math.inf
-                else:
-                    outflow = self.compute_flow(
-                        cell_occupancy[i], cell_occupancy[i+1],
-                        cell_length, self.params.flow_capacity
-                    )
+
+            if i == len(cell_occupancies) - 1:
+                outflow = min(self.params.get_max_flow(), cell_occupancies[i])
+            else:
+                outflow = self.compute_flow(
+                    cell_occupancies[i], cell_occupancies[i+1],
+                    cell_length, self.params.flow_capacity
+                )
+            if isinstance(inflow, Units.Quantity):
+                inflow = int(inflow.to(1).value)
+            if isinstance(outflow, Units.Quantity):
+                outflow = int(outflow.to(1).value)
+
             new_outflow[i] = outflow
-            new_occupancy[i] = cell_occupancy[i] + inflow - outflow
+            new_occupancy[i] = cell_occupancies[i] + inflow - outflow
+
             # In the last cell, if the outflow is greater than the occupancy, set it to 0
             if new_occupancy[i] < 0:
                 new_occupancy[i] = 0
-        return new_occupancy, new_outflow   
-            
+        return new_occupancy, new_outflow
