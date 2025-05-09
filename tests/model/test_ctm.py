@@ -22,6 +22,8 @@ def test_ctm_model(bypassed_data_loader, simple_traffic_params):
         cell_occupancies=cell_occupancies,
         first_cell_inflow=first_cell_inflow,
         cell_length=cell_length,
+        is_tl=True,
+        tl_status=0
     )
     # Adjust the expected value based on the actual output of model.predict
     assert new_cell_occupancies == [36, 75, 15]
@@ -30,6 +32,8 @@ def test_ctm_model(bypassed_data_loader, simple_traffic_params):
         cell_occupancies=new_cell_occupancies,
         first_cell_inflow=first_cell_inflow,
         cell_length=cell_length,
+        is_tl=True,
+        tl_status=0
 
     )
     assert new_cell_occupancies == [33, 75, 15]
@@ -38,5 +42,7 @@ def test_ctm_model(bypassed_data_loader, simple_traffic_params):
         cell_occupancies=new_cell_occupancies,
         first_cell_inflow=first_cell_inflow,
         cell_length=cell_length,
+        is_tl=True,
+        tl_status=0
     )
     assert new_cell_occupancies == [30, 75, 15]

@@ -75,7 +75,7 @@ class CTM(TrafficModel):
             tuple: Updated densities and outflows after applying the CTM model.
         """
         required_keys = {
-            "cell_occupancies", "first_cell_inflow", "cell_length",
+            "cell_occupancies", "first_cell_inflow", "cell_length", "is_tl", "tl_status"
         }
         if not required_keys.issubset(kwargs):
             missing = required_keys - kwargs.keys()
@@ -87,7 +87,8 @@ class CTM(TrafficModel):
             raise TypeError("first_cell_inflow must be an astropy Quantity with units")
         cell_length = kwargs["cell_length"]
 
-
+        is_tl = kwargs["is_tl"]
+        tl_status = kwargs["tl_status"]
         if not isinstance(cell_occupancies, list) and not isinstance(cell_occupancies, np.ndarray):
             raise TypeError("cell_occupancies must be a list or numpy array.")
 
@@ -107,7 +108,10 @@ class CTM(TrafficModel):
                 )
 
             if i == len(cell_occupancies) - 1:
-                outflow = min(self.params.get_max_flow(), cell_occupancies[i])
+                if is_tl and tl_status:
+                    outflow = 0
+                else:
+                    outflow = min(self.params.get_max_flow(), cell_occupancies[i])
             else:
                 outflow = self.compute_flow(
                     prev_cell_occupancy=cell_occupancies[i],
