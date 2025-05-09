@@ -137,17 +137,40 @@ class CTM(TrafficModel):
                 new_occupancy[i] = 0
         return new_occupancy, new_outflow
 
-    def run(self, trajectory_timestamp, **args):
+    def run(self, args):
         """
         Run the traffic model with the provided arguments.
 
         Args:
-            cell_id (int): The ID of the cell.
-            link_id (int): The ID of the link.
-            trajectory_timestamp (int): The timestamp of the trajectory.
-            **args: Additional arguments for the model.
-
+            args (list): A list of arguments containing the necessary parameters 
+                 for running the model.
         Returns:
             None
         """
-        return trajectory_timestamp, self.predict(**args)
+        occupancy_list, first_cell_inflow, link_id, is_tl, tl_status = args
+        if not isinstance(occupancy_list, list) and not isinstance(occupancy_list, np.ndarray):
+            raise TypeError("occupancy_list must be a list or numpy array.")
+        if not isinstance(first_cell_inflow, Units.Quantity):
+            raise TypeError("first_cell_inflow must be an astropy Quantity with units")
+        if not isinstance(link_id, int):
+            raise TypeError("link_id must be an integer")
+        if not isinstance(is_tl, bool):
+            raise TypeError("is_tl must be a boolean")
+        if not isinstance(tl_status, bool):
+            raise TypeError("tl_status must be a boolean")
+        new_occupancy, new_outflow = self.predict(
+            cell_occupancies=occupancy_list,
+            first_cell_inflow=first_cell_inflow,
+            link_id=link_id,
+            is_tl=is_tl,
+            tl_status=tl_status
+        )
+        return {
+            "occupancy_list": occupancy_list,
+            "first_cell_inflow": first_cell_inflow,
+            "link_id": link_id,
+            "is_tl": is_tl,
+            "tl_status": tl_status,
+            "new_occupancy": new_occupancy,
+            "new_outflow": new_outflow
+        }

@@ -98,12 +98,13 @@ def main():
         fp_time=args.fp_time,
         geo_loader=model_geo_loader
     )
-    dl.prepare_ctm_tasks(location=args.fp_location, date=args.fp_date, time=args.fp_time)
+        
     if args.model == "ctm":
+        dl.prepare_ctm_tasks(location=args.fp_location, date=args.fp_date, time=args.fp_time)
         model = CTM(
             dl=dl
         )
-        
+
     elif False:
         pass
     

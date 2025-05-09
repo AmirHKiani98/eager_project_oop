@@ -21,7 +21,12 @@ Dependencies:
 """
 import math
 from abc import abstractmethod
+from functools import partial
+from multiprocessing import Pool, cpu_count
+from more_itertools import chunked
+from tqdm import tqdm
 from src.preprocessing.data_loader import DataLoader
+from src.model.utility import run_wrapper
 class TrafficModel:
     """
     TrafficModel is an abstract base class that represents a traffic simulation model. 
@@ -122,6 +127,48 @@ class TrafficModel:
             supply = wave_speed * (jam_density - density_next) * dt
         return min(max_flow, demand, supply)
 
+
+    def run_with_multiprocessing(self, args_list, num_processes=None, batch_size=None):
+        """
+        Run the `run()` method in parallel using batching and multiprocessing.
+
+        Args:
+            args_list (list[dict]): List of dictionaries, each passed as kwargs 
+            to `run()`.
+            num_processes (int, optional): Number of worker processes. Defaults 
+            to cpu_count().
+            batch_size (int, optional): Number of tasks to process per batch. 
+            If None, process all at once.
+
+        Returns:
+            list: Aggregated results from all batches.
+        """
+        if num_processes is None:
+            num_processes = cpu_count()
+
+        if batch_size is None:
+            # No batching
+            batches = [args_list]
+        else:
+            batches = chunked(args_list, batch_size)
+
+        all_results = []
+        for batch in batches:
+            with Pool(processes=num_processes) as pool:
+                results = tqdm(
+                    pool.imap(
+                        self.run,
+                        batch,
+                        chunksize=1
+                    ),
+                    total=len(batch),
+                    desc="Processing",
+                    unit="task"
+                )
+                all_results.extend(results)
+
+        return all_results
+
     @abstractmethod
     def predict(self, **args):
         """
@@ -130,7 +177,7 @@ class TrafficModel:
         raise NotImplementedError("Subclasses must implement this method.")
 
     @abstractmethod
-    def run(self, trajectory_timestamp, **args):
+    def run(self, args):
         """
         Abstract method to run the traffic model.
         """
@@ -142,3 +189,5 @@ class TrafficModel:
         Abstract method to compute flow.
         """
         raise NotImplementedError("Subclasses must implement this method.")
+
+

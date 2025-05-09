@@ -118,7 +118,7 @@ class Parameters():
                 * self.num_lanes
             )
         elif len(args) == 0:
-            # TODO: Check if you need to multiple this by the number of lanes
+            # Fix: Check if you need to multiple this by the number of lanes
             return self.q_max * self.dt
         else:
             raise ValueError("Invalid number of arguments. Expected 0 or 1 argument.")
