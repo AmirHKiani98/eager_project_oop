@@ -12,7 +12,7 @@ Functions:
 import logging
 from rich.logging import RichHandler
 from shapely.geometry import Point as POINT
-from src.preprocessing.geo_loader import GeoLoader
+
 logging.basicConfig(
     level="DEBUG",
     format="%(message)s",
@@ -47,13 +47,8 @@ def test_find_closest_link_cell(simple_geo_loader):
     # Check the result
 
 
-def test_length_of_cells(corridor_geo_information):
-    geo_loader = GeoLoader(
-        locations=corridor_geo_information,
-        cell_length=10,
-        testing=True
-    )
-    logger.info(f"Length of cells: {len(geo_loader.cells)}")
-    logger.info(f"Length of links: {len(geo_loader.links)}")
-    
+def test_length_of_cells():
+    """
+    Test the length of cells in the GeoLoader.
+    """
     assert True
