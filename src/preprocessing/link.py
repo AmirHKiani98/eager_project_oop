@@ -47,7 +47,6 @@ class Link(SpatialLine):
             end_point (POINT): The ending point of the link.
         """
         super().__init__(start_point, end_point)
-        print("Link Identification: ", Link.Identification)
         if link_id is None:
             Link.Identification += 1
             self.link_id = Link.Identification

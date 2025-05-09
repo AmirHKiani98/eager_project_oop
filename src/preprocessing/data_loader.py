@@ -12,6 +12,7 @@ Example:
     To use the `DataLoader` class, initialize it with the desired parameters:
 """
 import os
+import json
 from math import atan2, degrees
 from multiprocessing import Pool, cpu_count
 from collections import defaultdict
@@ -88,7 +89,7 @@ class DataLoader:
         # Dicts:
         self.files_dict = {}
         self.density_exit_entry_files_dict = {}
-        self.traffic_light_status_dict = {}
+        self.traffic_light_status_file_dict = {}
         self.test_files = defaultdict(list)
         self.traffic_light_status_dict = {}
         self.cell_vector_occupancy_or_density_dict = {}
@@ -296,14 +297,14 @@ class DataLoader:
                             what_test="unprocessed_traffic_light_status")
                         )
                         # _get_processed_traffic_light_status
-                        self.traffic_light_status_dict[(location, date, time)] = (
+                        self.traffic_light_status_file_dict[(location, date, time)] = (
                             self._get_processed_traffic_light_status(
                                 unprocessed_traffic_file, location, date, time
                             )
                         )
                         self.test_files[(location, date, time)].append(
                             self._get_test_df(
-                                self.traffic_light_status_dict[(location, date, time)],
+                                self.traffic_light_status_file_dict[(location, date, time)],
                                 location, date, time,
                                 what_test="processed_traffic_light_status"
                             )
@@ -713,8 +714,11 @@ class DataLoader:
         links_id = []
         loc_distances = []
         for (link, loc_distance) in closest_locations:
+            if not isinstance(loc_distance, Units.Quantity):
+                raise ValueError("Link distance is not a valid Units.M object.")
+            
             links_id.append(link.link_id)
-            loc_distances.append(loc_distance)
+            loc_distances.append(loc_distance.to(Units.M).value)
 
         wlc_df = wlc_df.with_columns([
             pl.Series("loc_link_id", links_id),
@@ -770,6 +774,24 @@ class DataLoader:
             .otherwise(1)
             .alias("traffic_light_status")
         ])
+        min_value = traffic_df["trajectory_time"].min()
+        max_value = traffic_df["trajectory_time"].max()
+        completed_traffic_df = pl.DataFrame({})
+        groups = traffic_df.group_by(["loc_link_id"])
+        num_groups = traffic_df.select(["loc_link_id"]).unique().height
+        for _, group in tqdm(groups, total=num_groups, desc="Extending the traffic light data"):
+            group = fill_missing_timestamps(
+                group,
+                "trajectory_time",
+                self.time_interval,
+                min_value, # type: ignore
+                max_value # type: ignore
+            )
+            group = group.with_columns(
+                pl.col("traffic_light_status").fill_null(0)
+            )
+            completed_traffic_df = pl.concat([completed_traffic_df, group])
+        
         traffic_df = traffic_df.select(["trajectory_time", "traffic_light_status", "loc_link_id"])
         traffic_df.write_csv(file_address)
         return file_address
@@ -809,14 +831,14 @@ class DataLoader:
         """
         Returns the traffic light status dictionary for the specified location, date, and time.
         """
-        file_address = self.traffic_light_status_dict.get((location, date, time), None)
+        file_address = self.traffic_light_status_file_dict.get((location, date, time), None)
         if file_address is None:
             raise ValueError(f"File not found for {location}, {date}, {time}")
 
         df = pl.read_csv(file_address)
         tl_dict = {}
         for row in df.iter_rows(named=True):
-            trajectory_time = row["trajectory_time"]
+            trajectory_time = round(row["trajectory_time"], 2)
             traffic_light_status = row["traffic_light_status"]
             loc_link_id = row["loc_link_id"]
             if loc_link_id not in tl_dict:
@@ -848,9 +870,9 @@ class DataLoader:
         for row in result.iter_rows(named=True):
             if row["link_id"] not in cell_vector_occupancy_or_density_dict:
                 cell_vector_occupancy_or_density_dict[row["link_id"]] = {}
-            cell_vector_occupancy_or_density_dict[row["link_id"]][row["trajectory_time"]] = (
-                row[f"{coi}_vector"]
-            )
+            cell_vector_occupancy_or_density_dict[row["link_id"]][
+                round(row["trajectory_time"], 2)
+            ] = row[f"{coi}_vector"]
 
         entries_dict = {}
         exits_dict = {}
@@ -928,11 +950,12 @@ class DataLoader:
         )
         df = df.sort(["link_id", "trajectory_time"])
         first_cell_inflow_dict = {}
-        groups = df.group_by(["link_id"])
+        groups = df.group_by("link_id")
         num_groups = df.select(["link_id"]).unique().height
-        for link_id, group in tqdm(groups, total=num_groups, desc="Finding first self inflow"):
+        for link_id, group in tqdm(groups, total=num_groups, desc="Finding first first inflow"):
+            link_id = link_id[0] if isinstance(link_id, (list, tuple)) else link_id
             link_first_cell_inflow_dict = {
-                t: group.filter(
+                round(t, 2): group.filter(
                     (pl.col("trajectory_time") >= t) &
                     (pl.col("trajectory_time") < t + self.params.dt.to(Units.S).value)
                 )["entry_count"].sum()
@@ -987,9 +1010,12 @@ class DataLoader:
             date=date,
             time=time
         )
+        with open("j.csv", "w") as f:
+            json.dump(self.traffic_light_status_dict, f)
         tasks = [] # ["cell_occupancies list", "first_cell_inflow", "link_id", "is_tl", "tl_status"]
         for link_id, cell_dict in self.cell_vector_occupancy_or_density_dict.items():
             for trajectory_time, occupancy_list in cell_dict.items():
+                logger.debug(f"link_id: {link_id}, trajectory_time: {trajectory_time}")
                 tasks.append(
                     {
                         "occupancy_list": occupancy_list,
