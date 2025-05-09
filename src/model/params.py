@@ -71,7 +71,7 @@ class Parameters():
         self.jam_density_link = jam_density_link * Units.VEH_PER_KM # veh/km # Should be around 180
         self.q_max = q_max * Units.VEH_PER_HR
         # Calculate the maximum number of vehicles that can flow into the system per time step.
-        # TODO: flow_capacity should be an attribute of Cell model.
+        # nbbi: flow_capacity should be an attribute of Cell model.
         self.flow_capacity = self.q_max / self.dt
 
 

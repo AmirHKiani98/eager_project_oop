@@ -151,12 +151,10 @@ class TrafficModel:
             None
         """
         pass
-    
+
     @abstractmethod
     def compute_inflow(self, **args):
         """
         Abstract method to compute inflow.
         """
         raise NotImplementedError("Subclasses must implement this method.")
-    
-                       
