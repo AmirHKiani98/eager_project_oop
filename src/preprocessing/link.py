@@ -33,10 +33,10 @@ class Link(SpatialLine):
     """
     Identification = 0
     def __init__(
-        self, 
-        start_point: POINT, 
-        end_point: POINT, 
-        link_id: Optional[int] = None, 
+        self,
+        start_point: POINT,
+        end_point: POINT,
+        link_id: Optional[int] = None,
         tl: bool = True
     ):
         """
@@ -75,12 +75,12 @@ class Link(SpatialLine):
         """
         return self.tl
 
-    def load_cells_by_length(self, cell_length: Units.M):
+    def load_cells_by_length(self, cell_length: Units.Quantity):
         """
         Divides the link into cells based on the specified cell length.
 
         Args:
-            cell_length (float): The length of each cell in meters.
+            cell_length (Units.Quantity): The length of each cell in meters.
         """
         from src.preprocessing.cell import Cell
         if not isinstance(cell_length, Units.Quantity):
