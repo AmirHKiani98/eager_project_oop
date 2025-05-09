@@ -4,6 +4,7 @@ This is the main entry point for the application.
 """
 import argparse
 import logging
+from multiprocessing import cpu_count
 from shapely.geometry import Point as POINT
 import polars as pl
 
@@ -104,10 +105,7 @@ def main():
         model = CTM(
             dl=dl
         )
-
-    elif False:
-        pass
-    
+        model.run_with_multiprocessing(num_processes=cpu_count(), batch_size=10000)    
 
 
 if __name__ == "__main__":

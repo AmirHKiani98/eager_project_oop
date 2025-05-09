@@ -148,7 +148,11 @@ class CTM(TrafficModel):
         Returns:
             None
         """
-        occupancy_list, first_cell_inflow, link_id, is_tl, tl_status = args
+        occupancy_list = args["occupancy_list"]
+        first_cell_inflow = args["first_cell_inflow"]
+        link_id = args["link_id"]
+        is_tl = args["is_tl"]
+        tl_status = args["tl_status"]
         if not isinstance(occupancy_list, list) and not isinstance(occupancy_list, np.ndarray):
             raise TypeError("occupancy_list must be a list or numpy array.")
         if not isinstance(first_cell_inflow, Units.Quantity):

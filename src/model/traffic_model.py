@@ -126,13 +126,11 @@ class TrafficModel:
         return min(max_flow, demand, supply)
 
 
-    def run_with_multiprocessing(self, args_list, num_processes=None, batch_size=None):
+    def run_with_multiprocessing(self, num_processes=None, batch_size=None):
         """
         Run the `run()` method in parallel using batching and multiprocessing.
 
         Args:
-            args_list (list[dict]): List of dictionaries, each passed as kwargs 
-            to `run()`.
             num_processes (int, optional): Number of worker processes. Defaults 
             to cpu_count().
             batch_size (int, optional): Number of tasks to process per batch. 
@@ -141,6 +139,9 @@ class TrafficModel:
         Returns:
             list: Aggregated results from all batches.
         """
+        args_list = self.dl.tasks
+        if not args_list:
+            raise ValueError("No tasks to process. Please provide a list of tasks.")
         if num_processes is None:
             num_processes = cpu_count()
 

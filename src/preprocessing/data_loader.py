@@ -999,14 +999,13 @@ class DataLoader:
         for link_id, cell_dict in self.cell_vector_occupancy_or_density_dict.items():
             for trajectory_time, occupancy_list in cell_dict.items():
                 tasks.append(
-                    [
-                        occupancy_list,
-                        self.first_cell_inflow_dict[link_id][trajectory_time],
-                        link_id,
-                        self.is_tl(link_id),
-                        self.tl_status(trajectory_time, link_id)
-                    ]
+                    {
+                        "occupancy_list": occupancy_list,
+                        "first_cell_inflow": self.first_cell_inflow_dict[link_id][trajectory_time],
+                        "link_id": link_id,
+                        "is_tl": self.is_tl(link_id),
+                        "tl_status": self.tl_status(trajectory_time, link_id)
+                    }
                 )
         self.tasks = tasks
         self.destruct()
-
