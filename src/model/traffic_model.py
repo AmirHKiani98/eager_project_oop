@@ -21,7 +21,6 @@ Dependencies:
 """
 import math
 from abc import abstractmethod
-from src.model.params import Parameters
 from src.preprocessing.data_loader import DataLoader
 class TrafficModel:
     """
@@ -129,7 +128,7 @@ class TrafficModel:
         Abstract method to predict traffic flow.
         """
         raise NotImplementedError("Subclasses must implement this method.")
-    
+
     @abstractmethod
     def run(self, trajectory_timestamp, **args):
         """
