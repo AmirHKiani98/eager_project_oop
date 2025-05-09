@@ -7,13 +7,23 @@ transform coordinate reference systems, and perform spatial operations.
 import os
 import random
 import hashlib
+import logging
 from typing import Optional
 import polars as pl
 import matplotlib.pyplot as plt
 from shapely.geometry import Point as POINT
+from rich.logging import RichHandler
 from src.preprocessing.cell import Cell
 from src.preprocessing.link import Link
+from src.common_utility.units import Units
 
+logging.basicConfig(
+    level="DEBUG",
+    format="%(message)s",
+    datefmt="[%X]",
+    handlers=[RichHandler(rich_tracebacks=True)]
+)
+logger = logging.getLogger("rich")
 class GeoLoader:
     """
     GeoLoader is a class designed to preprocess and load geographical data, 
@@ -51,13 +61,14 @@ class GeoLoader:
     def __init__(self,
                 locations: Optional[list[POINT]] = None,
                 cell_length: Optional[float] = None,
-                number_of_cells: Optional[int] = None):
+                number_of_cells: Optional[int] = None,
+                testing: bool = False):
         self.locations = locations
         # Check if the link is already saved:
         self.links = {}
         self.links_to_location = {}
         self.cells = []
-        self.cell_length = cell_length
+        self.cell_length = cell_length * Units.M
         self.number_of_cells = number_of_cells
         if self._geo_data_already_exists():
             self._load()
@@ -67,7 +78,8 @@ class GeoLoader:
                 print("Warining: No cell length or number of cells provided.")
             else:
                 self._load_cells()
-            self._save()
+            if not testing:    
+                self._save()
 
     def _load_links(self):
         """
@@ -78,7 +90,7 @@ class GeoLoader:
         for index in range(len(self.locations) - 1):
             start_point = self.locations[index]
             end_point = self.locations[index + 1]
-            link = Link(start_point, end_point)
+            link = Link(start_point, end_point, link_id=len(self.links) + 1)
             self.links[link.link_id] = link
 
     def _load_cells_by_length(self):
@@ -169,7 +181,7 @@ class GeoLoader:
             {"link_id": link.link_id,
             "start_lon": link.get_from().x, "start_lat": link.get_from().y,
              "end_lon": link.get_to().x, "end_lat": link.get_to().y, 
-             "length_meters": link.length_meters}
+             "length_meters": link.length_meters.to(Units.M).value,}
             for link in self.links.values()
         ]
         links_df = pl.DataFrame(links_data)
@@ -184,7 +196,7 @@ class GeoLoader:
             "cell_start_lat": cell.get_line_source().coords[0][1],
             "cell_end_lon": cell.get_line_source().coords[1][0],
             "cell_end_lat": cell.get_line_source().coords[1][1],
-            "cell_length_meters": cell.length_meters,
+            "cell_length_meters": cell.length_meters.to(Units.M).value,
             }
             for cell in self.cells
         ]
@@ -196,7 +208,7 @@ class GeoLoader:
             raise ValueError("No locations provided for saving metadata.")
         metadata = {
             "locations_count": len(self.locations),
-            "cell_length": self.cell_length,
+            "cell_length": self.cell_length.to(Units.M).value,
             "number_of_cells": self.number_of_cells,
         }
         metadata_df = pl.DataFrame([metadata])
@@ -213,7 +225,7 @@ class GeoLoader:
             start_point = POINT(row['start_lon'], row['start_lat'])
             end_point = POINT(row['end_lon'], row['end_lat'])
             link_id = row['link_id']
-            link = Link(start_point, end_point, link_id=link_id)
+            link = Link(start_point, end_point, link_id=len(self.links) + 1)
             self.links[link_id] = link
 
 
@@ -267,12 +279,14 @@ class GeoLoader:
             if distance < min_distance_link:
                 min_distance_link = distance
                 closest_link = link
+        
         if closest_link is None:
             raise ValueError("No link found for the given point.")
         min_distance_cell = float("inf")
         closest_cell = None
 
         for _, cell in closest_link.cells.items():
+            
             distance = cell.get_distance(point)
             if distance < min_distance_cell:
                 min_distance_cell = distance

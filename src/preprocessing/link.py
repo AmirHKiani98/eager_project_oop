@@ -10,10 +10,21 @@ Dependencies:
     - shapely.geometry.Point: Used to define the start and end points of the link.
 """
 import math
+import logging
 from typing import Optional
 from shapely.geometry import Point as POINT
 from shapely.ops import substring
+from rich.logging import RichHandler
 from src.preprocessing.spatial_line import SpatialLine
+from src.common_utility.units import Units
+
+logging.basicConfig(
+    level="DEBUG",
+    format="%(message)s",
+    datefmt="[%X]",
+    handlers=[RichHandler(rich_tracebacks=True)]
+)
+logger = logging.getLogger("rich")
 
 class Link(SpatialLine):
     """
@@ -21,7 +32,13 @@ class Link(SpatialLine):
     Inherits from the SpatialLine class.
     """
     Identification = 0
-    def __init__(self, start_point: POINT, end_point: POINT, link_id: Optional[int] = None, tl: bool = True):
+    def __init__(
+        self, 
+        start_point: POINT, 
+        end_point: POINT, 
+        link_id: Optional[int] = None, 
+        tl: bool = True
+    ):
         """
         Initializes a Link object.
 
@@ -30,6 +47,7 @@ class Link(SpatialLine):
             end_point (POINT): The ending point of the link.
         """
         super().__init__(start_point, end_point)
+        print("Link Identification: ", Link.Identification)
         if link_id is None:
             Link.Identification += 1
             self.link_id = Link.Identification
@@ -57,7 +75,7 @@ class Link(SpatialLine):
         """
         return self.tl
 
-    def load_cells_by_length(self, cell_length: float):
+    def load_cells_by_length(self, cell_length: Units.M):
         """
         Divides the link into cells based on the specified cell length.
 
@@ -65,16 +83,17 @@ class Link(SpatialLine):
             cell_length (float): The length of each cell in meters.
         """
         from src.preprocessing.cell import Cell
-        if cell_length <= 0:
-            raise ValueError("Cell length must be positive")
-
-        number_of_cells = int(self.length_meters / cell_length)
-        distance = self.length_meters
-        number_of_cells = max(1, math.ceil(distance / cell_length))
+        if not isinstance(cell_length, Units.Quantity):
+            raise TypeError("Cell length must be a Units.Quantity")
+        length_meters_value = self.length_meters.to(Units.M).value
+        cell_length_value = cell_length.to(Units.M).value
+        number_of_cells = length_meters_value / cell_length_value
+        distance = length_meters_value
+        number_of_cells = max(1, math.ceil(distance / cell_length_value))
         cells = []
         for i in range(number_of_cells):
-            start_dist = i * cell_length
-            end_dist = min((i + 1) * cell_length, distance)
+            start_dist = i * cell_length_value
+            end_dist = min((i + 1) * cell_length_value, distance)
             cell_geom = substring(self.line, start_dist, end_dist)
             coords = list(cell_geom.coords)
             coords = list(map(lambda x: self._transformer_to_source.transform(x[0], x[1]), coords))

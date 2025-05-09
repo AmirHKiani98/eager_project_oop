@@ -34,14 +34,16 @@ def simple_traffic_params():
     return Parameters(free_flow_speed=60.0, dt=30.0, jam_density_link=180.0, q_max=1800.0)
 
 @pytest.fixture
-def bypassed_data_loader():
+def bypassed_data_loader(simple_traffic_params): # pylint: disable=redefined-outer-name
     """
     Creates and returns a DataLoader instance with bypassed data loading.
 
     Returns:
         DataLoader: An instance of DataLoader with bypassed data loading.
     """
-    return DataLoader.__new__(DataLoader)
+    dl = DataLoader.__new__(DataLoader)
+    dl.params = simple_traffic_params
+    return dl
 
 @pytest.fixture
 def corridor_geo_information():
@@ -75,7 +77,8 @@ def simple_geo_loader(corridor_geo_information): # pylint: disable=redefined-out
 
     model_geo_loader = GeoLoader(
         locations=corridor_geo_information,
-        cell_length=20.0
+        cell_length=20.0,
+        testing=True
     )
     return model_geo_loader
 

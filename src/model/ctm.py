@@ -11,7 +11,7 @@ import numpy as np
 from rich.logging import RichHandler
 from src.model.traffic_model import TrafficModel
 from src.common_utility.units import Units
-
+import math
 logging.basicConfig(
     level="DEBUG",
     format="%(message)s",
@@ -50,9 +50,10 @@ class CTM(TrafficModel):
 
         cell_capacity = self.dl.params.get_cell_capacity(cell_length)
         if isinstance(cell_capacity, Units.Quantity):
-            cell_capacity = int(cell_capacity.to(1).value)
+            cell_capacity = round(cell_capacity.to(1).value) # Fix: This might cause error!
         if isinstance(flow_capacity, Units.Quantity):
-            flow_capacity = int(flow_capacity.to(1).value)
+            flow_capacity = round(flow_capacity.to(1).value) # Fix: This might cause error!
+
         inflow = min(
             prev_cell_occupancy,
             flow_capacity,
@@ -135,6 +136,7 @@ class CTM(TrafficModel):
             # In the last cell, if the outflow is greater than the occupancy, set it to 0
             if new_occupancy[i] < 0:
                 new_occupancy[i] = 0
+
         return new_occupancy, new_outflow
 
     def run(self, args):

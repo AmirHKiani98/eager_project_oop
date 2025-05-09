@@ -9,11 +9,23 @@ Asserts:
     - The result has the expected columns and values as defined in expected_df.
     - The shape and content of the result match the expected DataFrame.
 """
+import logging
 import polars as pl
 from polars.testing import assert_frame_equal
+from rich.logging import RichHandler
 from shapely.geometry import Point as POINT
 from src.preprocessing.data_loader import DataLoader
-def test__get_trajectory_dataframe(sample_test_pneuma_dataframe_path, simple_geo_loader):
+from src.common_utility.units import Units
+
+logging.basicConfig(
+    level="DEBUG",
+    format="%(message)s",
+    datefmt="[%X]",
+    handlers=[RichHandler(rich_tracebacks=True)]
+)
+logger = logging.getLogger("rich")
+
+def test_get_trajectory_dataframe(sample_test_pneuma_dataframe_path, simple_geo_loader):
     """
     Test the _get_trajectory_dataframe function.
 
@@ -79,6 +91,7 @@ def test_density_exit_entered(sample_fully_modified_dataframe_path, simple_geo_l
     dl.geo_loader = simple_geo_loader
     dl.time_interval = 0.04
     # Call the function with the sample DataFrame
+
     result = dl.get_density_entry_exist_df(sample_fully_modified_dataframe_path)
     cell_length = simple_geo_loader.cell_length
     # Check density at time 0, link 5, cell 2
@@ -86,7 +99,7 @@ def test_density_exit_entered(sample_fully_modified_dataframe_path, simple_geo_l
         (pl.col("trajectory_time") == 0) & (pl.col("link_id") == 5) & (pl.col("cell_id") == 2)
     )
     assert density_row.shape[0] == 1
-    expected_density = 3 / cell_length
+    expected_density = 3 / cell_length.to(Units.M).value
     # Check if the density is within a small tolerance of the expected value
     assert abs(density_row["density"][0] - expected_density) < 1e-6
     link5_cell2 = result.filter(

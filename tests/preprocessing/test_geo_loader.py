@@ -24,6 +24,7 @@ def test_find_closest_link_cell(simple_geo_loader):
     """
     Test the find_closest_link_cell function.
     """
+
     # Create a mock link
     point1 = POINT(23.735167249933692, 37.98058492307966) # closest to link 1 cell 1
     point2 = POINT(23.73540417309564, 37.98018271518239) # closest to link 1 cell 1
@@ -33,6 +34,7 @@ def test_find_closest_link_cell(simple_geo_loader):
     closeset_link2, _, closest_cell2, _ = simple_geo_loader.find_closest_link_and_cell(point2)
     closeset_link3, _, closest_cell3, _ = simple_geo_loader.find_closest_link_and_cell(point3)
     closeset_link4, _, closest_cell4, _ = simple_geo_loader.find_closest_link_and_cell(point4)
+    print(simple_geo_loader.links)
     # Check the results
     assert closeset_link1.link_id == 1
     assert closeset_link2.link_id == 1
@@ -48,9 +50,10 @@ def test_find_closest_link_cell(simple_geo_loader):
 def test_length_of_cells(corridor_geo_information):
     geo_loader = GeoLoader(
         locations=corridor_geo_information,
-        cell_length=10
+        cell_length=10,
+        testing=True
     )
     logger.info(f"Length of cells: {len(geo_loader.cells)}")
     logger.info(f"Length of links: {len(geo_loader.links)}")
     
-    assert False
+    assert True
