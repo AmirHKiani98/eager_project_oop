@@ -83,7 +83,7 @@ class DataLoader:
         self.fp_location = [fp_location] if isinstance(fp_location, str) else fp_location
         self.fp_date = [fp_date] if isinstance(fp_date, str) else fp_date
         self.fp_time = [fp_time] if isinstance(fp_time, str) else fp_time
-        
+
         # Dicts:
         self.files_dict = {}
         self.current_file_running = {}
@@ -986,7 +986,7 @@ class DataLoader:
                 )["entry_count"].sum()
                 for t in group["trajectory_time"]
             }
-            first_cell_inflow_dict[link_id] = link_first_cell_inflow_dict
+            first_cell_inflow_dict[int(link_id)] = link_first_cell_inflow_dict
         with open(output_file_address, "w", encoding="utf-8") as f:
             json.dump(first_cell_inflow_dict, f, indent=4)
             f.close()

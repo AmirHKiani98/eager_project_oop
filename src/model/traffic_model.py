@@ -158,7 +158,7 @@ class TrafficModel:
         with Pool(processes=num_processes) as pool:
             for batch in tqdm(
                 chunked(args_list, batch_size),
-                total=len(args_list) // batch_size,
+                total=math.ceil(len(args_list) / batch_size),
                 desc="Processing traffic model"
             ):
                 results = pool.map(
@@ -167,7 +167,7 @@ class TrafficModel:
                 )
                 all_results.extend(results)
         with open(run_file_path, "w", encoding="utf-8") as f:
-            json.dump(all_results, f)
+            json.dump(all_results, f, indent=4)
         return all_results
 
     @abstractmethod
@@ -204,7 +204,6 @@ class TrafficModel:
         Returns:
             void
         """
-        
 
     def get_run_file_path(self):
         """
@@ -218,11 +217,11 @@ class TrafficModel:
                 self.dl.params.cache_dir + "/"
                 + self.__class__.__name__
                 + "/"
-                + self.dl.fp_location
+                + self.dl.current_file_running["location"]
                 + "_"
-                + self.dl.fp_date
+                + self.dl.current_file_running["date"]
                 + "_"
-                + self.dl.fp_time
+                + self.dl.current_file_running["time"]
                 + "_"
                 + self.dl.geo_loader.get_hash_str()
                 + "_"
