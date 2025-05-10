@@ -56,8 +56,7 @@ class CTM(TrafficModel):
         inflow = min(
             prev_cell_occupancy,
             flow_capacity,
-            cell_capacity - current_cell_occupancy,
-            0
+            cell_capacity - current_cell_occupancy
         )
         if inflow < 0:
             inflow = 0

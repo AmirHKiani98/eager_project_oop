@@ -58,7 +58,6 @@ class DataLoader:
         fp_time: str | list,
         geo_loader: GeoLoader,
         params: Parameters,
-        cache_dir=".cache",
         line_threshold=20,
         time_interval=0.04,
         traffic_light_speed_threshold=0.5,
@@ -84,10 +83,10 @@ class DataLoader:
         self.fp_location = [fp_location] if isinstance(fp_location, str) else fp_location
         self.fp_date = [fp_date] if isinstance(fp_date, str) else fp_date
         self.fp_time = [fp_time] if isinstance(fp_time, str) else fp_time
-        self.cache_dir = cache_dir
-        os.makedirs(self.cache_dir, exist_ok=True)
+        
         # Dicts:
         self.files_dict = {}
+        self.current_file_running = {}
         self.density_exit_entry_files_dict = {}
         self.traffic_light_status_file_dict = {}
         self.test_files = defaultdict(list)
@@ -138,7 +137,7 @@ class DataLoader:
         """
         Constructs and returns the full file path for a cached file.
         """
-        return os.path.join(self.cache_dir, self._get_filename(location, date, time) + ".csv")
+        return os.path.join(self.params.cache_dir, self._get_filename(location, date, time) + ".csv")
 
     def check_file_exists_in_cache(self, location, date, time) -> bool:
         """
@@ -390,7 +389,7 @@ class DataLoader:
 
     def _explode_dataset(self, raw_data_location, location, date, time):
         file_address = (
-            self.cache_dir + "/" + self._get_filename(location, date, time) + "_exploded.csv"
+            self.params.cache_dir + "/" + self._get_filename(location, date, time) + "_exploded.csv"
         )
         if os.path.isfile(file_address):
             return file_address
@@ -427,7 +426,7 @@ class DataLoader:
         and finding the closest links and cells for each point in the DataFrame.
         """
         processed_file_path = (
-            self.cache_dir + "/" + self._get_filename(location, date, time) + "_withlinkcell_" +
+            self.params.cache_dir + "/" + self._get_filename(location, date, time) + "_withlinkcell_" +
             self.geo_loader.get_hash_str() + ".csv"
         )
         if os.path.isfile(processed_file_path):
@@ -489,7 +488,7 @@ class DataLoader:
         Filters the DataFrame to include only vehicles on the corridor.
         """
         file_address = (
-            self.cache_dir + "/" + self._get_filename(location, date, time) +
+            self.params.cache_dir + "/" + self._get_filename(location, date, time) +
             "_vehicle_on_corridor_" + self.geo_loader.get_hash_str() + ".csv"
         )
         if os.path.isfile(file_address):
@@ -504,7 +503,7 @@ class DataLoader:
         Removes vehicles that are on minor roads from the DataFrame.
         """
         file_address = (
-            self.cache_dir + "/" + self._get_filename(location, date, time) +
+            self.params.cache_dir + "/" + self._get_filename(location, date, time) +
             "_vehicle_on_minor_roads_removed_" + self.geo_loader.get_hash_str() + ".csv"
         )
         if os.path.isfile(file_address):
@@ -643,7 +642,7 @@ class DataLoader:
         which refers to the file address _remove_vehicle_on_minor_roads returned.
         """
         file_address = (
-            self.cache_dir + "/" + self._get_filename(location, date, time)
+            self.params.cache_dir + "/" + self._get_filename(location, date, time)
             + "_density_entry_exit_" + self.geo_loader.get_hash_str() + ".parquet"
         )
 
@@ -684,7 +683,7 @@ class DataLoader:
         Returns the traffic light status for the specified location, date, and time.
         """
         file_address = (
-            self.cache_dir + "/" + self._get_filename(location, date, time) +
+            self.params.cache_dir + "/" + self._get_filename(location, date, time) +
             "_traffic_light_status_" + self.geo_loader.get_hash_str() + ".csv"
         )
         if os.path.isfile(file_address):
@@ -763,7 +762,7 @@ class DataLoader:
         Returns the traffic status for the specified location, date, and time.
         """
         file_address = (
-            self.cache_dir + "/" + self._get_filename(location, date, time) +
+            self.params.cache_dir + "/" + self._get_filename(location, date, time) +
             "_processed_traffic_light_status_" + self.geo_loader.get_hash_str() + ".csv"
         )
 
@@ -818,7 +817,7 @@ class DataLoader:
         """
         file_ext = os.path.splitext(file_location)[1].lower()
         file_address = (
-            self.cache_dir + "/" + self._get_filename(location, date, time) +
+            self.params.cache_dir + "/" + self._get_filename(location, date, time) +
             f"_test_df_{what_test}_" + self.geo_loader.get_hash_str() +
             (".parquet" if file_ext == ".parquet" else ".csv")
         )
@@ -959,7 +958,7 @@ class DataLoader:
         if file_address is None:
             raise ValueError(f"File not found for {location}, {date}, {time}")
         output_file_address = (
-            self.cache_dir + "/" + self._get_filename(location, date, time) +
+            self.params.cache_dir + "/" + self._get_filename(location, date, time) +
             "_first_cell_inflow_" + self.params.get_hash_str(["dt"]) + "_" +
             self.geo_loader.get_hash_str() + ".json"
         )
@@ -1040,8 +1039,13 @@ class DataLoader:
             date=date,
             time=time
         )
+        self.current_file_running = {
+            "location": location,
+            "date": date,
+            "time": time
+        }
         file_address = (
-            self.cache_dir + "/" +
+            self.params.cache_dir + "/" +
             f"{self._get_filename(location, date, time)}_prepared_ctm_tasks_"
             f"{self.geo_loader.get_hash_str()}_{self.params.get_hash_str()}.json"
         )

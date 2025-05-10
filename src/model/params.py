@@ -24,6 +24,8 @@ Example:
     jam_density = params.get_jam_density(cell_length=500)
     ```
 """
+import os
+import json
 import logging
 import hashlib
 from typing import Optional
@@ -73,8 +75,12 @@ class Parameters():
 
     def __init__(
         self, vehicle_length=5.0, free_flow_speed=15.0, wave_speed=10.0,
-        num_lanes=3, jam_density_link=180.0, dt=1.0, q_max=3000.0
+        num_lanes=3, jam_density_link=180.0, dt=1.0, q_max=3000.0,
+        cache_dir=".cache"
     ):
+        self._is_initialized = False
+        self.cache_dir = cache_dir
+        os.makedirs(self.cache_dir, exist_ok=True)
         self.num_lanes = num_lanes
         self.vehicle_length = vehicle_length * Units.M # m
         self.free_flow_speed = free_flow_speed * Units.KM_PER_HR # km/h
@@ -93,6 +99,8 @@ class Parameters():
             self.vehicle_length, self.free_flow_speed, self.wave_speed, self.num_lanes,
             self.jam_density_link, self.flow_capacity, self.dt
         )
+        self._is_initialized = True
+        self.save_metadata()
 
 
     def get_max_flow(self, *args) -> Units.Quantity:
@@ -187,7 +195,7 @@ class Parameters():
                 params_str += f"{attribute_name}={attribute_value}, "
         params_str = params_str.strip(", ")
         return hashlib.md5(params_str.encode()).hexdigest()
-    
+
     def save_metadata(self):
         """
         Save metadata to a file.
@@ -195,10 +203,11 @@ class Parameters():
         This method generates a hash string based on the parameters and saves it to a file.
         """
         hash_str = self.get_hash_str()
-        if os.path.exists(
-        with open(hash_str + ".json", "w") as f:
-            f.write(hash_str)
-        logger.debug(f"Metadata saved with hash: {hash_str}")
+        os.makedirs(self.cache_dir + "/params", exist_ok=True)
+        # if os.path.exists(
+        with open(self.cache_dir + "/params/" + hash_str + ".json", "w", encoding="utf-8") as f:
+            json.dump({k: str(v) for k, v in self.__dict__.items()}, f, indent=4)
+        logger.debug("Metadata saved with hash: %s", hash_str)
 
     def __setattr__(self, name, value):
         """
@@ -208,5 +217,7 @@ class Parameters():
             name (str): The name of the attribute to set.
             value: The value to set for the attribute.
         """
-        logger.debug(f"Setting {name} to {value}")
-        object.__setattr__(name, value)
+        logger.debug("Setting %s to %s", name, value)
+        super().__setattr__(name, value)
+        if getattr(self, "_is_initialized", False) and not name.startswith("_"):
+            self.save_metadata()

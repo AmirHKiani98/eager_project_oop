@@ -201,7 +201,7 @@ class TrafficModel:
         """
         return (
             (
-                self.dl.cache_dir + "/"
+                self.dl.params.cache_dir + "/"
                 + self.__class__.__name__
                 + "/"
                 + self.dl.fp_location
