@@ -29,7 +29,7 @@ from src.preprocessing.geo_loader import GeoLoader
 from src.model.params import Parameters
 from src.preprocessing.utility import fill_missing_timestamps
 from src.common_utility.units import Units
-from src.common_utility.utility import convert_keys_to_int
+from src.common_utility.utility import convert_keys_to_float
 logging.basicConfig(
     level="DEBUG",
     format="%(message)s",
@@ -972,7 +972,7 @@ class DataLoader:
             with open(output_file_address, "r", encoding="utf-8") as f:
                 first_cell_inflow_dict = json.load(f)
                 f.close()
-            return convert_keys_to_int(first_cell_inflow_dict)
+            return convert_keys_to_float(first_cell_inflow_dict)
 
         df = pl.read_parquet(file_address).filter(
             pl.col("cell_id") == 1

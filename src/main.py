@@ -80,6 +80,11 @@ def main():
         type=str,
         default=".cache/traffic_lights.csv"
     )
+    parser.add_argument(
+        "--calibration",
+        action="store_true",
+        help="Run calibration for the model"
+    )
     args = parser.parse_args()
     # Example usage
     intersection_locations = (
@@ -108,7 +113,12 @@ def main():
         model = CTM(
             dl=dl
         )
-        model.run_with_multiprocessing(num_processes=cpu_count(), batch_size=50000)
+        num_processes = cpu_count()
+        batch_size = 50000
+        if not args.calibration:
+            model.run_with_multiprocessing(num_processes=num_processes, batch_size=batch_size)
+        else:
+            model.run_calibration(num_processes=num_processes, batch_size=batch_size)
 
 
 if __name__ == "__main__":

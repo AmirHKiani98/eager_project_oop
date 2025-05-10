@@ -74,12 +74,12 @@ class Parameters():
     """
 
     def __init__(
-        self, 
-        vehicle_length=5.0 * Units.M, 
-        free_flow_speed=15.0 * Units.KM_PER_HR, 
+        self,
+        vehicle_length=5.0 * Units.M,
+        free_flow_speed=15.0 * Units.KM_PER_HR,
         wave_speed=10.0 * Units.KM_PER_HR,
         num_lanes=3,
-        jam_density_link=180.0 * Units.PER_KM, 
+        jam_density_link=180.0 * Units.PER_KM,
         dt=1.0 * Units.S,
         q_max=3000.0 * Units.PER_HR,
         cache_dir=".cache"
