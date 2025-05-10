@@ -29,6 +29,7 @@ from src.preprocessing.geo_loader import GeoLoader
 from src.model.params import Parameters
 from src.preprocessing.utility import fill_missing_timestamps
 from src.common_utility.units import Units
+from src.common_utility.utility import convert_keys_to_int
 logging.basicConfig(
     level="DEBUG",
     format="%(message)s",
@@ -1059,10 +1060,13 @@ class DataLoader:
                 tasks.append(
                     {
                         "occupancy_list": occupancy_list,
-                        "first_cell_inflow": self.first_cell_inflow_dict[link_id][trajectory_time],
+                        "first_cell_inflow": self.first_cell_inflow_dict[link_id][
+                            trajectory_time
+                        ],
                         "link_id": link_id,
                         "is_tl": self.is_tl(link_id),
-                        "tl_status": self.tl_status(trajectory_time, link_id)
+                        "tl_status": self.tl_status(trajectory_time, link_id),
+                        "trajectory_time": trajectory_time,
                     }
                 )
         with open(file_address, "w", encoding="utf-8") as f:
