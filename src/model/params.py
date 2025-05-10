@@ -25,6 +25,7 @@ Example:
     ```
 """
 import logging
+import hashlib
 from rich.logging import RichHandler
 from src.common_utility.units import Units
 # Configure logging
@@ -171,3 +172,16 @@ class Parameters():
         if not isinstance(cell_length, Units.Quantity):
             raise TypeError("cell_length must be an astropy Quantity with units")
         return self.jam_density_link/1000 * cell_length * self.num_lanes
+
+    def get_hash_str(self):
+        """
+        Generate a hash string based on the parameters.
+
+        Returns:
+            str: A hash string representing the parameters.
+        """
+        params_str = ""
+        for attribute_name, attribute_value in sorted(self.__dict__.items()):
+            params_str += f"{attribute_name}={attribute_value}, "
+        params_str = params_str.strip(", ")
+        return hashlib.md5(params_str.encode()).hexdigest()

@@ -105,7 +105,7 @@ def main():
         model = CTM(
             dl=dl
         )
-        model.run_with_multiprocessing(num_processes=cpu_count(), batch_size=10000)
+        model.run_with_multiprocessing(num_processes=cpu_count(), batch_size=50000)
 
 
 if __name__ == "__main__":

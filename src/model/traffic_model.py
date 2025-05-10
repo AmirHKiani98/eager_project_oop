@@ -145,27 +145,18 @@ class TrafficModel:
         if num_processes is None:
             num_processes = cpu_count()
 
-        if batch_size is None:
-            # No batching
-            batches = [args_list]
-        else:
-            batches = chunked(args_list, batch_size)
-
         all_results = []
-        for batch in batches:
-            with Pool(processes=num_processes) as pool:
-                results = tqdm(
-                    pool.imap(
-                        self.run,
-                        batch,
-                        chunksize=1
-                    ),
-                    total=len(batch),
-                    desc="Processing",
-                    unit="task"
+        with Pool(processes=num_processes) as pool:
+            for batch in tqdm(
+                chunked(args_list, batch_size),
+                total=len(args_list) // batch_size,
+                desc="Processing traffic model"
+            ):
+                results = pool.map(
+                    self.run,
+                    batch
                 )
                 all_results.extend(results)
-
         return all_results
 
     @abstractmethod

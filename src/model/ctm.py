@@ -56,10 +56,12 @@ class CTM(TrafficModel):
         inflow = min(
             prev_cell_occupancy,
             flow_capacity,
-            cell_capacity - current_cell_occupancy
+            cell_capacity - current_cell_occupancy,
+            0
         )
         if inflow < 0:
-            raise ValueError("Inflow cannot be negative.")
+            inflow = 0
+            # raise ValueError("Inflow cannot be negative.")
 
         return inflow
 
@@ -83,8 +85,6 @@ class CTM(TrafficModel):
 
         cell_occupancies = kwargs["cell_occupancies"]
         first_cell_inflow = kwargs["first_cell_inflow"]
-        if not isinstance(first_cell_inflow, Units.Quantity):
-            raise TypeError("first_cell_inflow must be an astropy Quantity with units")
 
         link_id = kwargs["link_id"]
         is_tl = kwargs["is_tl"]
@@ -155,12 +155,14 @@ class CTM(TrafficModel):
         tl_status = args["tl_status"]
         if not isinstance(occupancy_list, list) and not isinstance(occupancy_list, np.ndarray):
             raise TypeError("occupancy_list must be a list or numpy array.")
-        if not isinstance(first_cell_inflow, Units.Quantity):
-            raise TypeError("first_cell_inflow must be an astropy Quantity with units")
         if not isinstance(link_id, int):
             raise TypeError("link_id must be an integer")
         if not isinstance(is_tl, bool):
             raise TypeError("is_tl must be a boolean")
+        if tl_status == 1:
+            tl_status = True
+        elif tl_status == 0:
+            tl_status = False
         if not isinstance(tl_status, bool):
             raise TypeError("tl_status must be a boolean")
         new_occupancy, new_outflow = self.predict(
@@ -170,6 +172,7 @@ class CTM(TrafficModel):
             is_tl=is_tl,
             tl_status=tl_status
         )
+
         return {
             "occupancy_list": occupancy_list,
             "first_cell_inflow": first_cell_inflow,
