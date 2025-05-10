@@ -12,6 +12,7 @@ from src.model.ctm import CTM
 from src.model.params import Parameters
 from src.preprocessing.data_loader import DataLoader
 from src.preprocessing.geo_loader import GeoLoader
+from src.common_utility.units import Units
 # from src.visualization.plotter import Plotter
 
 def main():
@@ -43,11 +44,13 @@ def main():
     logging.basicConfig(level=logging.INFO)
 
     params = Parameters(
-        vehicle_length=5,
-        free_flow_speed=50,
-        wave_speed=10,
+        vehicle_length=5 * Units.M,
+        free_flow_speed=50 * Units.KM_PER_HR,
+        wave_speed=10 * Units.KM_PER_HR,
         num_lanes=3,
-        jam_density_link=150
+        jam_density_link=150 * Units.PER_KM,
+        dt=1 * Units.S,
+        q_max=2500 * Units.PER_HR,
     )
 
     # Initialize argparse

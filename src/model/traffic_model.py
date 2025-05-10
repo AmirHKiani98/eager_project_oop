@@ -191,6 +191,20 @@ class TrafficModel:
         """
         raise NotImplementedError("Subclasses must implement this method.")
 
+    def run_calibration(self, num_processes=None, batch_size=None):
+        """
+        This function runs the calibration process for the traffic model.
+        It uses multiprocessing to speed up the process by dividing the tasks
+        into batches and processing them in parallel.
+        Args:
+            num_processes (int, optional): Number of worker processes. Defaults 
+            to cpu_count().
+            batch_size (int, optional): Number of tasks to process per batch. 
+            If None, process all at once.
+        Returns:
+            void
+        """
+        
 
     def get_run_file_path(self):
         """

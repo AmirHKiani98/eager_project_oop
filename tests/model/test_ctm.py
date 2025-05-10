@@ -25,13 +25,13 @@ def test_ctm_model():
 
     bypassed_data_loader = DataLoader.__new__(DataLoader)
     params = Parameters(
-        vehicle_length=5,
-        free_flow_speed=60,
-        wave_speed=12,
+        vehicle_length=5*Units.M,
+        free_flow_speed=60*Units.KM_PER_HR,
+        wave_speed=12*Units.KM_PER_HR,
         num_lanes=1,
-        dt=30,
-        jam_density_link=180,
-        q_max=1800
+        dt=30*Units.S,
+        jam_density_link=180*Units.PER_KM,
+        q_max=1800*Units.PER_HR
     )
     logging.debug("dt: %s, q_max: %s", params.dt, params.q_max)
     locations = [ # lat, lon

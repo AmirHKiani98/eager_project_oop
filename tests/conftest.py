@@ -16,6 +16,7 @@ from shapely.geometry import Point as POINT
 from src.preprocessing.geo_loader import GeoLoader
 from src.preprocessing.data_loader import DataLoader
 from src.model.params import Parameters
+from src.common_utility.units import Units
 
 @pytest.fixture
 def simple_traffic_params():
@@ -31,7 +32,12 @@ def simple_traffic_params():
         Parameters: An instance of Parameters with bypassed parameters.
     """
 
-    return Parameters(free_flow_speed=60.0, dt=30.0, jam_density_link=180.0, q_max=1800.0)
+    return Parameters(
+        free_flow_speed=60.0 * Units.KM_PER_HR,
+        dt=30.0 * Units.S,
+        jam_density_link=180.0 * Units.PER_KM,
+        q_max=1800.0 * Units.PER_HR
+    )
 
 @pytest.fixture
 def bypassed_data_loader(simple_traffic_params): # pylint: disable=redefined-outer-name

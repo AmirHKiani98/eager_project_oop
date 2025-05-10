@@ -74,20 +74,42 @@ class Parameters():
     """
 
     def __init__(
-        self, vehicle_length=5.0, free_flow_speed=15.0, wave_speed=10.0,
-        num_lanes=3, jam_density_link=180.0, dt=1.0, q_max=3000.0,
+        self, 
+        vehicle_length=5.0 * Units.M, 
+        free_flow_speed=15.0 * Units.KM_PER_HR, 
+        wave_speed=10.0 * Units.KM_PER_HR,
+        num_lanes=3,
+        jam_density_link=180.0 * Units.PER_KM, 
+        dt=1.0 * Units.S,
+        q_max=3000.0 * Units.PER_HR,
         cache_dir=".cache"
     ):
+        if not isinstance(vehicle_length, Units.Quantity):
+            raise TypeError("vehicle_length must be an astropy Quantity with units")
+        if not isinstance(free_flow_speed, Units.Quantity):
+            raise TypeError("free_flow_speed must be an astropy Quantity with units")
+        if not isinstance(wave_speed, Units.Quantity):
+            raise TypeError("wave_speed must be an astropy Quantity with units")
+        if not isinstance(num_lanes, int):
+            raise TypeError("num_lanes must be an integer")
+        if not isinstance(jam_density_link, Units.Quantity):
+            raise TypeError("jam_density_link must be an astropy Quantity with units")
+        if not isinstance(dt, Units.Quantity):
+            raise TypeError("dt must be an astropy Quantity with units")
+        if not isinstance(q_max, Units.Quantity):
+            raise TypeError("q_max must be an astropy Quantity with units")
+        if not isinstance(cache_dir, str):
+            raise TypeError("cache_dir must be a string")
         self._is_initialized = False
         self.cache_dir = cache_dir
         os.makedirs(self.cache_dir, exist_ok=True)
         self.num_lanes = num_lanes
-        self.vehicle_length = vehicle_length * Units.M # m
-        self.free_flow_speed = free_flow_speed * Units.KM_PER_HR # km/h
-        self.wave_speed = wave_speed * Units.KM_PER_HR # km/h
-        self.dt = dt * Units.S # seconds
-        self.jam_density_link = jam_density_link * Units.PER_KM # veh/km # Should be around 180
-        self.q_max = q_max * Units.PER_HR # veh/hr
+        self.vehicle_length = vehicle_length
+        self.free_flow_speed = free_flow_speed
+        self.wave_speed = wave_speed
+        self.dt = dt
+        self.jam_density_link = jam_density_link
+        self.q_max = q_max
         # Calculate the maximum number of vehicles that can flow into the system per time step.
         # nbbi: flow_capacity should be an attribute of Cell model.
         self.flow_capacity = self.q_max * self.dt # veh
