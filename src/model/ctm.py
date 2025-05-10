@@ -114,7 +114,10 @@ class CTM(TrafficModel):
                 if is_tl and tl_status:
                     outflow = 0
                 else:
-                    max_flow = self.dl.params.get_max_flow().to(1).value
+                    cell_len = self.dl.geo_loader.get_cell_length(i+1, link_id)
+                    max_flow = self.dl.params.get_max_flow(cell_len)
+                    if isinstance(max_flow, Units.Quantity):
+                        max_flow = max_flow.to(1).value
                     outflow = min(max_flow, cell_occupancies[i])
             else:
                 outflow = self.compute_flow(

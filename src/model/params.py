@@ -50,7 +50,7 @@ class Parameters():
             Defaults to 10.
         num_lanes (int, optional): The number of lanes in the road. Defaults to 3.
         jam_density_link (float, optional): The jam density per link in vehicles per 
-            kilometer. Defaults to 130.
+            kilometer. Defaults to 130. Doesn't include the number of lanes.
     Attributes:
         num_lanes (int): The number of lanes in the road.
         vehicle_length (float): The average length of a vehicle in meters.
@@ -75,7 +75,7 @@ class Parameters():
 
     def __init__(
         self,
-        vehicle_length=5.0 * Units.M,
+        vehicle_length  =5.0 * Units.M,
         free_flow_speed=15.0 * Units.KM_PER_HR,
         wave_speed=10.0 * Units.KM_PER_HR,
         num_lanes=3,
@@ -133,35 +133,19 @@ class Parameters():
         """
         self._is_initialized = initialized
 
-    def get_max_flow(self, *args) -> Units.Quantity:
+    def get_max_flow(self, cell_length) -> Units.Quantity:
         """
         Calculate the maximum flow in the system based on the fundamental diagram.
-
-        Overloaded method:
-        - If `cell_length` is provided, calculate maximum flow based on cell length.
-        - If no arguments are provided, calculate maximum flow using default parameters.
-
-        Args:
-            *args: Optional argument `cell_length` (Units.Quantity).
-
-        Returns:
-            float: Maximum flow (vehicles/second).
+        
         """
-        if len(args) == 1:
-            cell_length = args[0]
-            if not isinstance(cell_length, Units.Quantity):
-                raise TypeError("cell_length must be an astropy Quantity with units")
-            return min(
-                self.q_max,
-                min(self.free_flow_speed, self.wave_speed)
-                * self.get_jam_density(cell_length)
-                * self.num_lanes
-            )
-        elif len(args) == 0:
-            # Fix: Check if you need to multiple this by the number of lanes
-            return self.q_max * self.dt
-        else:
-            raise ValueError("Invalid number of arguments. Expected 0 or 1 argument.")
+        if not isinstance(cell_length, Units.Quantity):
+            raise TypeError("cell_length must be an astropy Quantity with units")
+
+        return min(
+            self.q_max,
+            min(self.free_flow_speed, self.wave_speed)
+            * self.jam_density_link
+        ) * self.dt
 
     def get_cell_capacity(self, cell_length: Units.Quantity):
         """
@@ -210,7 +194,7 @@ class Parameters():
         """
         if not isinstance(cell_length, Units.Quantity):
             raise TypeError("cell_length must be an astropy Quantity with units")
-        return self.jam_density_link/1000 * cell_length * self.num_lanes
+        return self.jam_density_link * cell_length * self.num_lanes
 
     def get_hash_str(self, attribute_names: Optional[list] = None):
         """
