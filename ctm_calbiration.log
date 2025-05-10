@@ -1,0 +1,56 @@
+[18:03:09] DEBUG    Setting _is_initialized to False                                                    params.py:236
+           DEBUG    Setting cache_dir to .cache                                                         params.py:236
+           DEBUG    Setting num_lanes to 3                                                              params.py:236
+           DEBUG    Setting vehicle_length to 5.0 m                                                     params.py:236
+           DEBUG    Setting free_flow_speed to 50.0 km / h                                              params.py:236
+           DEBUG    Setting wave_speed to 10.0 km / h                                                   params.py:236
+           DEBUG    Setting dt to 1.0 s                                                                 params.py:236
+           DEBUG    Setting jam_density_link to 150.0 1 / km                                            params.py:236
+           DEBUG    Setting q_max to 2500.0 1 / h                                                       params.py:236
+           DEBUG    Setting flow_capacity to 2500.0 s / h                                               params.py:236
+           DEBUG    Parameters initialized with: Vehicle Length: 5.0 m, Free Flow Speed: 50.0 km / h,   params.py:117
+                    Wave Speed: 10.0 km / h, Number of Lanes: 3, Jam Density Link: 150.0 1 / km, Flow                
+                    Capacity: 2500.0 s / h, Time Step: 1.0 s                                                         
+           DEBUG    Setting _is_initialized to True                                                     params.py:236
+           DEBUG    Metadata saved with hash: 13cef4bf0db3dce7246fcfb605a9e2c7                          params.py:226
+Loading the files:   0%|          | 0/1 [00:00<?, ?it/s]Loading the files: 100%|██████████| 1/1 [00:00<00:00, 1000.07it/s]
+[18:03:10] INFO     Running calibration with params: free_flow_speed: 30.0 km / h, jam_density:  traffic_model.py:232
+                    120.0 1 / km, wave_speed: 10.0 km / h, q_max: 1000.0 1 / h                                       
+           DEBUG    Setting _is_initialized to False                                                    params.py:236
+           DEBUG    Setting free_flow_speed to 30.0 km / h                                              params.py:236
+           DEBUG    Setting jam_density to 120.0 1 / km                                                 params.py:236
+           DEBUG    Setting wave_speed to 10.0 km / h                                                   params.py:236
+           DEBUG    Setting q_max to 1000.0 1 / h                                                       params.py:236
+           DEBUG    Setting _is_initialized to True                                                     params.py:236
+           DEBUG    Metadata saved with hash: 2706661abcbfabfaf3573c6b198ff0dc                          params.py:226
+Run file already exists at .cache/CTM/d1_20181029_0800_0830_682a48de_2706661abcbfabfaf3573c6b198ff0dc.json.
+           INFO     Running calibration with params: free_flow_speed: 30.0 km / h, jam_density:  traffic_model.py:232
+                    120.0 1 / km, wave_speed: 10.0 km / h, q_max: 1750.0 1 / h                                       
+           DEBUG    Setting _is_initialized to False                                                    params.py:236
+           DEBUG    Setting free_flow_speed to 30.0 km / h                                              params.py:236
+           DEBUG    Setting jam_density to 120.0 1 / km                                                 params.py:236
+           DEBUG    Setting wave_speed to 10.0 km / h                                                   params.py:236
+           DEBUG    Setting q_max to 1750.0 1 / h                                                       params.py:236
+           DEBUG    Setting _is_initialized to True                                                     params.py:236
+           DEBUG    Metadata saved with hash: 328fb09b23733315be11dfde28f35216                          params.py:226
+Run file already exists at .cache/CTM/d1_20181029_0800_0830_682a48de_328fb09b23733315be11dfde28f35216.json.
+           INFO     Running calibration with params: free_flow_speed: 30.0 km / h, jam_density:  traffic_model.py:232
+                    120.0 1 / km, wave_speed: 10.0 km / h, q_max: 2500.0 1 / h                                       
+           DEBUG    Setting _is_initialized to False                                                    params.py:236
+           DEBUG    Setting free_flow_speed to 30.0 km / h                                              params.py:236
+           DEBUG    Setting jam_density to 120.0 1 / km                                                 params.py:236
+           DEBUG    Setting wave_speed to 10.0 km / h                                                   params.py:236
+           DEBUG    Setting q_max to 2500.0 1 / h                                                       params.py:236
+           DEBUG    Setting _is_initialized to True                                                     params.py:236
+           DEBUG    Metadata saved with hash: 2c817856ccb18ee3d3a62a3c96db056f                          params.py:226
+Processing traffic model:   0%|          | 0/2 [00:00<?, ?it/s]Processing traffic model:  50%|█████     | 1/2 [00:16<00:16, 16.58s/it]Processing traffic model: 100%|██████████| 2/2 [00:33<00:00, 16.69s/it]Processing traffic model: 100%|██████████| 2/2 [00:33<00:00, 16.67s/it]
+[18:03:44] INFO     Running calibration with params: free_flow_speed: 30.0 km / h, jam_density:  traffic_model.py:232
+                    120.0 1 / km, wave_speed: 10.0 km / h, q_max: 3250.0 1 / h                                       
+           DEBUG    Setting _is_initialized to False                                                    params.py:236
+           DEBUG    Setting free_flow_speed to 30.0 km / h                                              params.py:236
+           DEBUG    Setting jam_density to 120.0 1 / km                                                 params.py:236
+           DEBUG    Setting wave_speed to 10.0 km / h                                                   params.py:236
+           DEBUG    Setting q_max to 3250.0 1 / h                                                       params.py:236
+           DEBUG    Setting _is_initialized to True                                                     params.py:236
+           DEBUG    Metadata saved with hash: 37074106b131b135ea193bc904b84312                          params.py:226
+Processing traffic model:   0%|          | 0/2 [00:00<?, ?it/s]

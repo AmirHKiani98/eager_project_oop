@@ -145,7 +145,7 @@ class Parameters():
             self.q_max,
             min(self.free_flow_speed, self.wave_speed)
             * self.jam_density_link
-        ) * self.dt
+        ) * self.dt * self.num_lanes
 
     def get_cell_capacity(self, cell_length: Units.Quantity):
         """
@@ -179,6 +179,8 @@ class Parameters():
         return cell_length / self.free_flow_speed
 
     def get_jam_density(self, cell_length: Units.Quantity):
+        # Mazi, I'm not sure if this your implementation is correct. The output is
+        # dimensionless. Take a look at the code below.
         """
         Calculate the jam density for a given cell length.
 
