@@ -217,10 +217,10 @@ class TrafficModel:
         Returns:
             void
         """
-        free_flow_speeds = np.arange(30, 50, 5)
-        jam_densities = np.arange(120, 160, 5)
-        wave_speeds = np.arange(10, 20, 5)
-        q_max = np.arange(1000, 4000, 5)
+        free_flow_speeds = np.linspace(30, 50, 5)
+        jam_densities = np.linspace(120, 160, 5)
+        wave_speeds = np.linspace(10, 20, 5)
+        q_max = np.linspace(1000, 4000, 5)
         combinations = list(itertools.product(
             free_flow_speeds,
             jam_densities,
@@ -229,11 +229,21 @@ class TrafficModel:
         ))
         combinations_array = np.array(combinations)
         for params in combinations_array:
-            logger.info("Running calibration with params: %s", params)
+            logger.info(
+                "Running calibration with params: free_flow_speed: %s, jam_density: %s, "
+                "wave_speed: %s, q_max: %s",
+                params[0] * Units.KM_PER_HR,
+                params[1] * Units.PER_KM,
+                params[2] * Units.KM_PER_HR,
+                params[3] * Units.PER_HR
+            )
+            self.dl.params.set_initialized(False)
             self.dl.params.free_flow_speed = params[0] * Units.KM_PER_HR
             self.dl.params.jam_density = params[1] * Units.PER_KM
             self.dl.params.wave_speed = params[2] * Units.KM_PER_HR
-            self.dl.params.q_max = params[3]
+            self.dl.params.q_max = params[3] * Units.PER_HR
+            self.dl.params.set_initialized(True)
+            self.dl.params.save_metadata()
             self.run_with_multiprocessing(num_processes, batch_size)
 
     def get_run_file_path(self):

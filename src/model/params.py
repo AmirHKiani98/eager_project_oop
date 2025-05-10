@@ -124,6 +124,14 @@ class Parameters():
         self._is_initialized = True
         self.save_metadata()
 
+    def set_initialized(self, initialized: bool):
+        """
+        Set the initialized state of the Parameters class.
+
+        Args:
+            initialized (bool): The initialized state to set.
+        """
+        self._is_initialized = initialized
 
     def get_max_flow(self, *args) -> Units.Quantity:
         """
@@ -240,6 +248,8 @@ class Parameters():
             value: The value to set for the attribute.
         """
         logger.debug("Setting %s to %s", name, value)
-        super().__setattr__(name, value)
-        if getattr(self, "_is_initialized", False) and not name.startswith("_"):
-            self.save_metadata()
+        
+        if getattr(self, name, None) != value:
+            super().__setattr__(name, value)
+            if getattr(self, "_is_initialized", False) and not name.startswith("_"):
+                self.save_metadata()
