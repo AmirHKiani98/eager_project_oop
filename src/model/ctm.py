@@ -52,17 +52,19 @@ class CTM(TrafficModel):
             cell_capacity = round(cell_capacity.to(1).value) # Fix: This might cause error!
         if isinstance(flow_capacity, Units.Quantity):
             flow_capacity = round(flow_capacity.to(1).value) # Fix: This might cause error!
+        alpha = self.dl.params.wave_speed/self.dl.params.wave_speed
 
-        inflow = min(
+        if isinstance(alpha, Units.Quantity):
+            alpha = round(alpha.to(1).value)
+
+        flow = min(
             prev_cell_occupancy,
             flow_capacity,
-            cell_capacity - current_cell_occupancy
+            alpha*(cell_capacity - current_cell_occupancy)
         )
-        if inflow < 0:
-            inflow = 0
-            # raise ValueError("Inflow cannot be negative.")
-
-        return inflow
+        if flow < 0:
+            flow = 0
+        return flow
 
 
     def predict(self, **kwargs):
