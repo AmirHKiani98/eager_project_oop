@@ -20,6 +20,8 @@ Dependencies:
       related to the traffic model.
 """
 import math
+import os
+import json
 from abc import abstractmethod
 from multiprocessing import Pool, cpu_count
 from more_itertools import chunked
@@ -144,6 +146,13 @@ class TrafficModel:
             raise ValueError("No tasks to process. Please provide a list of tasks.")
         if num_processes is None:
             num_processes = cpu_count()
+        run_file_path = self.get_run_file_path()
+        parent_dir = os.path.dirname(run_file_path)
+        if not os.path.exists(parent_dir):
+            os.makedirs(parent_dir)
+        if os.path.exists(run_file_path):
+            print(f"Run file already exists at {run_file_path}.")
+            return []
 
         all_results = []
         with Pool(processes=num_processes) as pool:
@@ -157,6 +166,8 @@ class TrafficModel:
                     batch
                 )
                 all_results.extend(results)
+        with open(run_file_path, "w", encoding="utf-8") as f:
+            json.dump(all_results, f)
         return all_results
 
     @abstractmethod
@@ -179,3 +190,29 @@ class TrafficModel:
         Abstract method to compute flow.
         """
         raise NotImplementedError("Subclasses must implement this method.")
+
+
+    def get_run_file_path(self):
+        """
+        Get the file path of the run.
+
+        Returns:
+            str: The file path of the run.
+        """
+        return (
+            (
+                self.dl.cache_dir + "/"
+                + self.__class__.__name__
+                + "/"
+                + self.dl.fp_location
+                + "_"
+                + self.dl.fp_date
+                + "_"
+                + self.dl.fp_time
+                + "_"
+                + self.dl.geo_loader.get_hash_str()
+                + "_"
+                + self.dl.params.get_hash_str()
+                + ".json"
+            )
+        )

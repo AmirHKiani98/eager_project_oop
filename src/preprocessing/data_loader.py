@@ -958,6 +958,18 @@ class DataLoader:
         file_address = self.density_exit_entry_files_dict.get((location, date, time), None)
         if file_address is None:
             raise ValueError(f"File not found for {location}, {date}, {time}")
+        output_file_address = (
+            self.cache_dir + "/" + self._get_filename(location, date, time) +
+            "_first_cell_inflow_" + self.params.get_hash_str(["dt"]) + "_" +
+            self.geo_loader.get_hash_str() + ".json"
+        )
+
+        if os.path.isfile(output_file_address):
+            with open(output_file_address, "r", encoding="utf-8") as f:
+                first_cell_inflow_dict = json.load(f)
+                f.close()
+            return first_cell_inflow_dict
+
         df = pl.read_parquet(file_address).filter(
             pl.col("cell_id") == 1
         )
@@ -965,6 +977,7 @@ class DataLoader:
         first_cell_inflow_dict = {}
         groups = df.group_by("link_id")
         num_groups = df.select(["link_id"]).unique().height
+
         for link_id, group in tqdm(groups, total=num_groups, desc="Finding first cell inflow"):
             link_id = link_id[0] if isinstance(link_id, (list, tuple)) else link_id
             link_first_cell_inflow_dict = {
@@ -975,6 +988,10 @@ class DataLoader:
                 for t in group["trajectory_time"]
             }
             first_cell_inflow_dict[link_id] = link_first_cell_inflow_dict
+        with open(output_file_address, "w", encoding="utf-8") as f:
+            json.dump(first_cell_inflow_dict, f, indent=4)
+            f.close()
+
         return first_cell_inflow_dict
 
     def activate_first_cell_inflow_dict(self, location, date, time):

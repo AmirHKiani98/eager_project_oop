@@ -26,6 +26,7 @@ Example:
 """
 import logging
 import hashlib
+from typing import Optional
 from rich.logging import RichHandler
 from src.common_utility.units import Units
 # Configure logging
@@ -173,7 +174,7 @@ class Parameters():
             raise TypeError("cell_length must be an astropy Quantity with units")
         return self.jam_density_link/1000 * cell_length * self.num_lanes
 
-    def get_hash_str(self):
+    def get_hash_str(self, attribute_names: Optional[list] = None):
         """
         Generate a hash string based on the parameters.
 
@@ -182,6 +183,30 @@ class Parameters():
         """
         params_str = ""
         for attribute_name, attribute_value in sorted(self.__dict__.items()):
-            params_str += f"{attribute_name}={attribute_value}, "
+            if attribute_names is None or attribute_name in attribute_names:
+                params_str += f"{attribute_name}={attribute_value}, "
         params_str = params_str.strip(", ")
         return hashlib.md5(params_str.encode()).hexdigest()
+    
+    def save_metadata(self):
+        """
+        Save metadata to a file.
+
+        This method generates a hash string based on the parameters and saves it to a file.
+        """
+        hash_str = self.get_hash_str()
+        if os.path.exists(
+        with open(hash_str + ".json", "w") as f:
+            f.write(hash_str)
+        logger.debug(f"Metadata saved with hash: {hash_str}")
+
+    def __setattr__(self, name, value):
+        """
+        Set an attribute of the Parameters class.
+
+        Args:
+            name (str): The name of the attribute to set.
+            value: The value to set for the attribute.
+        """
+        logger.debug(f"Setting {name} to {value}")
+        object.__setattr__(name, value)
