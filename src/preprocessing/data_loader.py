@@ -138,7 +138,8 @@ class DataLoader:
         """
         Constructs and returns the full file path for a cached file.
         """
-        return os.path.join(self.params.cache_dir, self._get_filename(location, date, time) + ".csv")
+        filename = self._get_filename(location, date, time) + ".csv"
+        return os.path.join(self.params.cache_dir, filename)
 
     def check_file_exists_in_cache(self, location, date, time) -> bool:
         """
@@ -427,8 +428,11 @@ class DataLoader:
         and finding the closest links and cells for each point in the DataFrame.
         """
         processed_file_path = (
-            self.params.cache_dir + "/" + self._get_filename(location, date, time) + "_withlinkcell_" +
-            self.geo_loader.get_hash_str() + ".csv"
+            os.path.join(
+            self.params.cache_dir,
+            f"{self._get_filename(location, date, time)}_withlinkcell_"
+            f"{self.geo_loader.get_hash_str()}.csv"
+            )
         )
         if os.path.isfile(processed_file_path):
             return (
@@ -968,7 +972,7 @@ class DataLoader:
             with open(output_file_address, "r", encoding="utf-8") as f:
                 first_cell_inflow_dict = json.load(f)
                 f.close()
-            return first_cell_inflow_dict
+            return convert_keys_to_int(first_cell_inflow_dict)
 
         df = pl.read_parquet(file_address).filter(
             pl.col("cell_id") == 1
