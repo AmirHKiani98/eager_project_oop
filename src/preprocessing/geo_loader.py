@@ -75,7 +75,7 @@ class GeoLoader:
         else:
             self._load_links()
             if self.cell_length is None and self.number_of_cells is None:
-                print("Warining: No cell length or number of cells provided.")
+                logger.warning("Warning: No cell length or number of cells provided.")
             else:
                 self._load_cells()
             if not testing:    
@@ -141,7 +141,6 @@ class GeoLoader:
             # ax.plot(x, y, color='blue', linewidth=2, alpha=0.5)
         for cell in self.cells:
             x, y = cell.line.xy
-            print(f"Link: {cell.link.length_meters} meters, Cell: {cell.length_meters} meters")
             random_color = (random.random(), random.random(), random.random())
             ax.plot(x, y, color=random_color, linewidth=3, alpha=1)
         plt.show()
@@ -246,7 +245,7 @@ class GeoLoader:
                 link.add_cell(cell)
                 self.cells.append(cell)
             else:
-                print(f"Link: {link_id} not found for cell {cell_id}")
+                logger.error(f"Link: {link_id} not found for cell {cell_id}")
 
     def _geo_data_already_exists(self):
         """
