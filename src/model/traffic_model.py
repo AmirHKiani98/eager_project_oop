@@ -159,6 +159,8 @@ class TrafficModel:
             raise ValueError("No tasks to process. Please provide a list of tasks.")
         if num_processes is None:
             num_processes = cpu_count()
+        if batch_size is None:
+            batch_size = int(len(args_list)/2)
         run_file_path = self.get_run_file_path()
         parent_dir = os.path.dirname(run_file_path)
         if not os.path.exists(parent_dir):

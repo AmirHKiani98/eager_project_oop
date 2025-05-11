@@ -290,7 +290,7 @@ class DataLoader:
                         )
                         self.link_cumulative_counts_file[
                             (location, date, time)
-                        ] = self.get_cumulative_counts(
+                        ] = self.get_cumulative_counts_file(
                             location, date, time
                         )
                         self.test_files[(location, date, time)].append(
@@ -924,7 +924,7 @@ class DataLoader:
             exits_dict[row["link_id"]][row["cell_id"]][row["trajectory_time"]] = row["exit_count"]
         return cell_vector_occupancy_or_density_dict, entries_dict, exits_dict
 
-    def get_cumulative_counts(self, location, date, time):
+    def get_cumulative_counts_file(self, location, date, time):
         # nbbi: Needs test
         """
         Returns the cumulative counts for the specified location, date, and time.
@@ -935,6 +935,7 @@ class DataLoader:
         )
 
         if os.path.isfile(file_address):
+            logger.info("Cumulative counts file already exists: %s", file_address)
             return file_address
 
         occupanct_exit_entry_df = self.density_exit_entry_files_dict.get(
@@ -986,7 +987,7 @@ class DataLoader:
                 pl.col("total_entries").cum_sum().alias("cumulative_entries"),
                 pl.col("total_exits").cum_sum().alias("cumulative_exits")
             ])
-            group = group.select(["total_entries", "total_exits", "link_id", "trajectory_time"])
+            group = group.select(["cumulative_entries", "cumulative_exits", "link_id", "trajectory_time"])
             cumulative_counts = pl.concat([cumulative_counts, group])
 
         cumulative_counts.write_csv(file_address)
@@ -1083,6 +1084,40 @@ class DataLoader:
             
 
         return first_cell_inflow_dict
+    
+    def get_cumulative_count_dt(self, location, date, time):
+        """
+        Returns the cumulative counts for the specified location, date, and time.
+        """
+        cumulative_counts_file = self.link_cumulative_counts_file.get((location, date, time), None)
+        if not isinstance(cumulative_counts_file, str):
+            raise ValueError(f"File not found for {location}, {date}, {time}")
+        
+        output_file_address = (
+            self.params.cache_dir + "/" + self._get_filename(location, date, time) +
+            "_first_cell_inflow_" + self.params.get_hash_str(["dt"]) + "_" +
+            self.geo_loader.get_hash_str() + ".json"
+        )
+
+        cumulative_counts_df = pl.read_csv(cumulative_counts_file)
+
+        groups = cumulative_counts_df.group_by("link_id")
+        num_groups = cumulative_counts_df.select(["link_id"]).unique().height
+        cumulative_counts_dict = {}
+        for link_id, group in tqdm(groups, total=num_groups, desc="Finding first cell inflow"):
+            link_id = link_id[0] if isinstance(link_id, (list, tuple)) else link_id
+            link_cumulative_counts_dict = {
+                round(t, 2): group.filter(
+                    (pl.col("trajectory_time") >= t) &
+                    (pl.col("trajectory_time") < (t + self.params.dt.to(Units.S).value - ))
+                )["cumulative_entries"].sum()
+                for t in group["trajectory_time"]
+            }
+            if isinstance(link_id, (str, float)):
+                link_id = int(link_id)
+            cumulative_counts_dict[link_id] = link_cumulative_counts_dict
+
+        
 
     def activate_first_cell_inflow_dict(self, location, date, time):
         """
@@ -1153,6 +1188,18 @@ class DataLoader:
             json.dump(tasks, f, indent=4)
         self.tasks = tasks
         self.destruct()
+    
+
+    def prepare_pq_tasks(self, location, date, time):
+        """
+        
+        Prepares the necessary tasks for the specified location, date, and time.
+        """
+        self.activate_tl_status_dict(location, date, time)
+        self.activate_occupancy_density_entry_exit_dict(location, date, time, coi="on_cell")
+        self.activate_first_cell_inflow_dict(location, date, time)
+        self.activate_cumulative_dict(location, date, time)
+        
 
 
 if __name__ == "__main__":

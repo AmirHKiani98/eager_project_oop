@@ -260,7 +260,7 @@ class GeoLoader:
 
     def find_closest_link_and_cell(
         self, point: POINT
-    ) -> tuple[Optional[Cell], Units.Quantity, Optional[Link], Units.Quantity]:
+    ) -> tuple[Optional[Link], Units.Quantity, Optional[Cell], Units.Quantity]:
         """
         Finds the closest link to a given point.
 
@@ -268,8 +268,8 @@ class GeoLoader:
             point (POINT): The point to find the closest link to.
 
         Returns:
-            tuple[Optional[Cell], Units.Quantity, Optional[Link], Units.Quantity]: 
-            The closest cell and its distance, and the closest link 
+            tuple[Optional[Link], Units.Quantity, Optional[Cell], Units.Quantity]: 
+            The closest link and its distance, and the closest cell 
             and its distance.
         """
         min_distance_link = float("inf")
@@ -294,6 +294,10 @@ class GeoLoader:
             if distance < min_distance_cell:
                 min_distance_cell = distance
                 closest_cell = cell
+        if not isinstance(min_distance_cell, Units.Quantity):
+            raise TypeError("Distance must be of type Units.Quantity")
+        if not isinstance(min_distance_link, Units.Quantity):
+            raise TypeError("Distance must be of type Units.Quantity")
         return (closest_link, min_distance_link, closest_cell, min_distance_cell)
 
     def get_cell_length(self, cell_id, link_id):
@@ -308,6 +312,18 @@ class GeoLoader:
             float: Length of the specified cell.
         """
         return self.links[link_id].get_cell_length(cell_id)
+    
+    def get_link_length(self, link_id):
+        """
+        Get the length of a specific link.
+
+        Args:
+            link_id (int): The ID of the link.
+
+        Returns:
+            float: Length of the specified link.
+        """
+        return self.links[link_id].get_length()
 
     def is_tl(self, link_id):
         """

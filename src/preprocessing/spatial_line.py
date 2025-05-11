@@ -121,3 +121,15 @@ class SpatialLine:
         # Ensure the distance is calculated in meters
         point = transform(self._transformer_to_metric.transform, point)
         return self._from_metric.distance(point) * Units.M
+
+    def get_length(self) -> Units.Quantity:
+        """
+        Returns the length of the spatial line in meters.
+
+        Returns:
+            float: The length of the spatial line in meters.
+        """
+        if not isinstance(self.length_meters, Units.Quantity):
+            raise ValueError("Length is not a valid Units.Quantity object.")
+        
+        return self.length_meters

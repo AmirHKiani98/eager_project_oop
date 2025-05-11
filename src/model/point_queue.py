@@ -20,4 +20,15 @@ class PointQueue(TrafficModel):
     Inherits from the TrafficModel class.
     """
     pass
-    
+    def compute_flow(self):
+        """
+        Compute the flow of traffic through the point queue.
+        """
+        pass
+
+    def run(self, args):
+        """
+        Run the point queue model with the given arguments.
+        """
+        # Placeholder for running the point queue model
+        pass
