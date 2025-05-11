@@ -35,10 +35,14 @@ class PointQueue(TrafficModel):
         cumulative_count_downstream = args["cumulative_count_downstream"]
         entry_count = args["entry_count"]
         current_number_of_vehicles = args["current_number_of_vehicles"]
-        if current_number_of_vehicles is None:
-            current_number_of_vehicles = 0 # nbbi: This should not happen! Figure it out!
+        # if current_number_of_vehicles is None:
+        #     current_number_of_vehicles = 0 # nbbi: This should not happen! Figure it out!
         link_id = args["link_id"]
-        link_length = self.dl.geo_loader.get_link_length(link_id)
+        if current_number_of_vehicles is None:
+            raise ValueError(
+                f"current_number_of_vehicles is None for link_id {link_id}"
+            )
+        
         max_no_vehicles_on_link = (
             self.dl.params.q_max * self.dl.params.dt
         )

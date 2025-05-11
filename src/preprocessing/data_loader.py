@@ -966,8 +966,6 @@ class DataLoader:
             first_cell_entry = group["entry_count"].first()
             last_cell_exit = group["exit_count"].last()
             current_number_of_vehicles = group["vehicle_ids"].list.len().sum()
-            if current_number_of_vehicles is None:
-                current_number_of_vehicles = 0
             cumulative_counts_data.append({
                 "link_id": link_id,
                 "trajectory_time": trajectory_time,
@@ -994,7 +992,8 @@ class DataLoader:
             group = group.with_columns(
                 pl.col("first_cell_entry").fill_null(0.0),
                 pl.col("last_cell_exit").fill_null(0.0),
-                pl.col("link_id").fill_null(link_id)
+                pl.col("link_id").fill_null(link_id),
+                pl.col("current_number_of_vehicles").fill_null(0.0)
             )
             group = group.sort(["trajectory_time"])
             group = group.with_columns([
