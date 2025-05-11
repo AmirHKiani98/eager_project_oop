@@ -10,6 +10,7 @@ import polars as pl
 
 from src.model.ctm import CTM
 from src.model.point_queue import PointQueue
+from src.model.spatial_queue import SpatialQueue
 from src.model.params import Parameters
 from src.preprocessing.data_loader import DataLoader
 from src.preprocessing.geo_loader import GeoLoader
@@ -110,7 +111,6 @@ def main():
     )
 
     if args.model == "ctm":
-        dl.prepare_ctm_tasks(location=args.fp_location, date=args.fp_date, time=args.fp_time)
         model = CTM(
             dl=dl,
             fp_location=args.fp_location,
@@ -122,9 +122,9 @@ def main():
         if not args.calibration:
             model.run_with_multiprocessing(num_processes=num_processes, batch_size=batch_size)
         else:
+            dl.prepare("CTM", args.fp_location, args.fp_date, args.fp_time) # This will be automatically handled in run_with_multiprocessing
             model.run_calibration(num_processes=num_processes, batch_size=batch_size)
     elif args.model == "pq":
-        dl.prepare_pq_tasks(location=args.fp_location, date=args.fp_date, time=args.fp_time)
         model = PointQueue(
             dl=dl,
             fp_location=args.fp_location,
@@ -136,8 +136,22 @@ def main():
         if not args.calibration:
             model.run_with_multiprocessing(num_processes=num_processes, batch_size=batch_size)
         else:
+            dl.prepare("PointQueue", args.fp_location, args.fp_date, args.fp_time)
             model.run_calibration(num_processes=num_processes, batch_size=batch_size)
-
+    elif args.model == "sq":
+        model = SpatialQueue(
+            dl=dl,
+            fp_location=args.fp_location,
+            fp_date=args.fp_date,
+            fp_time=args.fp_time,
+        )
+        num_processes = cpu_count()
+        batch_size = 50000
+        if not args.calibration:
+            model.run_with_multiprocessing(num_processes=num_processes, batch_size=batch_size)
+        else:
+            dl.prepare("SpatialQueue", args.fp_location, args.fp_date, args.fp_time)
+            model.run_calibration(num_processes=num_processes, batch_size=batch_size)
 
 if __name__ == "__main__":
     main()

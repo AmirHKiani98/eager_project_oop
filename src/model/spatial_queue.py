@@ -24,9 +24,13 @@ class SpatialQueue(TrafficModel):
         """
         Run the point queue model with the given arguments.
         """
+        
         # Placeholder for running the point queue model
-        cumulative_count_upstream = args["cumulative_count_upstream"]
-        cumulative_count_downstream = args["cumulative_count_downstream"]
+        next_occupancy = args["next_occupancy"]
+        cumulative_count_upstream = args["cumulative_count_upstream"] # N(t+dt-L/vf, 0)
+        cumulative_count_upstream_at_t = args["cumulative_count_upstream_at_t"] # N(t, 0)
+        
+        cumulative_count_downstream = args["cumulative_count_downstream"] # N(t, L)
         entry_count = args["entry_count"]
         current_number_of_vehicles = args["current_number_of_vehicles"]
         tl_status = args["tl_status"]
@@ -49,13 +53,22 @@ class SpatialQueue(TrafficModel):
 
         sending_flow = min(
             cumulative_count_upstream - cumulative_count_downstream,
-            max_no_vehicles_on_link, 0
-        ) # nbbi: I added zero too. Cause sometimes, the number of vehicles
+            max_no_vehicles_on_link
+        )
+        if sending_flow < 0:
+            # If the sending flow is negative, we set it to 0
+            sending_flow = 0
         if not tl_status:
             # If the traffic light is red, we don't want to send any vehicles
             sending_flow = 0
         # in upstream is less than the number of vehicles in downstream
-        receiving_flow = max_no_vehicles_on_link
+        receiving_flow = min(
+            self.dl.params.jam_density_link*self.dl.geo_loader.get_link_length(link_id).to(1).value - (cumulative_count_upstream_at_t- cumulative_count_downstream),
+            max_no_vehicles_on_link
+            )
+        if receiving_flow < 0:
+            # If the receiving flow is negative, we set it to 0
+            receiving_flow = 0
         new_occupancy = (
             current_number_of_vehicles 
             + min(entry_count, receiving_flow) 
@@ -74,7 +87,9 @@ class SpatialQueue(TrafficModel):
             "cumulative_count_upstream": cumulative_count_upstream,
             "cumulative_count_downstream": cumulative_count_downstream,
             "tl_status": tl_status,
-            "link_id": link_id
+            "link_id": link_id,
+            "next_occupancy": next_occupancy,
+            "cumulative_count_upstream_at_t": cumulative_count_upstream_at_t
         }
 
 

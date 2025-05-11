@@ -1189,6 +1189,10 @@ class DataLoader:
                 cumulative_counts_dict[link_id][trajectory_time][
                     "cumulative_count_upstream"
                 ] = closest_row["cumulative_link_entry"].item()
+
+                cumulative_counts_dict[link_id][trajectory_time][
+                    "cumulative_count_upstream_at_t"
+                ] = row["cumulative_link_entry"]
                 
                 cumulative_counts_dict[link_id][trajectory_time][
                     "cumulative_count_downstream"
@@ -1409,6 +1413,48 @@ class DataLoader:
             json.dump(tasks, f, indent=4)
         self.tasks = tasks
         self.destruct()
+    
+    def prepare_sq_tasks(self, location, date, time):
+        """
+        
+        Prepares the necessary tasks for the specified location, date, and time.
+        """
+        self.activate_cumulative_dict(location, date, time)
+        self.activate_tl_status_dict(location, date, time)
+        self.activate_next_timestamp_occupancy(location, date, time)
+        self.current_file_running = {
+            "location": location,
+            "date": date,
+            "time": time
+        }
+        file_address = (
+            self.params.cache_dir + "/" +
+            f"{self._get_filename(location, date, time)}_prepared_pq_tasks_"
+            f"{self.geo_loader.get_hash_str()}_{self.params.get_hash_str(['cache_dir', 'free_flow_speed', 'dt'])}.json"
+        )
+        if os.path.isfile(file_address):
+            self.tasks = json.load(open(file_address, "r", encoding="utf-8"))
+            return
+        tasks = []
+        for link_id, cell_dict in self.cumulative_counts_dict.items():
+            for trajectory_time, data in cell_dict.items():
+                tasks.append(
+                    {
+                        "link_id": link_id,
+                        "trajectory_time": trajectory_time,
+                        "cumulative_count_upstream": data["cumulative_count_upstream"],
+                        "cumulative_count_upstream_at_t": data["cumulative_count_upstream_at_t"],
+                        "cumulative_count_downstream": data["cumulative_count_downstream"],
+                        "entry_count": data["entry_count"],
+                        "tl_status": self.tl_status(trajectory_time, link_id),
+                        "current_number_of_vehicles": data["current_number_of_vehicles"],
+                        "next_occupancy": sum(self.next_timestamp_occupancy_dict[link_id][trajectory_time]["next_occupancy"]),
+                    }
+                )
+        with open(file_address, "w", encoding="utf-8") as f:
+            json.dump(tasks, f, indent=4)
+        self.tasks = tasks
+        self.destruct()
 
     def prepare(self, class_name: str, fp_location: str, fp_date: str, fp_time: str):
         """
@@ -1428,6 +1474,12 @@ class DataLoader:
             )
         elif class_name == "PointQueue":
             self.prepare_pq_tasks(
+                fp_location,
+                fp_date,
+                fp_time
+            )
+        elif class_name == "SpatialQueue":
+            self.prepare_sq_tasks(
                 fp_location,
                 fp_date,
                 fp_time
