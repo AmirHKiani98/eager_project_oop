@@ -1244,7 +1244,7 @@ class DataLoader:
         if os.path.isfile(file_address):
             self.tasks = json.load(open(file_address, "r", encoding="utf-8"))
             return
-
+        
         tasks = [] # ["cell_occupancies list", "first_cell_inflow", "link_id", "is_tl", "tl_status"]
         for link_id, cell_dict in self.cell_vector_occupancy_or_density_dict.items():
             for trajectory_time, occupancy_list in cell_dict.items():
@@ -1272,6 +1272,7 @@ class DataLoader:
         Prepares the necessary tasks for the specified location, date, and time.
         """
         self.activate_cumulative_dict(location, date, time)
+        self.activate_tl_status_dict(location, date, time)
         self.current_file_running = {
             "location": location,
             "date": date,
@@ -1295,6 +1296,7 @@ class DataLoader:
                         "cumulative_count_upstream": data["cumulative_count_upstream"],
                         "cumulative_count_downstream": data["cumulative_count_downstream"],
                         "entry_count": data["entry_count"],
+                        "tl_status": self.tl_status(trajectory_time, link_id),
                         "current_number_of_vehicles": data["current_number_of_vehicles"]
                     }
                 )
