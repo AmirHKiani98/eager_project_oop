@@ -19,18 +19,13 @@ class PointQueue(TrafficModel):
     Class representing a point queue traffic model.
     Inherits from the TrafficModel class.
     """
-    pass
-    def compute_flow(self):
-        """
-        Compute the flow of traffic through the point queue.
-        """
-        pass
 
     def run(self, args):
         """
         Run the point queue model with the given arguments.
         """
         # Placeholder for running the point queue model
+        next_occupancy = args["next_occupancy"]
         cumulative_count_upstream = args["cumulative_count_upstream"]
         cumulative_count_downstream = args["cumulative_count_downstream"]
         entry_count = args["entry_count"]
@@ -80,7 +75,8 @@ class PointQueue(TrafficModel):
             "cumulative_count_upstream": cumulative_count_upstream,
             "cumulative_count_downstream": cumulative_count_downstream,
             "tl_status": tl_status,
-            "link_id": link_id
+            "link_id": link_id,
+            "next_occupancy": next_occupancy
         }
 
 

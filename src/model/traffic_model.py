@@ -60,7 +60,7 @@ class TrafficModel:
             Abstract method that must be implemented by subclasses to predict traffic flow 
             based on the model's logic and input arguments.
     """
-    def __init__(self, dl: DataLoader):
+    def __init__(self, dl: DataLoader, fp_location: str, fp_date: str, fp_time: str):
         """
         Initialize the TrafficModel with a GeoLoader instance, Parameters object,
         and a DataLoader instance.
@@ -68,8 +68,15 @@ class TrafficModel:
             geo_loader (GeoLoader): An instance of GeoLoader for geographical data.
             params (Parameters): An instance of Parameters for model configuration.
             dl (DataLoader): An instance of DataLoader for loading data.
+            fp_location (str): The location of the file.
+            fp_date (str): The date of the file.
+            fp_time (str): The time of the file.
         """
         self.dl = dl
+        self.fp_location = fp_location
+        self.fp_date = fp_date
+        self.fp_time = fp_time
+
 
     def get_cell_length(self, cell_id, link_id):
         """
@@ -246,6 +253,8 @@ class TrafficModel:
             self.dl.params.q_max = params[3] * Units.PER_HR
             self.dl.params.set_initialized(True)
             self.dl.params.save_metadata()
+            self.dl.prepare(self.__class__.__name__, self.fp_location, self.fp_date, self.fp_time)
+            
             self.run_with_multiprocessing(num_processes, batch_size)
 
     def get_run_file_path(self):

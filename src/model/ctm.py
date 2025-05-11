@@ -158,6 +158,7 @@ class CTM(TrafficModel):
         is_tl = args["is_tl"]
         tl_status = args["tl_status"]
         trajectory_time = args["trajectory_time"]
+        next_occupancy = args["next_occupancy"]
         if not isinstance(occupancy_list, list) and not isinstance(occupancy_list, np.ndarray):
             raise TypeError("occupancy_list must be a list or numpy array.")
         if not isinstance(link_id, int):
@@ -186,5 +187,6 @@ class CTM(TrafficModel):
             "tl_status": tl_status,
             "new_occupancy": new_occupancy,
             "new_outflow": new_outflow,
-            "trajectory_time": trajectory_time
+            "trajectory_time": trajectory_time,
+            "next_occupancy": next_occupancy
         }

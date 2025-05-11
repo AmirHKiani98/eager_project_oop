@@ -97,6 +97,7 @@ class DataLoader:
         self.link_cumulative_counts_file = {}
         self.cell_entries_dict = {}
         self.first_cell_inflow_dict = {}
+        self.next_timestamp_occupancy_dict = {}
         self.cell_exits_dict = {}
         self.tasks = {}
         self.df = pl.DataFrame({})
@@ -548,6 +549,7 @@ class DataLoader:
         return file_address
 
     def get_density_entry_exist_df(self, fully_processed_file_address):
+        # nbbi: Needs test.
         """
         Computes vehicle entry, exit, and density statistics for each cell and time interval
         from a processed trajectory CSV file.
@@ -643,7 +645,7 @@ class DataLoader:
             pl.col("exits").list.len().alias("exit_count"),
             pl.col("vehicle_ids").list.len().alias("on_cell"),
         ])
-        # Print columns in different color for better visibility
+        # logger.debug columns in different color for better visibility
 
         complete_counts = complete_counts.with_columns([
             pl.struct(["link_id", "cell_id", "on_cell"]).map_elements(
@@ -672,7 +674,7 @@ class DataLoader:
 
         complete_counts = self.get_density_entry_exist_df(fully_processed_file_address)
         complete_counts.write_parquet(file_address)
-        print(f"Density DataFrame saved to {file_address}")
+        logger.debug(f"Density DataFrame saved to {file_address}")
         return file_address
 
     def is_vehicle_passed_traffic_light(
@@ -775,7 +777,7 @@ class DataLoader:
             )
             completed_groups = pl.concat([completed_groups, group])
         completed_groups.write_csv(file_address)
-        print(f"Traffic light status DataFram000e00 saved to {file_address}")
+        logger.debug(f"Traffic light status DataFram000e00 saved to {file_address}")
         return file_address
 
     def _get_processed_traffic_light_status(self, unprocessed_traffic_file, location, date, time):
@@ -891,6 +893,16 @@ class DataLoader:
         if file_address is None:
             raise ValueError(f"File not found for {location}, {date}, {time}")
 
+        output_file_address = (
+            self.params.cache_dir + "/" + self._get_filename(location, date, time) +
+            f"_{coi}_" + self.geo_loader.get_hash_str() +  "_" +
+            self.params.get_hash_str(["dt"]) + ".parquet"
+        )
+        if os.path.isfile(output_file_address):
+            with open(output_file_address, "rb") as f:
+                data = json.load(f)
+            return data["cell_vector_occupancy_or_density_dict"], data["entries_dict"], data["exits_dict"]
+
         df = pl.read_parquet(file_address)
         result = (
             df.sort(["link_id", "trajectory_time", "cell_id"])
@@ -923,6 +935,14 @@ class DataLoader:
                 row["entry_count"]
             )
             exits_dict[row["link_id"]][row["cell_id"]][row["trajectory_time"]] = row["exit_count"]
+        # Save the data to a JSON file
+        with open(output_file_address, "w") as f:
+            json.dump({
+                "cell_vector_occupancy_or_density_dict": cell_vector_occupancy_or_density_dict,
+                "entries_dict": entries_dict,
+                "exits_dict": exits_dict
+            }, f)
+        logger.debug(f"Occupancy or density DataFrame saved to {output_file_address}")
         return cell_vector_occupancy_or_density_dict, entries_dict, exits_dict
 
     def get_cumulative_counts_file(self, location, date, time):
@@ -1017,7 +1037,7 @@ class DataLoader:
             pl.col("trajectory_time").round(2)
         ])
         cumulative_cumulative_counts_df.write_csv(file_address)
-        print(f"Cumulative counts DataFrame saved to {file_address}")
+        logger.info(f"Cumulative counts DataFrame saved to {file_address}")
         return file_address
 
     def activate_tl_status_dict(self, location, date, time):
@@ -1201,6 +1221,12 @@ class DataLoader:
         """
         self.first_cell_inflow_dict = self.get_first_cell_inflow_dict(location, date, time)
 
+    def activate_next_timestamp_occupancy(self, location, date, time):
+        """
+        Returns the next timestamp occupancy for the specified location, date, and time.
+        """
+        self.next_timestamp_occupancy_dict = self.get_next_timestamp_occupancy(location, date, time)
+
     def set_params(self, params: Parameters):
         """
         Set the parameters for the traffic model.
@@ -1209,6 +1235,82 @@ class DataLoader:
             params (Parameters): Parameters object containing traffic model parameters.
         """
         self.params = params
+    
+    def get_next_timestamp_occupancy(self, location, date, time):
+        """
+        Returns the occupancy of the next timestamp for the specified location, date, and time.
+        """
+        # nbbi: Needs test
+
+        file_address = (
+            self.params.cache_dir + "/" + self._get_filename(location, date, time) +
+            "_next_timestamp_occupancy_" + self.geo_loader.get_hash_str()  + "_" +
+           self.params.get_hash_str(['dt']) + ".json"
+        )
+        if os.path.isfile(file_address):
+            with open(file_address, "r", encoding="utf-8") as f:
+                next_timestamp_occupancy_dict = json.load(f)
+            return convert_keys_to_float(next_timestamp_occupancy_dict)
+        
+        occupancy_df = self.density_exit_entry_files_dict.get(
+            (location, date, time), None
+        )
+        if occupancy_df is None:
+            raise ValueError(
+                f"Occupancy file not found for {location}, {date}, {time}, "
+                "for processing occupancy"
+            )
+
+        occupancy_df = pl.read_parquet(occupancy_df)
+        # For each timestamp (not timestep), get the occupancy of the next timestep(not timestamp)
+        # Timestep is self.params.dt
+        # Find the closest timestamp to the next timestep in the same link.
+        occupancy_df = occupancy_df.sort(["link_id", "trajectory_time"])
+        groups = occupancy_df.group_by(["link_id", "cell_id"])
+        ground_truth_occupancy = []
+        dt_seconds = self.params.dt.to(Units.S).value
+        for name, group in tqdm(groups, desc="Finding next timestamp occupancy"):
+            link_id, cell_id = name[0], name[1]
+            group = group.sort(["trajectory_time"])
+            times = group["trajectory_time"].to_numpy()
+            occupancies = group["on_cell"].to_numpy()
+            for idx, current_time in enumerate(times):
+                target_time = current_time + dt_seconds
+                insert_pos = np.searchsorted(times, target_time)
+                if insert_pos == len(times):
+                    next_occupancy = 0  # no next occupancy exists
+                else:
+                    next_occupancy = occupancies[insert_pos]
+                
+                ground_truth_occupancy.append({
+                    "link_id": link_id,
+                    "trajectory_time": current_time,
+                    "on_cell_now": occupancies[idx],
+                    "on_cell_next": next_occupancy,
+                    "cell_id": cell_id
+                })
+        ground_truth_occupancy_df = pl.DataFrame(ground_truth_occupancy)
+        result = (
+            ground_truth_occupancy_df.sort(["link_id", "trajectory_time", "cell_id"])
+            .group_by(["link_id", "trajectory_time"])
+            .agg([
+                pl.col("on_cell_now").alias(f"on_cell_vector"),
+                pl.col("on_cell_next").alias(f"on_cell_next_vector")
+            ])
+        )
+        occcupancy_ground_truths = {}
+        for row in result.iter_rows(named=True):
+            if row["link_id"] not in occcupancy_ground_truths:
+                occcupancy_ground_truths[row["link_id"]] = {}
+            occcupancy_ground_truths[row["link_id"]][
+                round(row["trajectory_time"], 2)
+            ] = {"current_occupancy": row["on_cell_vector"], "next_occupancy": row["on_cell_next_vector"]}
+        # Save the data to a JSON file
+        with open(file_address, "w", encoding="utf-8") as f:
+            json.dump(occcupancy_ground_truths, f, indent=4)
+        return occcupancy_ground_truths
+        
+
 
 
     def destruct(self):
@@ -1228,9 +1330,9 @@ class DataLoader:
         Prepares the dictionaries and the df for further processing.
         """
         self.activate_tl_status_dict(location, date, time)
-        self.activate_occupancy_density_entry_exit_dict(location, date, time, coi="on_cell")
+        self.activate_next_timestamp_occupancy(location, date, time)
         self.activate_first_cell_inflow_dict(location, date, time)
-
+        
         self.current_file_running = {
             "location": location,
             "date": date,
@@ -1239,18 +1341,19 @@ class DataLoader:
         file_address = (
             self.params.cache_dir + "/" +
             f"{self._get_filename(location, date, time)}_prepared_ctm_tasks_"
-            f"{self.geo_loader.get_hash_str()}_{self.params.get_hash_str()}.json"
+            f"{self.geo_loader.get_hash_str()}_{self.params.get_hash_str(['cache_dir', 'dt'])}.json"
         )
         if os.path.isfile(file_address):
             self.tasks = json.load(open(file_address, "r", encoding="utf-8"))
             return
         
         tasks = [] # ["cell_occupancies list", "first_cell_inflow", "link_id", "is_tl", "tl_status"]
-        for link_id, cell_dict in self.cell_vector_occupancy_or_density_dict.items():
+        for link_id, cell_dict in self.next_timestamp_occupancy_dict.items():
             for trajectory_time, occupancy_list in cell_dict.items():
                 tasks.append(
                     {
-                        "occupancy_list": occupancy_list,
+                        "occupancy_list": occupancy_list["current_occupancy"],
+                        "next_occupancy": occupancy_list["next_occupancy"],
                         "first_cell_inflow": self.first_cell_inflow_dict[link_id][
                             trajectory_time
                         ],
@@ -1273,6 +1376,7 @@ class DataLoader:
         """
         self.activate_cumulative_dict(location, date, time)
         self.activate_tl_status_dict(location, date, time)
+        self.activate_next_timestamp_occupancy(location, date, time)
         self.current_file_running = {
             "location": location,
             "date": date,
@@ -1281,7 +1385,7 @@ class DataLoader:
         file_address = (
             self.params.cache_dir + "/" +
             f"{self._get_filename(location, date, time)}_prepared_pq_tasks_"
-            f"{self.geo_loader.get_hash_str()}_{self.params.get_hash_str()}.json"
+            f"{self.geo_loader.get_hash_str()}_{self.params.get_hash_str(['cache_dir', 'free_flow_speed', 'dt'])}.json"
         )
         if os.path.isfile(file_address):
             self.tasks = json.load(open(file_address, "r", encoding="utf-8"))
@@ -1297,7 +1401,8 @@ class DataLoader:
                         "cumulative_count_downstream": data["cumulative_count_downstream"],
                         "entry_count": data["entry_count"],
                         "tl_status": self.tl_status(trajectory_time, link_id),
-                        "current_number_of_vehicles": data["current_number_of_vehicles"]
+                        "current_number_of_vehicles": data["current_number_of_vehicles"],
+                        "next_occupancy": sum(self.next_timestamp_occupancy_dict[link_id][trajectory_time]["next_occupancy"]),
                     }
                 )
         with open(file_address, "w", encoding="utf-8") as f:
@@ -1305,7 +1410,30 @@ class DataLoader:
         self.tasks = tasks
         self.destruct()
 
+    def prepare(self, class_name: str, fp_location: str, fp_date: str, fp_time: str):
+        """
+        Prepares the data for the specified class name.
         
+        Args:
+            class_name (str): The name of the class to prepare data for.
+            fp_location (str): The location of the file.
+            fp_date (str): The date of the file.
+            fp_time (str): The time of the file.
+        """
+        if class_name == "CTM":
+            self.prepare_ctm_tasks(
+                fp_location,
+                fp_date,
+                fp_time
+            )
+        elif class_name == "PointQueue":
+            self.prepare_pq_tasks(
+                fp_location,
+                fp_date,
+                fp_time
+            )
+        else:
+            raise ValueError(f"Unknown class name: {class_name}")
 
 
 if __name__ == "__main__":

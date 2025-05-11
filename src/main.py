@@ -112,7 +112,10 @@ def main():
     if args.model == "ctm":
         dl.prepare_ctm_tasks(location=args.fp_location, date=args.fp_date, time=args.fp_time)
         model = CTM(
-            dl=dl
+            dl=dl,
+            fp_location=args.fp_location,
+            fp_date=args.fp_date,
+            fp_time=args.fp_time,
         )
         num_processes = cpu_count()
         batch_size = 50000
@@ -123,7 +126,10 @@ def main():
     elif args.model == "pq":
         dl.prepare_pq_tasks(location=args.fp_location, date=args.fp_date, time=args.fp_time)
         model = PointQueue(
-            dl=dl
+            dl=dl,
+            fp_location=args.fp_location,
+            fp_date=args.fp_date,
+            fp_time=args.fp_time,
         )
         num_processes = cpu_count()
         batch_size = 50000
