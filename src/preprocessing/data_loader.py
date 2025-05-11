@@ -931,7 +931,8 @@ class DataLoader:
         """
         file_address = (
             self.params.cache_dir + "/" + self._get_filename(location, date, time) +
-            "_cumulative_counts_" + self.geo_loader.get_hash_str() + ".csv"
+            "_cumulative_counts_" + "_" + self.params.get_hash_str(["dt", "free_flow_speed"]) + "_" +
+            self.geo_loader.get_hash_str() + ".csv"
         )
         
         if os.path.isfile(file_address):
@@ -949,49 +950,65 @@ class DataLoader:
             )
 
         occupancy_exit_entry_df = pl.read_parquet(occupanct_exit_entry_df)
-        summed_over_link_df = occupancy_exit_entry_df.group_by(
+        groups = occupancy_exit_entry_df.group_by(
             ["link_id", "trajectory_time"]
-        ).agg([
-            pl.col("entry_count").sum().alias("total_entries"),
-            pl.col("exit_count").sum().alias("total_exits")
-        ])
-        groups = summed_over_link_df.group_by("link_id")
-        num_groups = summed_over_link_df.select(["link_id"]).unique().height
-        cumulative_counts = pl.DataFrame({})
-        occupancy_exit_entry_df_min = occupancy_exit_entry_df["trajectory_time"].min()
-        if not isinstance(occupancy_exit_entry_df_min, (float, int)):
-            raise ValueError(
-                f"occupancy_exit_entry_df_min is not a valid number for {location}, {date}, {time}"
-            )
-        occupancy_exit_entry_df_max = occupancy_exit_entry_df["trajectory_time"].max()
-        if not isinstance(occupancy_exit_entry_df_max, (float, int)):
-            raise ValueError(
-                f"occupancy_exit_entry_df_max is not a valid number for {location}, {date}, {time}"
-            )
+        )
+        group_length = occupancy_exit_entry_df.select(
+            ["link_id", "trajectory_time"]
+        ).unique().height
+        cumulative_counts_data = []
+        for name, group in tqdm(groups, total=group_length, desc="Summing entries and exits"):
+            # We are only interested in the first and last cell of each link
+            link_id, trajectory_time = name[0], name[1]
+            trajectory_time = round(float(str(trajectory_time)), 2)
+                
+            first_cell_entry = group["entry_count"].first()
+            last_cell_exit = group["exit_count"].last()
+            cumulative_counts_data.append({
+                "link_id": link_id,
+                "trajectory_time": trajectory_time,
+                "first_cell_entry": first_cell_entry,
+                "last_cell_exit": last_cell_exit
+            })
 
-        for link_id, group in tqdm(groups, total=num_groups, desc="Calculating cumulative counts"):
+        
+        cumulative_counts_df = pl.DataFrame(cumulative_counts_data)
+        groups = cumulative_counts_df.group_by("link_id")
+        min_value = cumulative_counts_df["trajectory_time"].min()
+        max_value = cumulative_counts_df["trajectory_time"].max()
+        cumulative_cumulative_counts_df = pl.DataFrame({})
+        for link_id, group in tqdm(groups, total=group_length, desc="Extending the cumulative counts"):
             link_id = link_id[0] if isinstance(link_id, (list, tuple)) else link_id
             group = fill_missing_timestamps(
                 group,
                 "trajectory_time",
                 self.time_interval,
-                occupancy_exit_entry_df_min,
-                occupancy_exit_entry_df_max
+                min_value, # type: ignore
+                max_value # type: ignore
             )
             group = group.with_columns(
-                pl.col("total_entries").fill_null(0),
-                pl.col("total_exits").fill_null(0),
+                pl.col("first_cell_entry").fill_null(0.0),
+                pl.col("last_cell_exit").fill_null(0.0),
                 pl.col("link_id").fill_null(link_id)
             )
-            group = group.sort("trajectory_time")
+            group = group.sort(["trajectory_time"])
             group = group.with_columns([
-                pl.col("total_entries").cum_sum().alias("cumulative_entries"),
-                pl.col("total_exits").cum_sum().alias("cumulative_exits")
+                pl.col("first_cell_entry").cum_sum().alias("cumulative_link_entry"),
+                pl.col("last_cell_exit").cum_sum().alias("cumulative_link_exit")
             ])
-            group = group.select(["cumulative_entries", "cumulative_exits", "link_id", "trajectory_time"])
-            cumulative_counts = pl.concat([cumulative_counts, group])
-
-        cumulative_counts.write_csv(file_address)
+            cumulative_cumulative_counts_df = pl.concat(
+                [cumulative_cumulative_counts_df, group]
+            )
+        cumulative_cumulative_counts_df = cumulative_cumulative_counts_df.select([
+            "link_id",
+            "trajectory_time",
+            "cumulative_link_entry",
+            "cumulative_link_exit"
+        ])
+        cumulative_cumulative_counts_df = cumulative_cumulative_counts_df.with_columns([
+            pl.col("trajectory_time").round(2)
+        ])
+        cumulative_cumulative_counts_df.write_csv(file_address)
         print(f"Cumulative counts DataFrame saved to {file_address}")
         return file_address
 
