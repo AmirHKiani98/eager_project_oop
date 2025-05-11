@@ -933,7 +933,7 @@ class DataLoader:
             self.params.cache_dir + "/" + self._get_filename(location, date, time) +
             "_cumulative_counts_" + self.geo_loader.get_hash_str() + ".csv"
         )
-
+        
         if os.path.isfile(file_address):
             logger.info("Cumulative counts file already exists: %s", file_address)
             return file_address
@@ -941,6 +941,7 @@ class DataLoader:
         occupanct_exit_entry_df = self.density_exit_entry_files_dict.get(
             (location, date, time), None
         )
+        
         if occupanct_exit_entry_df is None:
             raise ValueError(
                 f"File not found for {location}, {date}, {time}, "
@@ -1085,7 +1086,7 @@ class DataLoader:
 
         return first_cell_inflow_dict
     
-    def get_cumulative_count_dt(self, location, date, time):
+    def get_cumulative_count_dt_ffs_link_length(self, location, date, time):
         """
         Returns the cumulative counts for the specified location, date, and time.
         """
@@ -1094,10 +1095,17 @@ class DataLoader:
             raise ValueError(f"File not found for {location}, {date}, {time}")
         
         output_file_address = (
-            self.params.cache_dir + "/" + self._get_filename(location, date, time) +
-            "_first_cell_inflow_" + self.params.get_hash_str(["dt"]) + "_" +
+            self.params.cache_dir + "/" +
+            self._get_filename(location, date, time) +
+            "_cumulative_count_dt_ffs_link_length_" +
+            self.params.get_hash_str(["dt", "free_flow_speed"]) + "_" +
             self.geo_loader.get_hash_str() + ".json"
         )
+        if os.path.isfile(output_file_address):
+            with open(output_file_address, "r", encoding="utf-8") as f:
+                cumulative_counts_dict = json.load(f)
+                
+            return convert_keys_to_float(cumulative_counts_dict)
 
         cumulative_counts_df = pl.read_csv(cumulative_counts_file)
 
@@ -1109,14 +1117,32 @@ class DataLoader:
             link_cumulative_counts_dict = {
                 round(t, 2): group.filter(
                     (pl.col("trajectory_time") >= t) &
-                    (pl.col("trajectory_time") < (t + self.params.dt.to(Units.S).value - ))
+                    (
+                        pl.col("trajectory_time") < (
+                            t + (
+                                self.params.dt - 
+                                (self.geo_loader.get_link_length(link_id) / 
+                                self.params.free_flow_speed)
+                            ).to(Units.S).value
+                        )
+                    )
                 )["cumulative_entries"].sum()
                 for t in group["trajectory_time"]
             }
             if isinstance(link_id, (str, float)):
                 link_id = int(link_id)
             cumulative_counts_dict[link_id] = link_cumulative_counts_dict
+        
+        with open(output_file_address, "w", encoding="utf-8") as f:
+            json.dump(cumulative_counts_dict, f, indent=4)
+        
+        return cumulative_counts_dict
 
+    def activate_cumulative_dict(self, location, date, time):
+        """
+        Returns the cumulative counts for the specified location, date, and time.
+        """
+        self.cumulative_counts_dict = self.get_cumulative_count_dt_ffs_link_length(location, date, time)
         
 
     def activate_first_cell_inflow_dict(self, location, date, time):
