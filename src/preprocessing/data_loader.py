@@ -965,11 +965,15 @@ class DataLoader:
                 
             first_cell_entry = group["entry_count"].first()
             last_cell_exit = group["exit_count"].last()
+            current_number_of_vehicles = group["vehicle_ids"].list.len().sum()
+            if current_number_of_vehicles is None:
+                current_number_of_vehicles = 0
             cumulative_counts_data.append({
                 "link_id": link_id,
                 "trajectory_time": trajectory_time,
                 "first_cell_entry": first_cell_entry,
                 "last_cell_exit": last_cell_exit,
+                "current_number_of_vehicles": current_number_of_vehicles
             })
 
         
@@ -997,6 +1001,7 @@ class DataLoader:
                 pl.col("first_cell_entry").cum_sum().alias("cumulative_link_entry"),
                 pl.col("last_cell_exit").cum_sum().alias("cumulative_link_exit")
             ])
+            
             cumulative_cumulative_counts_df = pl.concat(
                 [cumulative_cumulative_counts_df, group]
             )
@@ -1006,7 +1011,8 @@ class DataLoader:
             "cumulative_link_entry",
             "cumulative_link_exit",
             "first_cell_entry",
-            "last_cell_exit"
+            "last_cell_exit",
+            "current_number_of_vehicles"
         ])
         cumulative_cumulative_counts_df = cumulative_cumulative_counts_df.with_columns([
             pl.col("trajectory_time").round(2)
@@ -1129,11 +1135,11 @@ class DataLoader:
             return convert_keys_to_float(cumulative_counts_dict)
 
         cumulative_counts_df = pl.read_csv(cumulative_counts_file)
-
         groups = cumulative_counts_df.group_by("link_id")
         num_groups = cumulative_counts_df.select(["link_id"]).unique().height
+
         cumulative_counts_dict = {}
-        for link_id, group in tqdm(groups, total=num_groups, desc="Finding first cell inflow"):
+        for link_id, group in tqdm(groups, total=num_groups, desc="Finding cumulative counts"):
             link_id = link_id[0] if isinstance(link_id, (list, tuple)) else link_id
             group = group.sort(["trajectory_time"])
             link_length = self.geo_loader.get_link_length(link_id)
@@ -1156,17 +1162,28 @@ class DataLoader:
                     closest_idx = insert_pos - 1 if abs(before - target_time) <= abs(after - target_time) else insert_pos
 
                 # ✅ Now fetch the full row at closest_idx
-                closest_row = group[closest_idx]
+                closest_row = group[int(closest_idx)]
                 if link_id not in cumulative_counts_dict:
                     cumulative_counts_dict[link_id] = {}
                 if trajectory_time not in cumulative_counts_dict[link_id]:
                     cumulative_counts_dict[link_id][trajectory_time] = {}
-                cumulative_counts_dict[link_id][trajectory_time]["upstream"] = closest_row["cumulative_link_entry"]
-                cumulative_counts_dict[link_id][trajectory_time]["downstream"] = row["cumulative_link_exit"]
-                cumulative_counts_dict[link_id][trajectory_time]["entry_count"] = row["first_cell_entry"]
-                # Finding the closest time value to the trajectory time
-                # + self.params.dt.to(Units.S).value - link_length / self.params.free_flow_speed
-
+                cumulative_counts_dict[link_id][trajectory_time][
+                    "cumulative_count_upstream"
+                ] = closest_row["cumulative_link_entry"].item()
+                
+                cumulative_counts_dict[link_id][trajectory_time][
+                    "cumulative_count_downstream"
+                ] = row["cumulative_link_exit"]
+                
+                cumulative_counts_dict[link_id][trajectory_time][
+                    "entry_count"
+                ] = row["first_cell_entry"]
+                
+                cumulative_counts_dict[link_id][trajectory_time][
+                    "current_number_of_vehicles"
+                ] = row["current_number_of_vehicles"]
+                
+        # Convert keys to float
         with open(output_file_address, "w", encoding="utf-8") as f:
             json.dump(cumulative_counts_dict, f, indent=4)
         
@@ -1255,10 +1272,38 @@ class DataLoader:
         
         Prepares the necessary tasks for the specified location, date, and time.
         """
-        self.activate_tl_status_dict(location, date, time)
-        self.activate_occupancy_density_entry_exit_dict(location, date, time, coi="on_cell")
-        self.activate_first_cell_inflow_dict(location, date, time)
         self.activate_cumulative_dict(location, date, time)
+        self.current_file_running = {
+            "location": location,
+            "date": date,
+            "time": time
+        }
+        file_address = (
+            self.params.cache_dir + "/" +
+            f"{self._get_filename(location, date, time)}_prepared_pq_tasks_"
+            f"{self.geo_loader.get_hash_str()}_{self.params.get_hash_str()}.json"
+        )
+        if os.path.isfile(file_address):
+            self.tasks = json.load(open(file_address, "r", encoding="utf-8"))
+            return
+        tasks = []
+        for link_id, cell_dict in self.cumulative_counts_dict.items():
+            for trajectory_time, data in cell_dict.items():
+                tasks.append(
+                    {
+                        "link_id": link_id,
+                        "trajectory_time": trajectory_time,
+                        "cumulative_count_upstream": data["cumulative_count_upstream"],
+                        "cumulative_count_downstream": data["cumulative_count_downstream"],
+                        "entry_count": data["entry_count"],
+                        "current_number_of_vehicles": data["current_number_of_vehicles"]
+                    }
+                )
+        with open(file_address, "w", encoding="utf-8") as f:
+            json.dump(tasks, f, indent=4)
+        self.tasks = tasks
+        self.destruct()
+
         
 
 

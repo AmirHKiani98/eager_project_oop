@@ -142,27 +142,27 @@ class Parameters():
             raise TypeError("cell_length must be an astropy Quantity with units")
 
         return min(
-            self.q_max,
-            min(self.free_flow_speed, self.wave_speed)
+            self.q_max, # type: ignore
+            min(self.free_flow_speed, self.wave_speed) # type: ignore
             * self.jam_density_link
         ) * self.dt * self.num_lanes
 
-    def get_cell_capacity(self, cell_length: Units.Quantity):
+    def get_spatial_line_capacity(self, spatial_line_length: Units.Quantity):
         """
         Calculate the maximum number of vehicles that can be on a link based on the cell length.
 
         Args:
-            cell_length (Units.Quantity): The length of a cell in meters.
+            spatial_line_length (Units.Quantity): The length of a cell in meters.
 
         Returns:
             float: The maximum number of vehicles that can be on the link.
 
         Raises:
-            ValueError: If `cell_length` is not provided in meters.
+            ValueError: If `spatial_line_length` is not provided in meters.
         """
-        if not isinstance(cell_length, Units.Quantity):
-            raise TypeError("cell_length must be an astropy Quantity with units")
-        return cell_length * self.jam_density_link
+        if not isinstance(spatial_line_length, Units.Quantity):
+            raise TypeError("spatial_line_length must be an astropy Quantity with units")
+        return spatial_line_length * self.jam_density_link
 
     def get_time_step(self, cell_length):
         """
@@ -234,7 +234,7 @@ class Parameters():
             value: The value to set for the attribute.
         """
         logger.debug("Setting %s to %s", name, value)
-        
+
         if getattr(self, name, None) != value:
             super().__setattr__(name, value)
             if getattr(self, "_is_initialized", False) and not name.startswith("_"):

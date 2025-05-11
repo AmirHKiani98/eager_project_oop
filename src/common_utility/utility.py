@@ -10,5 +10,5 @@ def convert_keys_to_float(d):
         dict: The dictionary with keys converted to floats.
     """
     if isinstance(d, dict):
-        return {float(k): convert_keys_to_float(v) for k, v in d.items()}
+        return {float(k): convert_keys_to_float(v) for k, v in d.items() if k.replace('.', '', 1).isdigit()}
     return d

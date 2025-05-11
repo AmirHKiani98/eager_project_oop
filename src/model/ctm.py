@@ -47,7 +47,7 @@ class CTM(TrafficModel):
         cell_length = kwargs["cell_length"]
         flow_capacity = kwargs["flow_capacity"]
 
-        cell_capacity = self.dl.params.get_cell_capacity(cell_length)
+        cell_capacity = self.dl.params.get_spatial_line_capacity(cell_length)
         if isinstance(cell_capacity, Units.Quantity):
             cell_capacity = round(cell_capacity.to(1).value) # Fix: This might cause error!
         if isinstance(flow_capacity, Units.Quantity):

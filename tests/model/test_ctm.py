@@ -54,7 +54,7 @@ def test_ctm_model():
         dl=bypassed_data_loader
     )
     cell_length = bypassed_data_loader.geo_loader.cell_length
-    assert model.dl.params.get_cell_capacity(cell_length) == 90
+    assert model.dl.params.get_spatial_line_capacity(cell_length) == 90
     assert model.dl.params.flow_capacity == 15
     cell_occupancies = [27, 87, 3]
     first_cell_inflow = (1440 * Units.PER_HR) * model.dl.params.dt

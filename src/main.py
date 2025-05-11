@@ -9,6 +9,7 @@ from shapely.geometry import Point as POINT
 import polars as pl
 
 from src.model.ctm import CTM
+from src.model.point_queue import PointQueue
 from src.model.params import Parameters
 from src.preprocessing.data_loader import DataLoader
 from src.preprocessing.geo_loader import GeoLoader
@@ -111,6 +112,17 @@ def main():
     if args.model == "ctm":
         dl.prepare_ctm_tasks(location=args.fp_location, date=args.fp_date, time=args.fp_time)
         model = CTM(
+            dl=dl
+        )
+        num_processes = cpu_count()
+        batch_size = 50000
+        if not args.calibration:
+            model.run_with_multiprocessing(num_processes=num_processes, batch_size=batch_size)
+        else:
+            model.run_calibration(num_processes=num_processes, batch_size=batch_size)
+    elif args.model == "pq":
+        dl.prepare_pq_tasks(location=args.fp_location, date=args.fp_date, time=args.fp_time)
+        model = PointQueue(
             dl=dl
         )
         num_processes = cpu_count()
