@@ -1,3 +1,6 @@
 downloads
 .venv
-.cache
+.cache/CTM
+.cache/PointQueue
+.cache/SpatialQueue
+.cache/LTM
