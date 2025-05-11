@@ -23,6 +23,7 @@ from more_itertools import chunked
 from shapely.geometry import Point as POINT
 import requests
 from tqdm import tqdm
+import numpy as np
 import polars as pl
 from rich.logging import RichHandler
 from src.preprocessing.geo_loader import GeoLoader
@@ -968,7 +969,7 @@ class DataLoader:
                 "link_id": link_id,
                 "trajectory_time": trajectory_time,
                 "first_cell_entry": first_cell_entry,
-                "last_cell_exit": last_cell_exit
+                "last_cell_exit": last_cell_exit,
             })
 
         
@@ -1003,7 +1004,9 @@ class DataLoader:
             "link_id",
             "trajectory_time",
             "cumulative_link_entry",
-            "cumulative_link_exit"
+            "cumulative_link_exit",
+            "first_cell_entry",
+            "last_cell_exit"
         ])
         cumulative_cumulative_counts_df = cumulative_cumulative_counts_df.with_columns([
             pl.col("trajectory_time").round(2)
@@ -1107,6 +1110,7 @@ class DataLoader:
         """
         Returns the cumulative counts for the specified location, date, and time.
         """
+        # nbbi: Needs test
         cumulative_counts_file = self.link_cumulative_counts_file.get((location, date, time), None)
         if not isinstance(cumulative_counts_file, str):
             raise ValueError(f"File not found for {location}, {date}, {time}")
@@ -1131,25 +1135,38 @@ class DataLoader:
         cumulative_counts_dict = {}
         for link_id, group in tqdm(groups, total=num_groups, desc="Finding first cell inflow"):
             link_id = link_id[0] if isinstance(link_id, (list, tuple)) else link_id
-            link_cumulative_counts_dict = {
-                round(t, 2): group.filter(
-                    (pl.col("trajectory_time") >= t) &
-                    (
-                        pl.col("trajectory_time") < (
-                            t + (
-                                self.params.dt - 
-                                (self.geo_loader.get_link_length(link_id) / 
-                                self.params.free_flow_speed)
-                            ).to(Units.S).value
-                        )
-                    )
-                )["cumulative_entries"].sum()
-                for t in group["trajectory_time"]
-            }
-            if isinstance(link_id, (str, float)):
-                link_id = int(link_id)
-            cumulative_counts_dict[link_id] = link_cumulative_counts_dict
-        
+            group = group.sort(["trajectory_time"])
+            link_length = self.geo_loader.get_link_length(link_id)
+            traj_times = group["trajectory_time"].to_numpy()
+            for row in group.iter_rows(named=True):
+                trajectory_time = round(row["trajectory_time"], 2)
+                target_time = (
+                    (trajectory_time * Units.S) + self.params.dt - 
+                    link_length / self.params.free_flow_speed
+                ).to(Units.S).value
+                target_time = round(target_time, 2)
+                insert_pos = np.searchsorted(traj_times, target_time)
+                if insert_pos == 0:
+                    closest_idx = 0
+                elif insert_pos == len(traj_times):
+                    closest_idx = len(traj_times) - 1
+                else:
+                    before = traj_times[insert_pos - 1]
+                    after = traj_times[insert_pos]
+                    closest_idx = insert_pos - 1 if abs(before - target_time) <= abs(after - target_time) else insert_pos
+
+                # ✅ Now fetch the full row at closest_idx
+                closest_row = group[closest_idx]
+                if link_id not in cumulative_counts_dict:
+                    cumulative_counts_dict[link_id] = {}
+                if trajectory_time not in cumulative_counts_dict[link_id]:
+                    cumulative_counts_dict[link_id][trajectory_time] = {}
+                cumulative_counts_dict[link_id][trajectory_time]["upstream"] = closest_row["cumulative_link_entry"]
+                cumulative_counts_dict[link_id][trajectory_time]["downstream"] = row["cumulative_link_exit"]
+                cumulative_counts_dict[link_id][trajectory_time]["entry_count"] = row["first_cell_entry"]
+                # Finding the closest time value to the trajectory time
+                # + self.params.dt.to(Units.S).value - link_length / self.params.free_flow_speed
+
         with open(output_file_address, "w", encoding="utf-8") as f:
             json.dump(cumulative_counts_dict, f, indent=4)
         

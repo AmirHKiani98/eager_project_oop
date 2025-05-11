@@ -313,7 +313,7 @@ class GeoLoader:
         """
         return self.links[link_id].get_cell_length(cell_id)
     
-    def get_link_length(self, link_id):
+    def get_link_length(self, link_id) -> Units.Quantity:
         """
         Get the length of a specific link.
 
@@ -321,7 +321,7 @@ class GeoLoader:
             link_id (int): The ID of the link.
 
         Returns:
-            float: Length of the specified link.
+            Units.Quantity: Length of the specified link.
         """
         return self.links[link_id].get_length()
 
