@@ -93,6 +93,7 @@ class DataLoader:
         self.test_files = defaultdict(list)
         self.traffic_light_status_dict = {}
         self.cell_vector_occupancy_or_density_dict = {}
+        self.link_cumulative_counts_file = {}
         self.cell_entries_dict = {}
         self.first_cell_inflow_dict = {}
         self.cell_exits_dict = {}
@@ -285,6 +286,20 @@ class DataLoader:
                                 date,
                                 time,
                                 what_test="density_entry_exit"
+                            )
+                        )
+                        self.link_cumulative_counts_file[
+                            (location, date, time)
+                        ] = self.get_cumulative_counts(
+                            location, date, time
+                        )
+                        self.test_files[(location, date, time)].append(
+                            self._get_test_df(
+                                self.link_cumulative_counts_file[(location, date, time)],
+                                location,
+                                date,
+                                time,
+                                what_test="link_cumulative_counts"
                             )
                         )
                         unprocessed_traffic_file = self._get_traffic_light_status(
@@ -909,6 +924,66 @@ class DataLoader:
             exits_dict[row["link_id"]][row["cell_id"]][row["trajectory_time"]] = row["exit_count"]
         return cell_vector_occupancy_or_density_dict, entries_dict, exits_dict
 
+    def get_cumulative_counts(self, location, date, time):
+        # nbbi: Needs test
+        """
+        Returns the cumulative counts for the specified location, date, and time.
+        """
+        file_address = (
+            self.params.cache_dir + "/" + self._get_filename(location, date, time) +
+            "_cumulative_counts_" + self.geo_loader.get_hash_str() + ".csv"
+        )
+
+        if os.path.isfile(file_address):
+            return file_address
+
+        occupanct_exit_entry_df = self.density_exit_entry_files_dict.get(
+            (location, date, time), None
+        )
+        if occupanct_exit_entry_df is None:
+            raise ValueError(
+                f"File not found for {location}, {date}, {time}, "
+                "for processing cumulative count"
+            )
+
+        occupancy_exit_entry_df = pl.read_parquet(occupanct_exit_entry_df)
+        summed_over_link_df = occupancy_exit_entry_df.group_by(
+            ["link_id", "trajectory_time"]
+        ).agg([
+            pl.col("entry_count").sum().alias("total_entries"),
+            pl.col("exit_count").sum().alias("total_exits")
+        ])
+        groups = summed_over_link_df.group_by("link_id")
+        num_groups = summed_over_link_df.select(["link_id"]).unique().height
+        cumulative_counts = pl.DataFrame({})
+        occupancy_exit_entry_df_min = occupancy_exit_entry_df["trajectory_time"].min()
+        occupancy_exit_entry_df_max = occupancy_exit_entry_df["trajectory_time"].max()
+        for link_id, group in tqdm(groups, total=num_groups, desc="Calculating cumulative counts"):
+            link_id = link_id[0] if isinstance(link_id, (list, tuple)) else link_id
+            group = fill_missing_timestamps(
+                group,
+                "trajectory_time",
+                self.time_interval,
+                occupancy_exit_entry_df_min,
+                occupancy_exit_entry_df_max
+            )
+            group = group.with_columns(
+                pl.col("total_entries").fill_null(0),
+                pl.col("total_exits").fill_null(0),
+                pl.col("link_id").fill_null(link_id)
+            )
+            group = group.sort("trajectory_time")
+            group = group.with_columns([
+                pl.col("total_entries").cumsum().alias("cumulative_entries"),
+                pl.col("total_exits").cumsum().alias("cumulative_exits")
+            ])
+            group = group.select(["total_entries", "total_exits", "link_id", "trajectory_time"])
+            cumulative_counts = pl.concat([cumulative_counts, group])
+
+        cumulative_counts.write_csv(file_address)
+        print(f"Cumulative counts DataFrame saved to {file_address}")
+        return file_address
+
     def activate_tl_status_dict(self, location, date, time):
         """
         Returns the traffic light status dictionary for the specified location, date, and time.
@@ -1014,15 +1089,6 @@ class DataLoader:
         self.params = params
 
 
-    def prepare(self, location, date, time):
-        """
-        Prepares the dictionaries and the df for further processing.
-        """
-        self.activate_tl_status_dict(location, date, time)
-        self.activate_occupancy_density_entry_exit_dict(location, date, time, coi="on_cell")
-        self.activate_first_cell_inflow_dict(location, date, time)
-
-
     def destruct(self):
         """
         Clears the dictionaries and the df.
@@ -1039,11 +1105,10 @@ class DataLoader:
         """
         Prepares the dictionaries and the df for further processing.
         """
-        self.prepare(
-            location=location,
-            date=date,
-            time=time
-        )
+        self.activate_tl_status_dict(location, date, time)
+        self.activate_occupancy_density_entry_exit_dict(location, date, time, coi="on_cell")
+        self.activate_first_cell_inflow_dict(location, date, time)
+
         self.current_file_running = {
             "location": location,
             "date": date,
@@ -1078,3 +1143,9 @@ class DataLoader:
             f.close()
         self.tasks = tasks
         self.destruct()
+
+
+if __name__ == "__main__":
+    params = Parameters()
+    geo_loader = GeoLoader(params)
+    dl = DataLoader(params, geo_loader)
