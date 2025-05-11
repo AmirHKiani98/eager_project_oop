@@ -957,7 +957,16 @@ class DataLoader:
         num_groups = summed_over_link_df.select(["link_id"]).unique().height
         cumulative_counts = pl.DataFrame({})
         occupancy_exit_entry_df_min = occupancy_exit_entry_df["trajectory_time"].min()
+        if not isinstance(occupancy_exit_entry_df_min, (float, int)):
+            raise ValueError(
+                f"occupancy_exit_entry_df_min is not a valid number for {location}, {date}, {time}"
+            )
         occupancy_exit_entry_df_max = occupancy_exit_entry_df["trajectory_time"].max()
+        if not isinstance(occupancy_exit_entry_df_max, (float, int)):
+            raise ValueError(
+                f"occupancy_exit_entry_df_max is not a valid number for {location}, {date}, {time}"
+            )
+
         for link_id, group in tqdm(groups, total=num_groups, desc="Calculating cumulative counts"):
             link_id = link_id[0] if isinstance(link_id, (list, tuple)) else link_id
             group = fill_missing_timestamps(
@@ -974,8 +983,8 @@ class DataLoader:
             )
             group = group.sort("trajectory_time")
             group = group.with_columns([
-                pl.col("total_entries").cumsum().alias("cumulative_entries"),
-                pl.col("total_exits").cumsum().alias("cumulative_exits")
+                pl.col("total_entries").cum_sum().alias("cumulative_entries"),
+                pl.col("total_exits").cum_sum().alias("cumulative_exits")
             ])
             group = group.select(["total_entries", "total_exits", "link_id", "trajectory_time"])
             cumulative_counts = pl.concat([cumulative_counts, group])
@@ -1046,7 +1055,7 @@ class DataLoader:
         if os.path.isfile(output_file_address):
             with open(output_file_address, "r", encoding="utf-8") as f:
                 first_cell_inflow_dict = json.load(f)
-                f.close()
+                
             return convert_keys_to_float(first_cell_inflow_dict)
 
         df = pl.read_parquet(file_address).filter(
@@ -1066,10 +1075,12 @@ class DataLoader:
                 )["entry_count"].sum()
                 for t in group["trajectory_time"]
             }
-            first_cell_inflow_dict[int(link_id)] = link_first_cell_inflow_dict
+            if isinstance(link_id, (str, float)):
+                link_id = int(link_id)
+            first_cell_inflow_dict[link_id] = link_first_cell_inflow_dict
         with open(output_file_address, "w", encoding="utf-8") as f:
             json.dump(first_cell_inflow_dict, f, indent=4)
-            f.close()
+            
 
         return first_cell_inflow_dict
 
@@ -1140,12 +1151,30 @@ class DataLoader:
                 )
         with open(file_address, "w", encoding="utf-8") as f:
             json.dump(tasks, f, indent=4)
-            f.close()
         self.tasks = tasks
         self.destruct()
 
 
 if __name__ == "__main__":
     params = Parameters()
-    geo_loader = GeoLoader(params)
-    dl = DataLoader(params, geo_loader)
+    intersection_locations = (
+        pl.read_csv(".cache/traffic_lights.csv")
+        .to_numpy()
+        .tolist()   # It's format is [lat, lon]
+    )
+    intersection_locations = [
+        POINT(loc[1], loc[0])
+        for loc in intersection_locations
+    ]  # It's format is [lat, lon]
+    geo_loader = GeoLoader(
+        locations=intersection_locations,
+        cell_length=20
+    )
+    dl = DataLoader(
+        fp_location="d1",
+        fp_date="20181029",
+        fp_time="0800_0830",
+        geo_loader=geo_loader,
+        params=params
+    )
+    

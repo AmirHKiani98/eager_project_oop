@@ -19,5 +19,5 @@ class PointQueue(TrafficModel):
     Class representing a point queue traffic model.
     Inherits from the TrafficModel class.
     """
-
+    pass
     

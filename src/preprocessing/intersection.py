@@ -63,8 +63,7 @@ class Intersection:
 
     def __repr__(self):
         return f"Intersection(id={self.id}"
-    
-    
+
     def get_distance(self, point: POINT) -> float:
         """
         Returns the distance from the intersection to a given point.
