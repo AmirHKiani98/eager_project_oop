@@ -61,29 +61,32 @@ class Plotter:
         
         data = pl.read_json(file_name)
         rmse_data = data.group_by(["link_id", "trajectory_time"]).agg(
-            (pl.col("new_occupancy") - pl.col("next_occupancy")).pow(2).mean().alias("rmse")
+            (pl.col("new_occupancy") - pl.col("next_occupancy")).pow(1).mean().alias("rmse")
         )
+        rmse_data = rmse_data.filter(
+            # pl.col('rmse') < 20
+        )
+        
+        
         rmse_data_min = rmse_data["rmse"].min()
         rmse_data_max = rmse_data["rmse"].max()
-        for name, group in rmse_data.group_by("link_id"):
-
-            fig = go.Figure(data=go.Heatmap(
-                z=group["rmse"],
-                x=group["link_id"],
-                y=group["trajectory_time"],
-                colorscale="Reds",
-                zmin=rmse_data_min,
-                zmax=rmse_data_max
-            ))
-            fig.update_layout(
-                title=f"Flow Actual Heatmap - Link ID {name}",  # Dynamic title per link_id
-                xaxis_title="Cell Index",
-                yaxis_title="Time",
-                font=dict(size=14)  # Adjust font size for better readability
-            )
-            if not os.path.exists(f"{self.cache_dir}/heatmaps"):
-                os.makedirs(f"{self.cache_dir}/heatmaps", exist_ok=True)
-            fig.write_image(f"{self.cache_dir}/heatmaps/heatmap_link_{name[0]}.png")
+        fig = go.Figure(data=go.Heatmap(
+            z=rmse_data["rmse"],
+            x=rmse_data["link_id"],
+            y=rmse_data["trajectory_time"],
+            colorscale="Reds",
+            zmin=rmse_data_min,
+            zmax=rmse_data_max
+        ))
+        fig.update_layout(
+            title=f"Flow Actual Heatmap",  # Dynamic title per link_id
+            xaxis_title="Link Index",
+            yaxis_title="Time",
+            font=dict(size=14)  # Adjust font size for better readability
+        )
+        if not os.path.exists(f"{self.cache_dir}/heatmaps"):
+            os.makedirs(f"{self.cache_dir}/heatmaps", exist_ok=True)
+        fig.write_image(f"{self.cache_dir}/heatmaps/heatmap_link_check.png")
 
 
     def plot(self):
