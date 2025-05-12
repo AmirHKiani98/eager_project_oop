@@ -1270,11 +1270,23 @@ class DataLoader:
         # Timestep is self.params.dt
         # Find the closest timestamp to the next timestep in the same link.
         occupancy_df = occupancy_df.sort(["link_id", "trajectory_time"])
+        min_time = occupancy_df["trajectory_time"].min()
+        max_time = occupancy_df["trajectory_time"].max()
         groups = occupancy_df.group_by(["link_id", "cell_id"])
         ground_truth_occupancy = []
         dt_seconds = self.params.dt.to(Units.S).value
         for name, group in tqdm(groups, desc="Finding next timestamp occupancy"):
             link_id, cell_id = name[0], name[1]
+            group = fill_missing_timestamps(
+                group,
+                "trajectory_time",
+                self.time_interval,
+                min_time, # type: ignore
+                max_time # type: ignore
+            )
+            group = group.with_columns(
+                pl.col("on_cell").fill_null(0.0)
+            )
             group = group.sort(["trajectory_time"])
             times = group["trajectory_time"].to_numpy()
             occupancies = group["on_cell"].to_numpy()
@@ -1285,7 +1297,7 @@ class DataLoader:
                     next_occupancy = 0  # no next occupancy exists
                 else:
                     next_occupancy = occupancies[insert_pos]
-                
+
                 ground_truth_occupancy.append({
                     "link_id": link_id,
                     "trajectory_time": current_time,
@@ -1293,6 +1305,7 @@ class DataLoader:
                     "on_cell_next": next_occupancy,
                     "cell_id": cell_id
                 })
+
         ground_truth_occupancy_df = pl.DataFrame(ground_truth_occupancy)
         result = (
             ground_truth_occupancy_df.sort(["link_id", "trajectory_time", "cell_id"])
@@ -1424,8 +1437,10 @@ class DataLoader:
         Prepares the necessary tasks for the specified location, date, and time.
         """
         self.activate_cumulative_dict(location, date, time)
-        self.activate_tl_status_dict(location, date, time)
         self.activate_next_timestamp_occupancy(location, date, time)
+        self.activate_tl_status_dict(location, date, time)
+
+
         self.current_file_running = {
             "location": location,
             "date": date,
@@ -1454,6 +1469,7 @@ class DataLoader:
                         "next_occupancy": sum(self.next_timestamp_occupancy_dict[link_id][trajectory_time]["next_occupancy"]),
                     }
                 )
+
         with open(file_address, "w", encoding="utf-8") as f:
             json.dump(tasks, f, indent=4)
         self.tasks = tasks
