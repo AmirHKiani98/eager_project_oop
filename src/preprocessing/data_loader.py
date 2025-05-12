@@ -1315,8 +1315,53 @@ class DataLoader:
         return occcupancy_ground_truths
         
 
+    def get_cumulative_counts_based_on_x(self, location, date, time, x: Units.Quantity):
+        """
+        For LTM and PW traffic models we need to know x which is how
+        far into the link we are.
+        """
 
+        """
+        Returns the cumulative counts for the specified location, date, and time.
+        """
+        # nbbi: Needs test
+        if not isinstance(x, Units.Quantity):
+            raise ValueError("x should be a Units.Quantity object")
+        cumulative_counts_file = self.link_cumulative_counts_file.get((location, date, time), None)
+        if not isinstance(cumulative_counts_file, str):
+            raise ValueError(f"File not found for {location}, {date}, {time}")
+        x_value = x.to(Units.M).value
+        output_file_address = (
+            self.params.cache_dir + "/" +
+            self._get_filename(location, date, time) +
+            "_cumulative_count_dt_ffs_link_length_xmeter_{x_value}" +
+            self.params.get_hash_str(["dt", "free_flow_speed"]) + "_" +
+            self.geo_loader.get_hash_str() + ".json"
+        )
+        if os.path.isfile(output_file_address):
+            with open(output_file_address, "r", encoding="utf-8") as f:
+                cumulative_counts_dict = json.load(f)
+                
+            return convert_keys_to_float(cumulative_counts_dict)
+        
+        cumulative_counts_df = pl.read_csv(cumulative_counts_file)
+        groups = cumulative_counts_df.group_by("link_id")
+        num_groups = cumulative_counts_df.select(["link_id"]).unique().height
 
+        cumulative_counts_dict = {}
+        for link_id, group in tqdm(groups, total=num_groups, desc="Finding cumulative counts"):
+            link_id = link_id[0] if isinstance(link_id, (list, tuple)) else link_id
+            group = group.sort(["trajectory_time"])
+            link_length = self.geo_loader.get_link_length(link_id)
+            traj_times = group["trajectory_time"].to_numpy()
+            for row in group.iter_rows(named=True):
+                trajectory_time = round(row["trajectory_time"], 2)
+                target_time_xvf = (
+                    trajectory_time 
+                    + self.params.dt.to(Units.S).value 
+                    - (x_value / self.params.free_flow_speed).to(Units.S).value
+                )
+                
     def destruct(self):
         """
         Clears the dictionaries and the df.

@@ -248,7 +248,7 @@ class TrafficModel:
             )
             self.dl.params.set_initialized(False)
             self.dl.params.free_flow_speed = params[0] * Units.KM_PER_HR
-            self.dl.params.jam_density = params[1] * Units.PER_KM
+            self.dl.params.jam_density_link = params[1] * Units.PER_KM
             self.dl.params.wave_speed = params[2] * Units.KM_PER_HR
             self.dl.params.q_max = params[3] * Units.PER_HR
             self.dl.params.set_initialized(True)
