@@ -19,7 +19,6 @@ class PointQueue(TrafficModel):
     Class representing a point queue traffic model.
     Inherits from the TrafficModel class.
     """
-
     def run(self, args):
         """
         Run the point queue model with the given arguments.
