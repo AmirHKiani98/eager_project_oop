@@ -34,6 +34,7 @@ class SpatialQueue(TrafficModel):
         entry_count = args["entry_count"]
         current_number_of_vehicles = args["current_number_of_vehicles"]
         tl_status = args["tl_status"]
+        trajectory_time = args["trajectory_time"]
         # if current_number_of_vehicles is None:
         #     current_number_of_vehicles = 0 # nbbi: This should not happen! Figure it out!
         link_id = args["link_id"]
@@ -89,7 +90,8 @@ class SpatialQueue(TrafficModel):
             "tl_status": tl_status,
             "link_id": link_id,
             "next_occupancy": next_occupancy,
-            "cumulative_count_upstream_at_t": cumulative_count_upstream_at_t
+            "cumulative_count_upstream_at_t": cumulative_count_upstream_at_t,
+            "trajectory_time": trajectory_time,
         }
 
 

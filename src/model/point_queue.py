@@ -31,6 +31,7 @@ class PointQueue(TrafficModel):
         entry_count = args["entry_count"]
         current_number_of_vehicles = args["current_number_of_vehicles"]
         tl_status = args["tl_status"]
+        trajectory_time = args["trajectory_time"]
         # if current_number_of_vehicles is None:
         #     current_number_of_vehicles = 0 # nbbi: This should not happen! Figure it out!
         link_id = args["link_id"]
@@ -50,8 +51,11 @@ class PointQueue(TrafficModel):
 
         sending_flow = min(
             cumulative_count_upstream - cumulative_count_downstream,
-            max_no_vehicles_on_link, 0
-        ) # nbbi: I added zero too. Cause sometimes, the number of vehicles
+            max_no_vehicles_on_link
+        )
+        if sending_flow < 0:
+            # If the sending flow is negative, we set it to 0
+            sending_flow = 0
         if not tl_status:
             # If the traffic light is red, we don't want to send any vehicles
             sending_flow = 0
@@ -76,7 +80,8 @@ class PointQueue(TrafficModel):
             "cumulative_count_downstream": cumulative_count_downstream,
             "tl_status": tl_status,
             "link_id": link_id,
-            "next_occupancy": next_occupancy
+            "next_occupancy": next_occupancy,
+            "trajectory_time": trajectory_time,
         }
 
 
