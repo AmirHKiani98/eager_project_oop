@@ -59,7 +59,6 @@ class DataLoader:
         fp_date: str | list,
         fp_time: str | list,
         geo_loader: GeoLoader,
-        params: Parameters,
         line_threshold=20,
         time_interval=0.04,
         traffic_light_speed_threshold=0.5,
@@ -79,8 +78,8 @@ class DataLoader:
         self.time_interval = time_interval
         self.traffic_light_speed_threshold = traffic_light_speed_threshold
         self.test_row_numbers = test_row_numbers
-        self.params = params
         self.geo_loader = geo_loader
+        self.cache_dir = ".cache"
         self.base_url = "https://open-traffic.epfl.ch/wp-content/uploads/mydownloads.php"
         self.fp_location = [fp_location] if isinstance(fp_location, str) else fp_location
         self.fp_date = [fp_date] if isinstance(fp_date, str) else fp_date
@@ -142,7 +141,7 @@ class DataLoader:
         Constructs and returns the full file path for a cached file.
         """
         filename = self._get_filename(location, date, time) + ".csv"
-        return os.path.join(self.params.cache_dir, filename)
+        return os.path.join(self.cache_dir, filename)
 
     def check_file_exists_in_cache(self, location, date, time) -> bool:
         """
@@ -408,7 +407,7 @@ class DataLoader:
 
     def _explode_dataset(self, raw_data_location, location, date, time):
         file_address = (
-            self.params.cache_dir + "/" + self._get_filename(location, date, time) + "_exploded.csv"
+            self.cache_dir + "/" + self._get_filename(location, date, time) + "_exploded.csv"
         )
         if os.path.isfile(file_address):
             return file_address
@@ -446,7 +445,7 @@ class DataLoader:
         """
         processed_file_path = (
             os.path.join(
-            self.params.cache_dir,
+            self.cache_dir,
             f"{self._get_filename(location, date, time)}_withlinkcell_"
             f"{self.geo_loader.get_hash_str()}.csv"
             )
@@ -510,7 +509,7 @@ class DataLoader:
         Filters the DataFrame to include only vehicles on the corridor.
         """
         file_address = (
-            self.params.cache_dir + "/" + self._get_filename(location, date, time) +
+            self.cache_dir + "/" + self._get_filename(location, date, time) +
             "_vehicle_on_corridor_" + self.geo_loader.get_hash_str() + ".csv"
         )
         if os.path.isfile(file_address):
@@ -524,19 +523,23 @@ class DataLoader:
         """
         Filters the DataFrame to include only vehicles that are not on minor roads.
         """
-        # nbbi: Needs test.
-        wlc_df = wlc_df.copy()
+        # nbbi: This should be more general.
+        wlc_df = wlc_df.clone()
         groups = wlc_df.group_by("track_id")
         removed_ids = []
         length = wlc_df["track_id"].n_unique()
+        
+        
         for name, group in tqdm(groups, total=length, desc="Removing vehicles on minor roads"):
-            if len(group) > 1:
-                lon = group["lon"].to_numpy()
-                lat = group["lat"].to_numpy()
-                reg = LinearRegression()
-                reg.fit(lon.reshape(-1, 1), lat)
-                if reg.coef_[0] > 0.5:
-                    removed_ids.append(name[0] if isinstance(name, (list, tuple)) else name)
+            lon = group["lon"].to_numpy()
+            lat = group["lat"].to_numpy()
+            reg = LinearRegression()
+            reg.fit(lon.reshape(-1, 1), lat)
+            angle = atan2(reg.coef_[0], 1) * (180 / np.pi)  # Convert slope to angle in degrees
+            angle = (angle + 360) % 360  # Normalize to [0, 360)
+            print("Vehicle", name, "Angle:", angle)
+            if not 270 <= angle < 360:  # First and fourth quadrants
+                removed_ids.append(name[0] if isinstance(name, (list, tuple)) else name)
         wlc_df = wlc_df.filter(~pl.col("track_id").is_in(removed_ids))
         return wlc_df
 
@@ -546,7 +549,7 @@ class DataLoader:
         Removes vehicles that are on minor roads from the DataFrame.
         """
         file_address = (
-            self.params.cache_dir + "/" + self._get_filename(location, date, time) +
+            self.cache_dir + "/" + self._get_filename(location, date, time) +
             "_vehicle_on_minor_roads_removed_" + self.geo_loader.get_hash_str() + ".csv"
         )
         if os.path.isfile(file_address):
@@ -673,7 +676,7 @@ class DataLoader:
         which refers to the file address _remove_vehicle_on_minor_roads returned.
         """
         file_address = (
-            self.params.cache_dir + "/" + self._get_filename(location, date, time)
+            self.cache_dir + "/" + self._get_filename(location, date, time)
             + "_density_entry_exit_" + self.geo_loader.get_hash_str() + ".parquet"
         )
 
@@ -710,7 +713,11 @@ class DataLoader:
         return True
 
     def get_traffic_light_status_df(self, wlc_df: pl.DataFrame) -> pl.DataFrame:
-
+        """
+        Computes the traffic light status for each vehicle in the DataFrame.
+        This method finds the closest traffic light location for each vehicle
+        """
+        # nbbi: Needs test.
         points = [
             POINT(row["lon"], row["lat"])
             for row in tqdm(
@@ -778,9 +785,8 @@ class DataLoader:
         """
         Returns the traffic light status for the specified location, date, and time.
         """
-        # nbbi: Needs test
         file_address = (
-            self.params.cache_dir + "/" + self._get_filename(location, date, time) +
+            self.cache_dir + "/" + self._get_filename(location, date, time) +
             "_traffic_light_status_" + self.geo_loader.get_hash_str() + ".csv"
         )
         if os.path.isfile(file_address):
@@ -798,7 +804,7 @@ class DataLoader:
         Returns the traffic status for the specified location, date, and time.
         """
         file_address = (
-            self.params.cache_dir + "/" + self._get_filename(location, date, time) +
+            self.cache_dir + "/" + self._get_filename(location, date, time) +
             "_processed_traffic_light_status_" + self.geo_loader.get_hash_str() + ".csv"
         )
 
@@ -853,7 +859,7 @@ class DataLoader:
         """
         file_ext = os.path.splitext(file_location)[1].lower()
         file_address = (
-            self.params.cache_dir + "/" + self._get_filename(location, date, time) +
+            self.cache_dir + "/" + self._get_filename(location, date, time) +
             f"_test_df_{what_test}_" + self.geo_loader.get_hash_str() +
             (".parquet" if file_ext == ".parquet" else ".csv")
         )
@@ -907,9 +913,9 @@ class DataLoader:
             raise ValueError(f"File not found for {location}, {date}, {time}")
 
         output_file_address = (
-            self.params.cache_dir + "/" + self._get_filename(location, date, time) +
+            self.cache_dir + "/" + self._get_filename(location, date, time) +
             f"_{coi}_" + self.geo_loader.get_hash_str() +  "_" +
-            self.params.get_hash_str(["dt"]) + ".parquet"
+            self.geo_leader.get_hash_str_main_params(["dt"]) + ".parquet"
         )
         if os.path.isfile(output_file_address):
             with open(output_file_address, "rb") as f:
@@ -1035,8 +1041,8 @@ class DataLoader:
         Returns the cumulative counts for the specified location, date, and time.
         """
         file_address = (
-            self.params.cache_dir + "/" + self._get_filename(location, date, time) +
-            "_cumulative_counts_" + "_" + self.params.get_hash_str(["dt", "free_flow_speed"]) + "_" +
+            self.cache_dir + "/" + self._get_filename(location, date, time) +
+            "_cumulative_counts_" + "_" + self.geo_leader.get_hash_str_main_params(["dt", "free_flow_speed"]) + "_" +
             self.geo_loader.get_hash_str() + ".csv"
         )
         
@@ -1124,7 +1130,7 @@ class DataLoader:
             link_first_cell_inflow_dict = {
                 round(t, 2): group.filter(
                     (pl.col("trajectory_time") >= t) &
-                    (pl.col("trajectory_time") < t + self.params.dt.to(Units.S).value)
+                    (pl.col("trajectory_time") < t + self.geo_leader.dt.to(Units.S).value)
                 )["entry_count"].sum()
                 for t in group["trajectory_time"]
             }
@@ -1143,8 +1149,8 @@ class DataLoader:
         if file_address is None:
             raise ValueError(f"File not found for {location}, {date}, {time}")
         output_file_address = (
-            self.params.cache_dir + "/" + self._get_filename(location, date, time) +
-            "_first_cell_inflow_" + self.params.get_hash_str(["dt"]) + "_" +
+            self.cache_dir + "/" + self._get_filename(location, date, time) +
+            "_first_cell_inflow_" + self.geo_leader.get_hash_str_main_params(["dt"]) + "_" +
             self.geo_loader.get_hash_str() + ".json"
         )
 
@@ -1177,11 +1183,12 @@ class DataLoader:
             group = group.sort(["trajectory_time"])
             link_length = self.geo_loader.get_link_length(link_id)
             traj_times = group["trajectory_time"].to_numpy()
+            free_flow_speed = self.geo_leader.get_free_flow_speed(link_id)
             for row in group.iter_rows(named=True):
                 trajectory_time = round(row["trajectory_time"], 2)
                 target_time = (
-                    (trajectory_time * Units.S) + self.params.dt - 
-                    link_length / self.params.free_flow_speed
+                    (trajectory_time * Units.S) + self.geo_leader.dt - 
+                    link_length / free_flow_speed
                 ).to(Units.S).value
                 target_time = round(target_time, 2)
                 insert_pos = np.searchsorted(traj_times, target_time)
@@ -1231,10 +1238,10 @@ class DataLoader:
             raise ValueError(f"File not found for {location}, {date}, {time}")
         
         output_file_address = (
-            self.params.cache_dir + "/" +
+            self.cache_dir + "/" +
             self._get_filename(location, date, time) +
             "_cumulative_count_dt_ffs_link_length_" +
-            self.params.get_hash_str(["dt", "free_flow_speed"]) + "_" +
+            self.geo_leader.get_hash_str_main_params(["dt", "free_flow_speed"]) + "_" +
             self.geo_loader.get_hash_str() + ".json"
         )
         if os.path.isfile(output_file_address):
@@ -1270,15 +1277,6 @@ class DataLoader:
         Returns the next timestamp occupancy for the specified location, date, and time.
         """
         self.next_timestamp_occupancy_dict = self.get_next_timestamp_occupancy(location, date, time)
-
-    def set_params(self, params: Parameters):
-        """
-        Set the parameters for the traffic model.
-        
-        Args:
-            params (Parameters): Parameters object containing traffic model parameters.
-        """
-        self.params = params
     
     def get_next_timestamp_occupancy(self, location, date, time):
         """
@@ -1287,9 +1285,9 @@ class DataLoader:
         # nbbi: Needs test
 
         file_address = (
-            self.params.cache_dir + "/" + self._get_filename(location, date, time) +
+            self.cache_dir + "/" + self._get_filename(location, date, time) +
             "_next_timestamp_occupancy_" + self.geo_loader.get_hash_str()  + "_" +
-           self.params.get_hash_str(['dt']) + ".json"
+           self.geo_leader.get_hash_str_main_params(['dt']) + ".json"
         )
         if os.path.isfile(file_address):
             with open(file_address, "r", encoding="utf-8") as f:
@@ -1307,14 +1305,14 @@ class DataLoader:
 
         occupancy_df = pl.read_parquet(occupancy_df)
         # For each timestamp (not timestep), get the occupancy of the next timestep(not timestamp)
-        # Timestep is self.params.dt
+        # Timestep is self.geo_leader.dt
         # Find the closest timestamp to the next timestep in the same link.
         occupancy_df = occupancy_df.sort(["link_id", "trajectory_time"])
         min_time = occupancy_df["trajectory_time"].min()
         max_time = occupancy_df["trajectory_time"].max()
         groups = occupancy_df.group_by(["link_id", "cell_id"])
         ground_truth_occupancy = []
-        dt_seconds = self.params.dt.to(Units.S).value
+        dt_seconds = self.geo_leader.dt.to(Units.S).value
         for name, group in tqdm(groups, desc="Finding next timestamp occupancy"):
             link_id, cell_id = name[0], name[1]
             group = fill_missing_timestamps(
@@ -1385,10 +1383,10 @@ class DataLoader:
             raise ValueError(f"File not found for {location}, {date}, {time}")
         x_value = x.to(Units.M).value
         output_file_address = (
-            self.params.cache_dir + "/" +
+            self.cache_dir + "/" +
             self._get_filename(location, date, time) +
             "_cumulative_count_dt_ffs_link_length_xmeter_{x_value}" +
-            self.params.get_hash_str(["dt", "free_flow_speed"]) + "_" +
+            self.geo_leader.get_hash_str_main_params(["dt", "free_flow_speed"]) + "_" +
             self.geo_loader.get_hash_str() + ".json"
         )
         if os.path.isfile(output_file_address):
@@ -1407,12 +1405,13 @@ class DataLoader:
             group = group.sort(["trajectory_time"])
             link_length = self.geo_loader.get_link_length(link_id)
             traj_times = group["trajectory_time"].to_numpy()
+            free_flow_speed = self.geo_leader.get_free_flow_speed(link_id)
             for row in group.iter_rows(named=True):
                 trajectory_time = round(row["trajectory_time"], 2)
                 target_time_xvf = (
                     trajectory_time 
-                    + self.params.dt.to(Units.S).value 
-                    - (x_value / self.params.free_flow_speed).to(Units.S).value
+                    + self.geo_leader.dt.to(Units.S).value 
+                    - (x_value / free_flow_speed).to(Units.S).value
                 )
                 
     def destruct(self):
@@ -1441,9 +1440,9 @@ class DataLoader:
             "time": time
         }
         file_address = (
-            self.params.cache_dir + "/" +
+            self.cache_dir + "/" +
             f"{self._get_filename(location, date, time)}_prepared_ctm_tasks_"
-            f"{self.geo_loader.get_hash_str()}_{self.params.get_hash_str(['cache_dir', 'dt'])}.json"
+            f"{self.geo_loader.get_hash_str()}_{self.geo_leader.get_hash_str_main_params(['cache_dir', 'dt'])}.json"
         )
         if os.path.isfile(file_address):
             self.tasks = json.load(open(file_address, "r", encoding="utf-8"))
@@ -1487,9 +1486,9 @@ class DataLoader:
             "time": time
         }
         file_address = (
-            self.params.cache_dir + "/" +
+            self.cache_dir + "/" +
             f"{self._get_filename(location, date, time)}_prepared_pq_tasks_"
-            f"{self.geo_loader.get_hash_str()}_{self.params.get_hash_str(['cache_dir', 'free_flow_speed', 'dt'])}.json"
+            f"{self.geo_loader.get_hash_str()}_{self.geo_leader.get_hash_str_main_params(['cache_dir', 'free_flow_speed', 'dt'])}.json"
         )
         if os.path.isfile(file_address):
             self.tasks = json.load(open(file_address, "r", encoding="utf-8"))
@@ -1529,9 +1528,9 @@ class DataLoader:
             "time": time
         }
         file_address = (
-            self.params.cache_dir + "/" +
+            self.cache_dir + "/" +
             f"{self._get_filename(location, date, time)}_prepared_pq_tasks_"
-            f"{self.geo_loader.get_hash_str()}_{self.params.get_hash_str(['cache_dir', 'free_flow_speed', 'dt'])}.json"
+            f"{self.geo_loader.get_hash_str()}_{self.geo_leader.get_hash_str_main_params(['cache_dir', 'free_flow_speed', 'dt'])}.json"
         )
         if os.path.isfile(file_address):
             self.tasks = json.load(open(file_address, "r", encoding="utf-8"))
