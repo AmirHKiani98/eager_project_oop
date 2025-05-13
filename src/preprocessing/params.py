@@ -81,7 +81,8 @@ class Parameters():
         num_lanes=3,
         jam_density_link=180.0 * Units.PER_KM,
         dt=1.0 * Units.S,
-        q_max=3000.0 * Units.PER_HR,
+        q_max_up=3000.0 * Units.PER_HR,
+        q_max_down=3000.0 * Units.PER_HR,
         cache_dir=".cache"
     ):
         if not isinstance(vehicle_length, Units.Quantity):
@@ -96,8 +97,10 @@ class Parameters():
             raise TypeError("jam_density_link must be an astropy Quantity with units")
         if not isinstance(dt, Units.Quantity):
             raise TypeError("dt must be an astropy Quantity with units")
-        if not isinstance(q_max, Units.Quantity):
-            raise TypeError("q_max must be an astropy Quantity with units")
+        if not isinstance(q_max_up, Units.Quantity):
+            raise TypeError("q_max_up must be an astropy Quantity with units")
+        if not isinstance(q_max_down, Units.Quantity):
+            raise TypeError("q_max_down must be an astropy Quantity with units")
         if not isinstance(cache_dir, str):
             raise TypeError("cache_dir must be a string")
         self._is_initialized = False
@@ -109,10 +112,11 @@ class Parameters():
         self.wave_speed = wave_speed
         self.dt = dt
         self.jam_density_link = jam_density_link
-        self.q_max = q_max
+        self.q_max_up = q_max_up
+        self.q_max_down = q_max_down
         # Calculate the maximum number of vehicles that can flow into the system per time step.
         # nbbi: flow_capacity should be an attribute of Cell model.
-        self.flow_capacity = self.q_max * self.dt # veh
+        self.flow_capacity = self.q_max_up * self.dt # veh
 
         logger.debug(
             "Parameters initialized with: Vehicle Length: %s, Free Flow Speed: %s, "
@@ -142,7 +146,7 @@ class Parameters():
             raise TypeError("cell_length must be an astropy Quantity with units")
 
         return min(
-            self.q_max, # type: ignore
+            self.q_max_up, # type: ignore
             min(self.free_flow_speed, self.wave_speed) # type: ignore
             * self.jam_density_link
         ) * self.dt * self.num_lanes
