@@ -17,6 +17,7 @@ from shapely.ops import substring
 from rich.logging import RichHandler
 from src.preprocessing.spatial_line import SpatialLine
 from src.common_utility.units import Units
+from src.preprocessing.params import Parameters
 
 logging.basicConfig(
     level="DEBUG",
@@ -37,6 +38,7 @@ class Link(SpatialLine):
         start_point: POINT,
         end_point: POINT,
         link_id: Optional[int] = None,
+        parameters: Optional[Parameters] = None,
         tl: bool = True
     ):
         """
@@ -55,6 +57,7 @@ class Link(SpatialLine):
             Link.Identification = max(Link.Identification, link_id)
         self.cells = {}
         self.tl = tl
+        self.parameters = parameters
 
     def add_cell(self, cell):
         """

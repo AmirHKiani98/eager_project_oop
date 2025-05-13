@@ -23,7 +23,6 @@ class CTM(TrafficModel):
     """
     Class representing the Cell Transmission Model (CTM) for traffic flow simulation.
     """
-
     def compute_flow(self, **kwargs):
         """
         Computes the inflow into a cell based on the previous cell's occupancy 

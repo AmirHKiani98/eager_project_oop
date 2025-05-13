@@ -27,7 +27,7 @@ import numpy as np
 import polars as pl
 from rich.logging import RichHandler
 from src.preprocessing.geo_loader import GeoLoader
-from src.model.params import Parameters
+from src.preprocessing.params import Parameters
 from src.preprocessing.utility import fill_missing_timestamps
 from src.common_utility.units import Units
 from src.common_utility.utility import convert_keys_to_float
@@ -292,7 +292,7 @@ class DataLoader:
                         )
                         self.link_cumulative_counts_file[
                             (location, date, time)
-                        ] = self.get_cumulative_counts_file(
+                        ] = self._get_cumulative_counts_file(
                             location, date, time
                         )
                         self.test_files[(location, date, time)].append(
@@ -519,19 +519,13 @@ class DataLoader:
         wlc_df = wlc_df.filter(pl.col("distance_from_link") < self.line_threshold)
         wlc_df.write_csv(file_address)
         return file_address
-
-    def _remove_vehicle_on_minor_roads(self, vehicle_on_corridor, location, date, time):
+    
+    def get_removed_vehicle_on_minor_roads_df(self, wlc_df) -> pl.DataFrame:
         """
-        Removes vehicles that are on minor roads from the DataFrame.
+        Filters the DataFrame to include only vehicles that are not on minor roads.
         """
-        file_address = (
-            self.params.cache_dir + "/" + self._get_filename(location, date, time) +
-            "_vehicle_on_minor_roads_removed_" + self.geo_loader.get_hash_str() + ".csv"
-        )
-        if os.path.isfile(file_address):
-            return file_address
-
-        wlc_df = pl.read_csv(vehicle_on_corridor)
+        # nbbi: Needs test.
+        wlc_df = wlc_df.copy()
         groups = wlc_df.group_by("track_id")
         removed_ids = []
         length = wlc_df["track_id"].n_unique()
@@ -543,12 +537,27 @@ class DataLoader:
                 reg.fit(lon.reshape(-1, 1), lat)
                 if reg.coef_[0] > 0.5:
                     removed_ids.append(name[0] if isinstance(name, (list, tuple)) else name)
-
         wlc_df = wlc_df.filter(~pl.col("track_id").is_in(removed_ids))
+        return wlc_df
+
+
+    def _remove_vehicle_on_minor_roads(self, vehicle_on_corridor, location, date, time):
+        """
+        Removes vehicles that are on minor roads from the DataFrame.
+        """
+        file_address = (
+            self.params.cache_dir + "/" + self._get_filename(location, date, time) +
+            "_vehicle_on_minor_roads_removed_" + self.geo_loader.get_hash_str() + ".csv"
+        )
+        if os.path.isfile(file_address):
+            return file_address
+        
+        wlc_df = pl.read_csv(vehicle_on_corridor)
+        wlc_df = self.get_removed_vehicle_on_minor_roads_df(wlc_df)
         wlc_df.write_csv(file_address)
         return file_address
 
-    def get_density_entry_exist_df(self, fully_processed_file_address):
+    def get_density_entry_exist_df(self, wlc_df):
         # nbbi: Needs test.
         """
         Computes vehicle entry, exit, and density statistics for each cell and time interval
@@ -587,7 +596,6 @@ class DataLoader:
             Assumes the existence of a `fill_missing_timestamps` function and that
             `self.geo_loader.links` provides geometric information for normalization.
         """
-        wlc_df = pl.read_csv(fully_processed_file_address)
         min_time = wlc_df["trajectory_time"].min()
         max_time = wlc_df["trajectory_time"].max()
         counts = wlc_df.group_by(["link_id", "cell_id", "trajectory_time"]).agg([
@@ -671,8 +679,8 @@ class DataLoader:
 
         if os.path.isfile(file_address):
             return file_address
-
-        complete_counts = self.get_density_entry_exist_df(fully_processed_file_address)
+        wlc_df = pl.read_csv(fully_processed_file_address)
+        complete_counts = self.get_density_entry_exist_df(wlc_df)
         complete_counts.write_parquet(file_address)
         logger.debug(f"Density DataFrame saved to {file_address}")
         return file_address
@@ -701,19 +709,7 @@ class DataLoader:
             return False
         return True
 
-    def _get_traffic_light_status(self, fully_processed_file_address, location, date, time):
-        """
-        Returns the traffic light status for the specified location, date, and time.
-        """
-        file_address = (
-            self.params.cache_dir + "/" + self._get_filename(location, date, time) +
-            "_traffic_light_status_" + self.geo_loader.get_hash_str() + ".csv"
-        )
-        if os.path.isfile(file_address):
-            return file_address
-
-        # Traffic light locations
-        wlc_df = pl.read_csv(fully_processed_file_address)
+    def get_traffic_light_status_df(self, wlc_df: pl.DataFrame) -> pl.DataFrame:
 
         points = [
             POINT(row["lon"], row["lat"])
@@ -776,8 +772,25 @@ class DataLoader:
                 pl.col("loc_link_id").fill_null(link_id)
             )
             completed_groups = pl.concat([completed_groups, group])
+        return completed_groups
+
+    def _get_traffic_light_status(self, fully_processed_file_address, location, date, time):
+        """
+        Returns the traffic light status for the specified location, date, and time.
+        """
+        # nbbi: Needs test
+        file_address = (
+            self.params.cache_dir + "/" + self._get_filename(location, date, time) +
+            "_traffic_light_status_" + self.geo_loader.get_hash_str() + ".csv"
+        )
+        if os.path.isfile(file_address):
+            return file_address
+
+        # Traffic light locations
+        wlc_df = pl.read_csv(fully_processed_file_address)
+        completed_groups = self.get_traffic_light_status_df(wlc_df)
         completed_groups.write_csv(file_address)
-        logger.debug(f"Traffic light status DataFram000e00 saved to {file_address}")
+        logger.debug(f"Traffic light status DataFrame saved to {file_address}")
         return file_address
 
     def _get_processed_traffic_light_status(self, unprocessed_traffic_file, location, date, time):
@@ -944,33 +957,11 @@ class DataLoader:
             }, f)
         logger.debug(f"Occupancy or density DataFrame saved to {output_file_address}")
         return cell_vector_occupancy_or_density_dict, entries_dict, exits_dict
-
-    def get_cumulative_counts_file(self, location, date, time):
+    def get_cumulative_counts_df(self, occupancy_exit_entry_df: pl.DataFrame) -> pl.DataFrame:
         # nbbi: Needs test
         """
-        Returns the cumulative counts for the specified location, date, and time.
+        Returns the cumulative counts DataFrame for the specified occupancy exit entry DataFrame.
         """
-        file_address = (
-            self.params.cache_dir + "/" + self._get_filename(location, date, time) +
-            "_cumulative_counts_" + "_" + self.params.get_hash_str(["dt", "free_flow_speed"]) + "_" +
-            self.geo_loader.get_hash_str() + ".csv"
-        )
-        
-        if os.path.isfile(file_address):
-            logger.info("Cumulative counts file already exists: %s", file_address)
-            return file_address
-
-        occupanct_exit_entry_df = self.density_exit_entry_files_dict.get(
-            (location, date, time), None
-        )
-        
-        if occupanct_exit_entry_df is None:
-            raise ValueError(
-                f"File not found for {location}, {date}, {time}, "
-                "for processing cumulative count"
-            )
-
-        occupancy_exit_entry_df = pl.read_parquet(occupanct_exit_entry_df)
         groups = occupancy_exit_entry_df.group_by(
             ["link_id", "trajectory_time"]
         )
@@ -1036,6 +1027,35 @@ class DataLoader:
         cumulative_cumulative_counts_df = cumulative_cumulative_counts_df.with_columns([
             pl.col("trajectory_time").round(2)
         ])
+        return cumulative_cumulative_counts_df
+    
+    def _get_cumulative_counts_file(self, location, date, time):
+        # nbbi: Needs test
+        """
+        Returns the cumulative counts for the specified location, date, and time.
+        """
+        file_address = (
+            self.params.cache_dir + "/" + self._get_filename(location, date, time) +
+            "_cumulative_counts_" + "_" + self.params.get_hash_str(["dt", "free_flow_speed"]) + "_" +
+            self.geo_loader.get_hash_str() + ".csv"
+        )
+        
+        if os.path.isfile(file_address):
+            logger.info("Cumulative counts file already exists: %s", file_address)
+            return file_address
+
+        occupanct_exit_entry_df = self.density_exit_entry_files_dict.get(
+            (location, date, time), None
+        )
+        
+        if occupanct_exit_entry_df is None:
+            raise ValueError(
+                f"File not found for {location}, {date}, {time}, "
+                "for processing cumulative count"
+            )
+
+        occupancy_exit_entry_df = pl.read_parquet(occupanct_exit_entry_df)
+        cumulative_cumulative_counts_df = self.get_cumulative_counts_df(occupancy_exit_entry_df)
         cumulative_cumulative_counts_df.write_csv(file_address)
         logger.info(f"Cumulative counts DataFrame saved to {file_address}")
         return file_address
@@ -1086,26 +1106,12 @@ class DataLoader:
         """
         return True
 
-    def get_first_cell_inflow_dict(self, location, date, time):
+    def get_first_cell_inflow_df(self, df: pl.DataFrame) -> dict:
         """
-        Returns the first self inflow for the specified location, date, and time.
+        Returns the first cell inflow DataFrame for the specified DataFrame.
         """
-        file_address = self.density_exit_entry_files_dict.get((location, date, time), None)
-        if file_address is None:
-            raise ValueError(f"File not found for {location}, {date}, {time}")
-        output_file_address = (
-            self.params.cache_dir + "/" + self._get_filename(location, date, time) +
-            "_first_cell_inflow_" + self.params.get_hash_str(["dt"]) + "_" +
-            self.geo_loader.get_hash_str() + ".json"
-        )
-
-        if os.path.isfile(output_file_address):
-            with open(output_file_address, "r", encoding="utf-8") as f:
-                first_cell_inflow_dict = json.load(f)
-                
-            return convert_keys_to_float(first_cell_inflow_dict)
-
-        df = pl.read_parquet(file_address).filter(
+        # nbbi: Needs test
+        df = df.filter(
             pl.col("cell_id") == 1
         )
         df = df.sort(["link_id", "trajectory_time"])
@@ -1125,35 +1131,43 @@ class DataLoader:
             if isinstance(link_id, (str, float)):
                 link_id = int(link_id)
             first_cell_inflow_dict[link_id] = link_first_cell_inflow_dict
+        return first_cell_inflow_dict
+
+        
+
+    def _get_first_cell_inflow_dict(self, location, date, time):
+        """
+        Returns the first self inflow for the specified location, date, and time.
+        """
+        file_address = self.density_exit_entry_files_dict.get((location, date, time), None)
+        if file_address is None:
+            raise ValueError(f"File not found for {location}, {date}, {time}")
+        output_file_address = (
+            self.params.cache_dir + "/" + self._get_filename(location, date, time) +
+            "_first_cell_inflow_" + self.params.get_hash_str(["dt"]) + "_" +
+            self.geo_loader.get_hash_str() + ".json"
+        )
+
+        if os.path.isfile(output_file_address):
+            with open(output_file_address, "r", encoding="utf-8") as f:
+                first_cell_inflow_dict = json.load(f)
+                
+            return convert_keys_to_float(first_cell_inflow_dict)
+
+        df = pl.read_parquet(file_address)
+        
+        first_cell_inflow_dict = self.get_first_cell_inflow_df(df)
+        
         with open(output_file_address, "w", encoding="utf-8") as f:
             json.dump(first_cell_inflow_dict, f, indent=4)
             
-
         return first_cell_inflow_dict
     
-    def get_cumulative_count_dt_ffs_link_length(self, location, date, time):
-        """
-        Returns the cumulative counts for the specified location, date, and time.
-        """
+    def get_cumulative_count_dt_ffs_link_length_dict(self, cumulative_counts_df: pl.DataFrame) -> dict:
         # nbbi: Needs test
-        cumulative_counts_file = self.link_cumulative_counts_file.get((location, date, time), None)
-        if not isinstance(cumulative_counts_file, str):
-            raise ValueError(f"File not found for {location}, {date}, {time}")
-        
-        output_file_address = (
-            self.params.cache_dir + "/" +
-            self._get_filename(location, date, time) +
-            "_cumulative_count_dt_ffs_link_length_" +
-            self.params.get_hash_str(["dt", "free_flow_speed"]) + "_" +
-            self.geo_loader.get_hash_str() + ".json"
-        )
-        if os.path.isfile(output_file_address):
-            with open(output_file_address, "r", encoding="utf-8") as f:
-                cumulative_counts_dict = json.load(f)
-                
-            return convert_keys_to_float(cumulative_counts_dict)
-
-        cumulative_counts_df = pl.read_csv(cumulative_counts_file)
+        """
+        Returns the cumulative counts DataFrame for the specified occupancy exit entry DataFrame.
+        """
         groups = cumulative_counts_df.group_by("link_id")
         num_groups = cumulative_counts_df.select(["link_id"]).unique().height
 
@@ -1205,7 +1219,33 @@ class DataLoader:
                 cumulative_counts_dict[link_id][trajectory_time][
                     "current_number_of_vehicles"
                 ] = row["current_number_of_vehicles"]
+        return cumulative_counts_dict
+    
+    def _get_cumulative_count_dt_ffs_link_length(self, location, date, time):
+        """
+        Returns the cumulative counts for the specified location, date, and time.
+        """
+        # nbbi: Needs test
+        cumulative_counts_file = self.link_cumulative_counts_file.get((location, date, time), None)
+        if not isinstance(cumulative_counts_file, str):
+            raise ValueError(f"File not found for {location}, {date}, {time}")
+        
+        output_file_address = (
+            self.params.cache_dir + "/" +
+            self._get_filename(location, date, time) +
+            "_cumulative_count_dt_ffs_link_length_" +
+            self.params.get_hash_str(["dt", "free_flow_speed"]) + "_" +
+            self.geo_loader.get_hash_str() + ".json"
+        )
+        if os.path.isfile(output_file_address):
+            with open(output_file_address, "r", encoding="utf-8") as f:
+                cumulative_counts_dict = json.load(f)
                 
+            return convert_keys_to_float(cumulative_counts_dict)
+
+        cumulative_counts_df = pl.read_csv(cumulative_counts_file)
+        
+        cumulative_counts_dict = self.get_cumulative_count_dt_ffs_link_length_dict(cumulative_counts_df)
         # Convert keys to float
         with open(output_file_address, "w", encoding="utf-8") as f:
             json.dump(cumulative_counts_dict, f, indent=4)
@@ -1216,14 +1256,14 @@ class DataLoader:
         """
         Returns the cumulative counts for the specified location, date, and time.
         """
-        self.cumulative_counts_dict = self.get_cumulative_count_dt_ffs_link_length(location, date, time)
+        self.cumulative_counts_dict = self._get_cumulative_count_dt_ffs_link_length(location, date, time)
         
 
     def activate_first_cell_inflow_dict(self, location, date, time):
         """
         Returns the first cell inflow dictionary for the specified location, date, and time.
         """
-        self.first_cell_inflow_dict = self.get_first_cell_inflow_dict(location, date, time)
+        self.first_cell_inflow_dict = self._get_first_cell_inflow_dict(location, date, time)
 
     def activate_next_timestamp_occupancy(self, location, date, time):
         """

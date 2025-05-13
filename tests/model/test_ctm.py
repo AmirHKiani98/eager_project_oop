@@ -8,7 +8,7 @@ from src.model.ctm import CTM
 from src.common_utility.units import Units
 from src.preprocessing.data_loader import DataLoader
 from src.preprocessing.geo_loader import GeoLoader
-from src.model.params import Parameters
+from src.preprocessing.params import Parameters
 
 logging.basicConfig(
     level="DEBUG",

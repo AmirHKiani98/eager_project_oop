@@ -16,6 +16,7 @@ from rich.logging import RichHandler
 from src.preprocessing.cell import Cell
 from src.preprocessing.link import Link
 from src.common_utility.units import Units
+from src.preprocessing.params import Parameters
 
 logging.basicConfig(
     level="DEBUG",
@@ -60,11 +61,22 @@ class GeoLoader:
 
     def __init__(self,
                 locations: Optional[list[POINT]] = None,
+                parameters: Optional[list[Parameters]] = None,
                 cell_length: Optional[float] = None,
                 number_of_cells: Optional[int] = None,
                 testing: bool = False):
         self.locations = locations
         # Check if the link is already saved:
+        if parameters is not None and not all(isinstance(param, Parameters) for param in parameters):
+            raise TypeError("Parameters must be a list of Parameters objects")
+        if parameters is None:
+            raise ValueError("Parameters cannot be None")
+        if locations is None:
+            raise ValueError("Locations cannot be None")
+        if len(parameters) != len(locations) - 1:
+            raise ValueError(f"Number of parameters must be equal to number of links: {len(locations) - 1}")
+        self.parameters = parameters
+        
         self.links = {}
         self.links_to_location = {}
         self.cells = []
@@ -90,7 +102,7 @@ class GeoLoader:
         for index in range(len(self.locations) - 1):
             start_point = self.locations[index]
             end_point = self.locations[index + 1]
-            link = Link(start_point, end_point, link_id=len(self.links) + 1)
+            link = Link(start_point, end_point, link_id=len(self.links) + 1, parameters=self.parameters[index])
             self.links[link.link_id] = link
 
     def _load_cells_by_length(self):

@@ -11,7 +11,7 @@ import polars as pl
 from src.model.ctm import CTM
 from src.model.point_queue import PointQueue
 from src.model.spatial_queue import SpatialQueue
-from src.model.params import Parameters
+from src.preprocessing.params import Parameters
 from src.preprocessing.data_loader import DataLoader
 from src.preprocessing.geo_loader import GeoLoader
 from src.common_utility.units import Units

@@ -15,7 +15,7 @@ import pytest
 from shapely.geometry import Point as POINT
 from src.preprocessing.geo_loader import GeoLoader
 from src.preprocessing.data_loader import DataLoader
-from src.model.params import Parameters
+from src.preprocessing.params import Parameters
 from src.common_utility.units import Units
 
 @pytest.fixture
