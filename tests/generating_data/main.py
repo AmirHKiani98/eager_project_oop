@@ -16,9 +16,23 @@ def main():
         default=800,
         help="Simulation time in seconds. Default is 800 seconds.",
     )
+    parser.add_argument(
+        "--cell-length",
+        type=float,
+        default=None,
+        help="Length of each cell in meters. Default is None.",
+    )
+    parser.add_argument(
+        "--cell-numbers",
+        type=int,
+        default=None,
+        help="Number of cells in the lane. Default is None.",
+    )
     args = parser.parse_args()
-
-    generator = Generator(simulation_time=args.simulation_time)
+    # Check if cell_length and cell_numbers are provided
+    if args.cell_length is None and args.cell_numbers is None:
+        raise ValueError("You must provide either cell_length or cell_numbers to the generator.")
+    generator = Generator(simulation_time=args.simulation_time, cell_length=args.cell_length, cell_numbers=args.cell_numbers)
     generator.run()
 
 if __name__ == "__main__":

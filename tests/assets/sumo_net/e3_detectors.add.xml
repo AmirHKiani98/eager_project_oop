@@ -1,0 +1,162 @@
+<additional>
+  <entryExitDetector id="det_168914458#0_168914458#0_0_0" period="1" file="e3_output.xml" timeThreshold="2.0" speedThreshold="5.0">
+    <detEntry lane="168914458#0_0" pos="0.0" friendlyPos="true"/>
+    <detExit lane="168914458#0_0" pos="20.0" friendlyPos="true"/>
+  </entryExitDetector>
+  <entryExitDetector id="det_168914458#0_168914458#0_0_1" period="1" file="e3_output.xml" timeThreshold="2.0" speedThreshold="5.0">
+    <detEntry lane="168914458#0_0" pos="20.0" friendlyPos="true"/>
+    <detExit lane="168914458#0_0" pos="40.0" friendlyPos="true"/>
+  </entryExitDetector>
+  <entryExitDetector id="det_168914458#0_168914458#0_0_2" period="1" file="e3_output.xml" timeThreshold="2.0" speedThreshold="5.0">
+    <detEntry lane="168914458#0_0" pos="40.0" friendlyPos="true"/>
+    <detExit lane="168914458#0_0" pos="60.0" friendlyPos="true"/>
+  </entryExitDetector>
+  <entryExitDetector id="det_168914458#0_168914458#0_1_0" period="1" file="e3_output.xml" timeThreshold="2.0" speedThreshold="5.0">
+    <detEntry lane="168914458#0_1" pos="0.0" friendlyPos="true"/>
+    <detExit lane="168914458#0_1" pos="20.0" friendlyPos="true"/>
+  </entryExitDetector>
+  <entryExitDetector id="det_168914458#0_168914458#0_1_1" period="1" file="e3_output.xml" timeThreshold="2.0" speedThreshold="5.0">
+    <detEntry lane="168914458#0_1" pos="20.0" friendlyPos="true"/>
+    <detExit lane="168914458#0_1" pos="40.0" friendlyPos="true"/>
+  </entryExitDetector>
+  <entryExitDetector id="det_168914458#0_168914458#0_1_2" period="1" file="e3_output.xml" timeThreshold="2.0" speedThreshold="5.0">
+    <detEntry lane="168914458#0_1" pos="40.0" friendlyPos="true"/>
+    <detExit lane="168914458#0_1" pos="60.0" friendlyPos="true"/>
+  </entryExitDetector>
+  <entryExitDetector id="det_168914458#0_168914458#0_2_0" period="1" file="e3_output.xml" timeThreshold="2.0" speedThreshold="5.0">
+    <detEntry lane="168914458#0_2" pos="0.0" friendlyPos="true"/>
+    <detExit lane="168914458#0_2" pos="20.0" friendlyPos="true"/>
+  </entryExitDetector>
+  <entryExitDetector id="det_168914458#0_168914458#0_2_1" period="1" file="e3_output.xml" timeThreshold="2.0" speedThreshold="5.0">
+    <detEntry lane="168914458#0_2" pos="20.0" friendlyPos="true"/>
+    <detExit lane="168914458#0_2" pos="40.0" friendlyPos="true"/>
+  </entryExitDetector>
+  <entryExitDetector id="det_168914458#0_168914458#0_2_2" period="1" file="e3_output.xml" timeThreshold="2.0" speedThreshold="5.0">
+    <detEntry lane="168914458#0_2" pos="40.0" friendlyPos="true"/>
+    <detExit lane="168914458#0_2" pos="60.0" friendlyPos="true"/>
+  </entryExitDetector>
+  <entryExitDetector id="det_168914458#0_168914458#0_3_0" period="1" file="e3_output.xml" timeThreshold="2.0" speedThreshold="5.0">
+    <detEntry lane="168914458#0_3" pos="0.0" friendlyPos="true"/>
+    <detExit lane="168914458#0_3" pos="20.0" friendlyPos="true"/>
+  </entryExitDetector>
+  <entryExitDetector id="det_168914458#0_168914458#0_3_1" period="1" file="e3_output.xml" timeThreshold="2.0" speedThreshold="5.0">
+    <detEntry lane="168914458#0_3" pos="20.0" friendlyPos="true"/>
+    <detExit lane="168914458#0_3" pos="40.0" friendlyPos="true"/>
+  </entryExitDetector>
+  <entryExitDetector id="det_168914458#0_168914458#0_3_2" period="1" file="e3_output.xml" timeThreshold="2.0" speedThreshold="5.0">
+    <detEntry lane="168914458#0_3" pos="40.0" friendlyPos="true"/>
+    <detExit lane="168914458#0_3" pos="60.0" friendlyPos="true"/>
+  </entryExitDetector>
+  <entryExitDetector id="det_299510529#0_299510529#0_0_0" period="1" file="e3_output.xml" timeThreshold="2.0" speedThreshold="5.0">
+    <detEntry lane="299510529#0_0" pos="0.0" friendlyPos="true"/>
+    <detExit lane="299510529#0_0" pos="20.0" friendlyPos="true"/>
+  </entryExitDetector>
+  <entryExitDetector id="det_299510529#0_299510529#0_0_1" period="1" file="e3_output.xml" timeThreshold="2.0" speedThreshold="5.0">
+    <detEntry lane="299510529#0_0" pos="20.0" friendlyPos="true"/>
+    <detExit lane="299510529#0_0" pos="40.0" friendlyPos="true"/>
+  </entryExitDetector>
+  <entryExitDetector id="det_299510529#0_299510529#0_1_0" period="1" file="e3_output.xml" timeThreshold="2.0" speedThreshold="5.0">
+    <detEntry lane="299510529#0_1" pos="0.0" friendlyPos="true"/>
+    <detExit lane="299510529#0_1" pos="20.0" friendlyPos="true"/>
+  </entryExitDetector>
+  <entryExitDetector id="det_299510529#0_299510529#0_1_1" period="1" file="e3_output.xml" timeThreshold="2.0" speedThreshold="5.0">
+    <detEntry lane="299510529#0_1" pos="20.0" friendlyPos="true"/>
+    <detExit lane="299510529#0_1" pos="40.0" friendlyPos="true"/>
+  </entryExitDetector>
+  <entryExitDetector id="det_299510529#0_299510529#0_2_0" period="1" file="e3_output.xml" timeThreshold="2.0" speedThreshold="5.0">
+    <detEntry lane="299510529#0_2" pos="0.0" friendlyPos="true"/>
+    <detExit lane="299510529#0_2" pos="20.0" friendlyPos="true"/>
+  </entryExitDetector>
+  <entryExitDetector id="det_299510529#0_299510529#0_2_1" period="1" file="e3_output.xml" timeThreshold="2.0" speedThreshold="5.0">
+    <detEntry lane="299510529#0_2" pos="20.0" friendlyPos="true"/>
+    <detExit lane="299510529#0_2" pos="40.0" friendlyPos="true"/>
+  </entryExitDetector>
+  <entryExitDetector id="det_299510529#0_299510529#0_3_0" period="1" file="e3_output.xml" timeThreshold="2.0" speedThreshold="5.0">
+    <detEntry lane="299510529#0_3" pos="0.0" friendlyPos="true"/>
+    <detExit lane="299510529#0_3" pos="20.0" friendlyPos="true"/>
+  </entryExitDetector>
+  <entryExitDetector id="det_299510529#0_299510529#0_3_1" period="1" file="e3_output.xml" timeThreshold="2.0" speedThreshold="5.0">
+    <detEntry lane="299510529#0_3" pos="20.0" friendlyPos="true"/>
+    <detExit lane="299510529#0_3" pos="40.0" friendlyPos="true"/>
+  </entryExitDetector>
+  <entryExitDetector id="det_299510529#1_299510529#1_0_0" period="1" file="e3_output.xml" timeThreshold="2.0" speedThreshold="5.0">
+    <detEntry lane="299510529#1_0" pos="0.0" friendlyPos="true"/>
+    <detExit lane="299510529#1_0" pos="20.0" friendlyPos="true"/>
+  </entryExitDetector>
+  <entryExitDetector id="det_299510529#1_299510529#1_1_0" period="1" file="e3_output.xml" timeThreshold="2.0" speedThreshold="5.0">
+    <detEntry lane="299510529#1_1" pos="0.0" friendlyPos="true"/>
+    <detExit lane="299510529#1_1" pos="20.0" friendlyPos="true"/>
+  </entryExitDetector>
+  <entryExitDetector id="det_299510529#1_299510529#1_2_0" period="1" file="e3_output.xml" timeThreshold="2.0" speedThreshold="5.0">
+    <detEntry lane="299510529#1_2" pos="0.0" friendlyPos="true"/>
+    <detExit lane="299510529#1_2" pos="20.0" friendlyPos="true"/>
+  </entryExitDetector>
+  <entryExitDetector id="det_299510529#1_299510529#1_3_0" period="1" file="e3_output.xml" timeThreshold="2.0" speedThreshold="5.0">
+    <detEntry lane="299510529#1_3" pos="0.0" friendlyPos="true"/>
+    <detExit lane="299510529#1_3" pos="20.0" friendlyPos="true"/>
+  </entryExitDetector>
+  <entryExitDetector id="det_299644700#1_299644700#1_0_0" period="1" file="e3_output.xml" timeThreshold="2.0" speedThreshold="5.0">
+    <detEntry lane="299644700#1_0" pos="0.0" friendlyPos="true"/>
+    <detExit lane="299644700#1_0" pos="20.0" friendlyPos="true"/>
+  </entryExitDetector>
+  <entryExitDetector id="det_299644700#1_299644700#1_0_1" period="1" file="e3_output.xml" timeThreshold="2.0" speedThreshold="5.0">
+    <detEntry lane="299644700#1_0" pos="20.0" friendlyPos="true"/>
+    <detExit lane="299644700#1_0" pos="40.0" friendlyPos="true"/>
+  </entryExitDetector>
+  <entryExitDetector id="det_299644700#1_299644700#1_1_0" period="1" file="e3_output.xml" timeThreshold="2.0" speedThreshold="5.0">
+    <detEntry lane="299644700#1_1" pos="0.0" friendlyPos="true"/>
+    <detExit lane="299644700#1_1" pos="20.0" friendlyPos="true"/>
+  </entryExitDetector>
+  <entryExitDetector id="det_299644700#1_299644700#1_1_1" period="1" file="e3_output.xml" timeThreshold="2.0" speedThreshold="5.0">
+    <detEntry lane="299644700#1_1" pos="20.0" friendlyPos="true"/>
+    <detExit lane="299644700#1_1" pos="40.0" friendlyPos="true"/>
+  </entryExitDetector>
+  <entryExitDetector id="det_299644700#1_299644700#1_2_0" period="1" file="e3_output.xml" timeThreshold="2.0" speedThreshold="5.0">
+    <detEntry lane="299644700#1_2" pos="0.0" friendlyPos="true"/>
+    <detExit lane="299644700#1_2" pos="20.0" friendlyPos="true"/>
+  </entryExitDetector>
+  <entryExitDetector id="det_299644700#1_299644700#1_2_1" period="1" file="e3_output.xml" timeThreshold="2.0" speedThreshold="5.0">
+    <detEntry lane="299644700#1_2" pos="20.0" friendlyPos="true"/>
+    <detExit lane="299644700#1_2" pos="40.0" friendlyPos="true"/>
+  </entryExitDetector>
+  <entryExitDetector id="det_299644700#1_299644700#1_3_0" period="1" file="e3_output.xml" timeThreshold="2.0" speedThreshold="5.0">
+    <detEntry lane="299644700#1_3" pos="0.0" friendlyPos="true"/>
+    <detExit lane="299644700#1_3" pos="20.0" friendlyPos="true"/>
+  </entryExitDetector>
+  <entryExitDetector id="det_299644700#1_299644700#1_3_1" period="1" file="e3_output.xml" timeThreshold="2.0" speedThreshold="5.0">
+    <detEntry lane="299644700#1_3" pos="20.0" friendlyPos="true"/>
+    <detExit lane="299644700#1_3" pos="40.0" friendlyPos="true"/>
+  </entryExitDetector>
+  <entryExitDetector id="det_299644700#2_299644700#2_0_0" period="1" file="e3_output.xml" timeThreshold="2.0" speedThreshold="5.0">
+    <detEntry lane="299644700#2_0" pos="0.0" friendlyPos="true"/>
+    <detExit lane="299644700#2_0" pos="20.0" friendlyPos="true"/>
+  </entryExitDetector>
+  <entryExitDetector id="det_299644700#2_299644700#2_1_0" period="1" file="e3_output.xml" timeThreshold="2.0" speedThreshold="5.0">
+    <detEntry lane="299644700#2_1" pos="0.0" friendlyPos="true"/>
+    <detExit lane="299644700#2_1" pos="20.0" friendlyPos="true"/>
+  </entryExitDetector>
+  <entryExitDetector id="det_299644700#2_299644700#2_2_0" period="1" file="e3_output.xml" timeThreshold="2.0" speedThreshold="5.0">
+    <detEntry lane="299644700#2_2" pos="0.0" friendlyPos="true"/>
+    <detExit lane="299644700#2_2" pos="20.0" friendlyPos="true"/>
+  </entryExitDetector>
+  <entryExitDetector id="det_299644700#2_299644700#2_3_0" period="1" file="e3_output.xml" timeThreshold="2.0" speedThreshold="5.0">
+    <detEntry lane="299644700#2_3" pos="0.0" friendlyPos="true"/>
+    <detExit lane="299644700#2_3" pos="20.0" friendlyPos="true"/>
+  </entryExitDetector>
+  <entryExitDetector id="det_299644700#5_299644700#5_0_0" period="1" file="e3_output.xml" timeThreshold="2.0" speedThreshold="5.0">
+    <detEntry lane="299644700#5_0" pos="0.0" friendlyPos="true"/>
+    <detExit lane="299644700#5_0" pos="20.0" friendlyPos="true"/>
+  </entryExitDetector>
+  <entryExitDetector id="det_299644700#5_299644700#5_1_0" period="1" file="e3_output.xml" timeThreshold="2.0" speedThreshold="5.0">
+    <detEntry lane="299644700#5_1" pos="0.0" friendlyPos="true"/>
+    <detExit lane="299644700#5_1" pos="20.0" friendlyPos="true"/>
+  </entryExitDetector>
+  <entryExitDetector id="det_299644700#5_299644700#5_2_0" period="1" file="e3_output.xml" timeThreshold="2.0" speedThreshold="5.0">
+    <detEntry lane="299644700#5_2" pos="0.0" friendlyPos="true"/>
+    <detExit lane="299644700#5_2" pos="20.0" friendlyPos="true"/>
+  </entryExitDetector>
+  <entryExitDetector id="det_299644700#5_299644700#5_3_0" period="1" file="e3_output.xml" timeThreshold="2.0" speedThreshold="5.0">
+    <detEntry lane="299644700#5_3" pos="0.0" friendlyPos="true"/>
+    <detExit lane="299644700#5_3" pos="20.0" friendlyPos="true"/>
+  </entryExitDetector>
+</additional>

@@ -53,20 +53,78 @@ class Generator:
     track_id; type; traveled_d; avg_speed are just one number
     lat; lon; speed; lon_acc; lat_acc groups of 6
     """
-    def __init__(self, simulation_time = 800) -> None:
+    def __init__(self, simulation_time = 800, cell_length=None, cell_numbers=None) -> None:
         self.base_dir = Path(__file__).parent.parent.parent
         self.net_file = self.base_dir / "tests" / "assets" / "sumo_net" / "osm.net.xml"
         self.route_file = self.base_dir / "tests" / "assets" / "sumo_net" / "trips.trips.xml"
         self.sumo_config_file = self.base_dir / "tests" / "assets" / "sumo_net" / "osm.sumocfg"
         self.simulation_time = simulation_time
-    
+        if cell_length is None and cell_numbers is None:
+            raise ValueError(
+                "You must provide either cell_length or cell_numbers to the generator."
+            )
+
+        self.cell_length = cell_length
+        self.cell_numbers = cell_numbers
+
+    def find_edges_lanes(self):
+        """
+        Find the edges and lanes in the network.
+        """
+        edges = traci.edge.getIDList()
+        edges = {
+            edge_id: [] for edge_id in edges
+        }
+        lanes = traci.lane.getIDList()
+        for lane_id in lanes:
+            edge_id = traci.lane.getEdgeID(lane_id)
+            edges[edge_id].append(lane_id)
+        return edges
+
+    def generate_e3_detectors(self, edge_id, file_handle):
+        """
+        Generate E3 detectors for all lanes of the given edge into the shared file handle.
+        """
+        lane_ids = self.edges_lanes[edge_id]
+        for lane_id in lane_ids:
+            lane_length = traci.lane.getLength(lane_id)
+            if self.cell_numbers is not None and isinstance(self.cell_numbers, int):
+                cell_size = lane_length / self.cell_numbers # type: ignore
+            else:
+                cell_size = self.cell_length
+            n_cells = int(lane_length / cell_size) # type: ignore
+            print(n_cells)
+            for i in range(n_cells):
+                entry_pos = i * cell_size # type: ignore
+                exit_pos = (i + 1) * cell_size # type: ignore
+                detector_id = f"det_{edge_id}_{lane_id}_{i}"
+
+                file_handle.write(f'  <entryExitDetector id="{detector_id}" period="1" file="e3_output.xml" timeThreshold="2.0" speedThreshold="5.0">\n')
+                file_handle.write(f'    <detEntry lane="{lane_id}" pos="{entry_pos}" friendlyPos="true"/>\n')
+                file_handle.write(f'    <detExit lane="{lane_id}" pos="{exit_pos}" friendlyPos="true"/>\n')
+                file_handle.write(f'  </entryExitDetector>\n')
     
     def start_sim(self):
         """
         Start the simulation using the sumo library.
         """
         traci.start(["sumo", "-n", str(self.net_file), "-r", str(self.route_file), "--step-length", "0.04"])    
+        self.edges_lanes = self.find_edges_lanes()
+        
 
+        # Create ONE single detector file
+        detectors_file = self.base_dir / "tests" / "assets" / "sumo_net" / "e3_detectors.add.xml"
+        with open(detectors_file, 'w') as f:
+            f.write('<additional>\n')
+            for edge_id in MAJOR_EDGES:
+                if edge_id not in self.edges_lanes:
+                    continue
+                print("shit")
+                self.generate_e3_detectors(edge_id, f)
+            f.write('</additional>\n')
+        traci.close()
+        exit()
+        
     def run(self):
         """
         Step through the simulation.
