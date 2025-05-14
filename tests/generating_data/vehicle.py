@@ -99,17 +99,19 @@ class Vehicle:
             raise ValueError("Length of lon and time lists must be equal")
         if len(self.lon) != len(self.speed):
             raise ValueError("Length of lon and speed lists must be equal")
-        if len(self.lon) != len(self.acc_lon) - 1:
-            raise ValueError("Length of lon and acc_lon lists must be equal")
-        if len(self.lon) != len(self.acc_lat) - 1:
-            raise ValueError("Length of lon and acc_lat lists must be equal")
+        if len(self.lon) - 1 != len(self.acc_lon):
+            raise ValueError("Length of lon and acc_lon lists must be equal. Current lengths are: "
+                             f"lon: {len(self.lon)}, acc_lon: {len(self.acc_lon)}")
+        if len(self.lon) - 1 != len(self.acc_lat):
+            raise ValueError("Length of lon and acc_lat lists must be equal. Current lengths are: "
+                             f"lon: {len(self.lon)}, acc_lat: {len(self.acc_lat)}")
         self.acc_lat.append(self.acc_lat[-1])
         self.acc_lon.append(self.acc_lon[-1])
         travel_d = self.get_tavel_distance()
         avg_speed = sum(self.speed) / len(self.speed)
         zipped = zip(self.lon, self.lat, self.time, self.speed, self.acc_lon, self.acc_lat)
         text = f"{self.track_id}; {self.car_type}; {travel_d}; {avg_speed};"
-        for lon, lat, time, speed, acc, acc_lon, acc_lat in zipped:
+        for lon, lat, time, speed, acc_lon, acc_lat in zipped:
             text += f"{lat}; {lon}; {speed}; {acc_lon}; {acc_lat}; {time};"
         return text
 

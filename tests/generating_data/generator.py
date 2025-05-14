@@ -53,11 +53,12 @@ class Generator:
     track_id; type; traveled_d; avg_speed are just one number
     lat; lon; speed; lon_acc; lat_acc groups of 6
     """
-    def __init__(self) -> None:
+    def __init__(self, simulation_time = 800) -> None:
         self.base_dir = Path(__file__).parent.parent.parent
         self.net_file = self.base_dir / "tests" / "assets" / "sumo_net" / "osm.net.xml"
         self.route_file = self.base_dir / "tests" / "assets" / "sumo_net" / "trips.trips.xml"
         self.sumo_config_file = self.base_dir / "tests" / "assets" / "sumo_net" / "osm.sumocfg"
+        self.simulation_time = simulation_time
     
     
     def start_sim(self):
@@ -72,7 +73,7 @@ class Generator:
         """
         self.start_sim()
         simulation_time = 0
-        while simulation_time < 800: # type: ignore
+        while simulation_time < self.simulation_time: # type: ignore
             
             simulation_time = traci.simulation.getTime()
 
@@ -119,13 +120,14 @@ class Generator:
                         )
                     
                     # Go over each controlled lane
+                    found_link = False
                     for idx, lane_id in enumerate(controlled_lanes):
                         # Extract the edge part (lane_id is like "299510529#0_0")
                         edge_id = lane_id.split("_")[0]
 
-                        if edge_id in MAJOR_EDGES:
-                            signal_color = tls_state[idx]  # 'G', 'r', 'y', etc.
-                            
+                        if edge_id == TLS[tls_id] and not found_link:
+                            found_link = True
+                            signal_color = str(tls_state)[idx]  # 'G', 'r', 'y', etc.
                             if signal_color == 'G':
                                 tls_obj.add_state(1)
                             else:
@@ -143,9 +145,9 @@ class Generator:
         track_id; type; traveled_d; avg_speed are just one number
         lat; lon; speed; lon_acc; lat_acc groups of 6
         """
-        raw_data_text = "track_id; type; traveled_d; avg_speed; lat; lon; speed; lon_acc; lat_acc; time"
+        raw_data_text = "track_id; type; traveled_d; avg_speed; lat; lon; speed; lon_acc; lat_acc; time\n"
         for vehicle_id, vehicle in Vehicle.all_vehicles.items():
-            raw_data_text += vehicle.get_veh_raw_data()
+            raw_data_text += vehicle.get_veh_raw_data() + "\n"
         
         return raw_data_text
     
@@ -171,14 +173,12 @@ class Generator:
         """
         Generate final files
         """
-        raw_data_text = ""
-
-
-                
-
-if __name__ == "__main__":
-    generator = Generator()
-    generator.run()
-
-    # generator.generate_trips()
-    # generator.generate_net()
+        raw_data = self._generate_raw_data()
+        processed_ground_truth = self._generate_ground_truth_data()
+        tls_ground_truth = self._generate_tls_ground_truth_data()
+        with open(self.base_dir / "tests" / "assets" / "raw_data.csv", "w") as f:
+            f.write(raw_data)
+        with open(self.base_dir / "tests" / "assets" / "processed_ground_truth.csv", "w") as f:
+            f.write(processed_ground_truth)
+        with open(self.base_dir / "tests" / "assets" / "tls_ground_truth.csv", "w") as f:
+            f.write(tls_ground_truth)
