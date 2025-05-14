@@ -13,7 +13,10 @@ Raises:
 from pathlib import Path
 import polars as pl
 import pytest
-
+from shapely.geometry import Point as POINT
+from src.preprocessing.data_loader import DataLoader
+from src.preprocessing.geo_loader import GeoLoader
+from src.preprocessing.params import Parameters
 @pytest.fixture
 def base_dir():
     """Fixture to provide the base directory of the project"""
@@ -43,3 +46,27 @@ def sample_dataframe():
         "b": [1, 2, 3, 4, 5, 6],
         "c": [0.1, 0.2, 0.3, 0.4, 0.5, 0.6],
     })
+
+@pytest.fixture
+def sample_data_loader_1():
+    """
+    Sample data loader based on example table 9.1 - Stephen Boyles
+    """
+    return DataLoader.__new__(DataLoader)
+
+@pytest.fixture
+def sample_geo_loader_1():
+    """
+    Sample geo loader based on our actual corridor of interest.
+    """
+    link_points = [
+        POINT(0, 0),
+        POINT(0, 1)
+    ]
+    params = Parameters()
+    return GeoLoader(
+        locations=[
+            POINT(0, 1)
+
+        ]
+    )

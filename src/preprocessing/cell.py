@@ -44,7 +44,6 @@ class Cell(SpatialLine):
             raise TypeError("link must be an instance of Link")
         self.link = link
 
-
     def __str__(self):
         """
         Returns a string representation of the Cell object.
