@@ -37,22 +37,23 @@ class CTM(TrafficModel):
         """
         required_keys = {
             "prev_cell_occupancy", "current_cell_occupancy",
-                       "cell_length", "flow_capacity"
+            "cell_capacity", "flow_capacity",
+            "alpha"
         }
         if not required_keys.issubset(kwargs):
             missing = required_keys - kwargs.keys()
             raise ValueError(f"Missing required parameters for CTM.compute_flow(): {missing}")
         prev_cell_occupancy = kwargs["prev_cell_occupancy"]
         current_cell_occupancy = kwargs["current_cell_occupancy"]
-        cell_length = kwargs["cell_length"]
         flow_capacity = kwargs["flow_capacity"]
-
-        cell_capacity = self.dl.params.get_spatial_line_capacity(cell_length)
+        cell_capacity = kwargs["cell_capacity"]
+        alpha = kwargs["alpha"]
+        # cell_capacity = self.dl.params.get_spatial_line_capacity(cell_length)
         if isinstance(cell_capacity, Units.Quantity):
             cell_capacity = round(cell_capacity.to(1).value) # Fix: This might cause error!
         if isinstance(flow_capacity, Units.Quantity):
             flow_capacity = round(flow_capacity.to(1).value) # Fix: This might cause error!
-        alpha = self.dl.params.wave_speed/self.dl.params.wave_speed
+        # alpha = self.dl.params.wave_speed/self.dl.params.wave_speed
 
         if isinstance(alpha, Units.Quantity):
             alpha = round(alpha.to(1).value)
@@ -78,7 +79,8 @@ class CTM(TrafficModel):
             tuple: Updated densities and outflows after applying the CTM model.
         """
         required_keys = {
-            "cell_occupancies", "first_cell_inflow", "link_id", "is_tl", "tl_status"
+            "cell_occupancies", "first_cell_inflow", "is_tl", "tl_status",
+            "cell_capacities", "flow_capacity", "max_flows", "alpha"
         }
         if not required_keys.issubset(kwargs):
             missing = required_keys - kwargs.keys()
@@ -86,8 +88,17 @@ class CTM(TrafficModel):
 
         cell_occupancies = kwargs["cell_occupancies"]
         first_cell_inflow = kwargs["first_cell_inflow"]
+        cell_capacities = kwargs["cell_capacities"]
+        flow_capacity = kwargs["flow_capacity"] # self.dl.params.flow_capacity
+        max_flows = kwargs["max_flows"]
+        alpha = kwargs["alpha"]
 
-        link_id = kwargs["link_id"]
+        if not isinstance(cell_capacities, list) and not isinstance(cell_capacities, np.ndarray):
+            raise TypeError("cell_capacities must be a list or numpy array.")
+        
+        if not isinstance(max_flows, list) and not isinstance(max_flows, np.ndarray):
+            raise TypeError("max_flows must be a list or numpy array.")
+        
         is_tl = kwargs["is_tl"]
         tl_status = kwargs["tl_status"]
         if not isinstance(cell_occupancies, list) and not isinstance(cell_occupancies, np.ndarray):
@@ -96,11 +107,10 @@ class CTM(TrafficModel):
         # nbbi: I user enumerate to get rid of the warning
         new_occupancy = cell_occupancies.copy()
         new_outflow = cell_occupancies.copy()
+
         for i, _ in enumerate(cell_occupancies):
-            cell_length = self.dl.geo_loader.get_cell_length(
-                cell_id=i+1,
-                link_id=link_id
-            )
+            cell_capacity = cell_capacities[i]
+            max_flow = max_flows[i] # self.dl.params.get_max_flow(cell_length)
             # First cell
             if i == 0:
                 inflow = first_cell_inflow
@@ -108,16 +118,16 @@ class CTM(TrafficModel):
                 inflow = self.compute_flow(
                     prev_cell_occupancy=cell_occupancies[i-1],
                     current_cell_occupancy=cell_occupancies[i],
-                    cell_length=cell_length,
-                    flow_capacity=self.dl.params.flow_capacity
+                    cell_capacity=cell_capacity,
+                    flow_capacity=flow_capacity,
+                    alpha=alpha
                 )
 
             if i == len(cell_occupancies) - 1:
                 if is_tl and tl_status:
                     outflow = 0
                 else:
-                    cell_len = self.dl.geo_loader.get_cell_length(i+1, link_id)
-                    max_flow = self.dl.params.get_max_flow(cell_len)
+                    # max_flow = self.dl.params.get_max_flow(cell_len)
                     if isinstance(max_flow, Units.Quantity):
                         max_flow = max_flow.to(1).value
                     outflow = min(max_flow, cell_occupancies[i])
@@ -125,8 +135,9 @@ class CTM(TrafficModel):
                 outflow = self.compute_flow(
                     prev_cell_occupancy=cell_occupancies[i],
                     current_cell_occupancy=cell_occupancies[i+1],
-                    cell_length=cell_length,
-                    flow_capacity=self.dl.params.flow_capacity
+                    cell_capacity=cell_capacity,
+                    flow_capacity=flow_capacity,
+                    alpha=alpha
                 )
             if isinstance(inflow, Units.Quantity):
                 inflow = int(inflow.to(1).value)
@@ -135,7 +146,7 @@ class CTM(TrafficModel):
 
             new_outflow[i] = outflow
             new_occupancy[i] = cell_occupancies[i] + inflow - outflow
-
+            print(f"Cell {i}: inflow={inflow}, outflow={outflow}, occupancy={new_occupancy[i]}")
             # In the last cell, if the outflow is greater than the occupancy, set it to 0
             if new_occupancy[i] < 0:
                 new_occupancy[i] = 0
@@ -154,15 +165,19 @@ class CTM(TrafficModel):
         """
         occupancy_list = args["occupancy_list"]
         first_cell_inflow = args["first_cell_inflow"]
-        link_id = args["link_id"]
         is_tl = args["is_tl"]
         tl_status = args["tl_status"]
         trajectory_time = args["trajectory_time"]
         next_occupancy = args["next_occupancy"]
+        link_id = args["link_id"]
+        cell_capacities = args["cell_capacities"]
+        flow_capacity = args["flow_capacity"]
+        max_flows = args["max_flows"]
+        alpha = args["alpha"]
+
         if not isinstance(occupancy_list, list) and not isinstance(occupancy_list, np.ndarray):
             raise TypeError("occupancy_list must be a list or numpy array.")
-        if not isinstance(link_id, int):
-            raise TypeError("link_id must be an integer")
+
         if not isinstance(is_tl, bool):
             raise TypeError("is_tl must be a boolean")
         if tl_status == 1:
@@ -174,9 +189,12 @@ class CTM(TrafficModel):
         new_occupancy, new_outflow = self.predict(
             cell_occupancies=occupancy_list,
             first_cell_inflow=first_cell_inflow,
-            link_id=link_id,
             is_tl=is_tl,
-            tl_status=tl_status
+            tl_status=tl_status,
+            cell_capacities=cell_capacities,
+            flow_capacity=flow_capacity,
+            max_flows=max_flows,
+            alpha=alpha
         )
 
         return {

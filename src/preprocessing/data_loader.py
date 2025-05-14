@@ -645,7 +645,7 @@ class DataLoader:
             pl.col("exits").list.len().alias("exit_count"),
             pl.col("vehicle_ids").list.len().alias("on_cell"),
         ])
-        # logger.debug columns in different color for better visibility
+        # # logger.debug columns in different color for better visibility
 
         complete_counts = complete_counts.with_columns([
             pl.struct(["link_id", "cell_id", "on_cell"]).map_elements(
@@ -674,7 +674,7 @@ class DataLoader:
 
         complete_counts = self.get_density_entry_exist_df(fully_processed_file_address)
         complete_counts.write_parquet(file_address)
-        logger.debug(f"Density DataFrame saved to {file_address}")
+        # logger.debug(f"Density DataFrame saved to {file_address}")
         return file_address
 
     def is_vehicle_passed_traffic_light(
@@ -777,7 +777,7 @@ class DataLoader:
             )
             completed_groups = pl.concat([completed_groups, group])
         completed_groups.write_csv(file_address)
-        logger.debug(f"Traffic light status DataFram000e00 saved to {file_address}")
+        # logger.debug(f"Traffic light status DataFram000e00 saved to {file_address}")
         return file_address
 
     def _get_processed_traffic_light_status(self, unprocessed_traffic_file, location, date, time):
@@ -810,7 +810,7 @@ class DataLoader:
             total=num_groups,
             desc="Extending the traffic light data"
         ):
-            logger.debug("link_id %s", link_id)
+            # logger.debug("link_id %s", link_id)
             link_id = link_id[0] if isinstance(link_id, (list, tuple)) else link_id
             group = fill_missing_timestamps(
                 group,
@@ -942,7 +942,7 @@ class DataLoader:
                 "entries_dict": entries_dict,
                 "exits_dict": exits_dict
             }, f)
-        logger.debug(f"Occupancy or density DataFrame saved to {output_file_address}")
+        # logger.debug(f"Occupancy or density DataFrame saved to {output_file_address}")
         return cell_vector_occupancy_or_density_dict, entries_dict, exits_dict
 
     def get_cumulative_counts_file(self, location, date, time):

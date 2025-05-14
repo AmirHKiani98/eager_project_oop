@@ -173,7 +173,7 @@ class TrafficModel:
         if not os.path.exists(parent_dir):
             os.makedirs(parent_dir)
         if os.path.exists(run_file_path):
-            logger.debug(f"Run file already exists at {run_file_path}.")
+            # logger.debug(f"Run file already exists at {run_file_path}.")
             return []
 
         all_results = []
