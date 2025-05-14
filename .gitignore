@@ -4,3 +4,4 @@ downloads
 # .cache/PointQueue
 # .cache/SpatialQueue
 # .cache/LTM
+*.ipynb
