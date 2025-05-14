@@ -50,9 +50,8 @@ def test_ctm_model():
         cell_length=500,
         testing=True
     )
-    model = CTM(
-        dl=bypassed_data_loader
-    )
+    model = CTM.__new__(CTM)
+    model.dl = bypassed_data_loader
     cell_length = bypassed_data_loader.geo_loader.cell_length
     assert model.dl.params.get_spatial_line_capacity(cell_length) == 90
     assert model.dl.params.flow_capacity == 15
