@@ -10,6 +10,7 @@ Asserts:
     - The shape and content of the result match the expected DataFrame.
 """
 import logging
+import json
 import polars as pl
 from polars.testing import assert_frame_equal
 from rich.logging import RichHandler
@@ -136,6 +137,26 @@ def test_cumulative_df(base_dir):
     )
     # Bypassing the __init__ method of DataLoader
     dl = DataLoader.__new__(DataLoader)
-    print(dl.get_cummulative_counts_based_on_t(df, -1 * 0.04 * Units.S))
+    dt = -1 * 0.04 * Units.S
+    dataframe = {
+        "link_id": [1, 1, 1, 1, 1, 1],
+        "trajectory_time": [0.0, 0.04, 0.08, 0.12, 0.16, 0.20],
+        "cumulative_link_entry": [0, 11, 12, 13, 14, 15],
+        "cumulative_link_exit": [0, 0, 1, 2, 3, 4],
+    }
+    df = pl.DataFrame(dataframe)
+    results = dl.get_cummulative_counts_based_on_t(df, dt)
+    expected = {
+        1: {
+            0.0: {"cumulative_count_upstream": 0, "cummulative_count_downstream": 0},
+            0.04: {"cumulative_count_upstream": 0, "cummulative_count_downstream": 0},
+            0.08: {"cumulative_count_upstream": 11, "cummulative_count_downstream": 1},
+            0.08: {"cumulative_count_upstream": 12, "cummulative_count_downstream": 2},
+            0.08: {"cumulative_count_upstream": 13, "cummulative_count_downstream": 3},
+            0.08: {"cumulative_count_upstream": 14, "cummulative_count_downstream": 4},
+        }
+    }
+    print(json.dumps(results, indent=4))
+    print(json.dumps(expected, indent=4))
 
-    assert False
+    assert results == expected

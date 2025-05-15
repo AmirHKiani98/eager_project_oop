@@ -1327,7 +1327,7 @@ class DataLoader:
             json.dump(occcupancy_ground_truths, f, indent=4)
         return occcupancy_ground_truths
     
-    def get_cummulative_counts_based_on_t(self, cumulative_counts_df: pl.DataFrame, t: Units.Quantity):
+    def get_cummulative_counts_based_on_t(self, cumulative_counts_df: pl.DataFrame, t: Units.Quantity) -> pl.DataFrame:
         """
         For Point Queue and Spatial Queue.
         """
@@ -1338,41 +1338,40 @@ class DataLoader:
         groups = cumulative_counts_df.group_by("link_id")
         num_groups = cumulative_counts_df.select(["link_id"]).unique().height
 
-        cumulative_counts_dict = {}
+        final_cummulative_counts = {
+            "link_id": [],
+            "target_time": [],
+            "cumulative_count_upstream": [],
+            "trajectory_time": [],
+            "cumulative_count_downstream": [],
+        }
         for link_id, group in tqdm(groups, total=num_groups, desc="Finding cumulative counts"):
             link_id = link_id[0] if isinstance(link_id, (list, tuple)) else link_id
             group = group.sort(["trajectory_time"])
             traj_times = group["trajectory_time"].to_numpy()
+            min_traj_times = traj_times.min()
             for row in group.iter_rows(named=True):
                 trajectory_time = round(row["trajectory_time"], 2)
                 target_time = (
                     (trajectory_time * Units.S) + t
                 ).to(Units.S).value
-                target_time = round(target_time, 2)
-                insert_pos = np.searchsorted(traj_times, target_time)
-                if insert_pos == 0:
-                    closest_idx = 0
-                elif insert_pos == len(traj_times):
-                    closest_idx = len(traj_times) - 1
-                else:
-                    before = traj_times[insert_pos - 1]
-                    after = traj_times[insert_pos]
-                    closest_idx = insert_pos - 1 if abs(before - target_time) <= abs(after - target_time) else insert_pos
-
-                # ✅ Now fetch the full row at closest_idx
-                closest_row = group[int(closest_idx)]
-                if link_id not in cumulative_counts_dict:
-                    cumulative_counts_dict[link_id] = {}
-                if trajectory_time not in cumulative_counts_dict[link_id]:
-                    cumulative_counts_dict[link_id][trajectory_time] = {}
+            
+                if target_time not in group["trajectory_time"]:
+                    continue
                 
-                cumulative_counts_dict[link_id][trajectory_time][
-                    "cumulative_count_upstream"
-                ] = closest_row["cumulative_link_entry"].item()
-                cumulative_counts_dict[link_id][trajectory_time][
-                    "cumulative_count_downstream"
-                ] = row["cumulative_link_exit"]
-        return cumulative_counts_dict
+                cumulative_upstream = group.filter(
+                    pl.col("trajectory_time") == target_time
+                )["cumulative_link_entry"].first()
+                final_cummulative_counts["link_id"].append(link_id)
+                final_cummulative_counts["target_time"].append(target_time)
+                final_cummulative_counts["cumulative_count_upstream"].append(cumulative_upstream)
+                final_cummulative_counts["trajectory_time"].append(trajectory_time)
+                final_cummulative_counts["cumulative_count_downstream"].append(
+                    row["cumulative_link_exit"]
+                )
+
+                
+        return pl.DataFrame(final_cummulative_counts)
                 
 
 
