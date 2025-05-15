@@ -109,7 +109,7 @@ def main():
         fp_time=args.fp_time,
         geo_loader=model_geo_loader
     )
-
+    batch_size = 1
     if args.model == "ctm":
         model = CTM(
             dl=dl,
@@ -118,7 +118,6 @@ def main():
             fp_time=args.fp_time,
         )
         num_processes = cpu_count()
-        batch_size = 50000
         if not args.calibration:
             model.run_with_multiprocessing(num_processes=num_processes, batch_size=batch_size)
         else:
@@ -132,7 +131,6 @@ def main():
             fp_time=args.fp_time,
         )
         num_processes = cpu_count()
-        batch_size = 50000
         if not args.calibration:
             model.run_with_multiprocessing(num_processes=num_processes, batch_size=batch_size)
         else:
@@ -146,7 +144,6 @@ def main():
             fp_time=args.fp_time,
         )
         num_processes = cpu_count()
-        batch_size = 50000
         if not args.calibration:
             model.run_with_multiprocessing(num_processes=num_processes, batch_size=batch_size)
         else:

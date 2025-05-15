@@ -55,6 +55,7 @@ class SpatialQueue(TrafficModel):
             "dt", 
             "trajectory_time",
             "link_id",
+            "tl_status"
         ]
         for arg in required_args:
             if arg not in args:
@@ -99,6 +100,12 @@ class SpatialQueue(TrafficModel):
             dt,
             q_max_down
         )
+        
+        if sending_flow < 0:
+            sending_flow = 0
+        tl_status = args["tl_status"]
+        if tl_status != 1:
+            sending_flow = 0
         receiving_flow = self.receiving_flow(q_max_up, dt, cummulative_count_upstream, cummulative_count_downstream, link_length, k_j)
         trajectory_time = args["trajectory_time"]
         link_id = args["link_id"]

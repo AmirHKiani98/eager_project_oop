@@ -49,8 +49,9 @@ class PointQueue(TrafficModel):
             "dt", 
             "trajectory_time",
             "link_id",
-            "tls_status"
+            "tl_status"
         ]
+        logger.debug(f"Running PointQueue with args: {args}")
         for arg in required_args:
             if arg not in args:
                 raise ValueError(f"Missing required argument: {arg}")
@@ -84,8 +85,8 @@ class PointQueue(TrafficModel):
         )
         if sending_flow < 0:
             sending_flow = 0
-        tls_status = args["tls_status"]
-        if tls_status != 1:
+        tl_status = args["tl_status"]
+        if tl_status != 1:
             sending_flow = 0
         receiving_flow = self.receiving_flow(q_max_up, dt)
         
@@ -96,8 +97,8 @@ class PointQueue(TrafficModel):
             "sending_flow": sending_flow,
             "receiving_flow": receiving_flow,
             "next_occupancy": next_occupancy,
+            "trajectory_time": trajectory_time,
             "link_id": link_id,
-            "trajectory_time": trajectory_time
         }
 
 
