@@ -13,6 +13,7 @@ Example:
 """
 import os
 import json
+from copy import deepcopy
 from math import atan2, degrees
 from multiprocessing import Pool, cpu_count
 from collections import defaultdict
@@ -1461,26 +1462,31 @@ class DataLoader:
         )
         if os.path.isfile(file_address):
             self.tasks = json.load(open(file_address, "r", encoding="utf-8"))
+            for index in range(len(self.tasks)):
+                self.tasks[index]["dt"] = self.tasks[index]["dt"] * Units.S
             return
         tasks = []
         for link_id, cell_dict in self.cumulative_counts_dict.items():
             for trajectory_time, data in cell_dict.items():
                 tasks.append(
                     {
-                        "link_id": link_id,
-                        "trajectory_time": trajectory_time,
-                        "cummulative_count_upstream": data["cummulative_count_upstream"],
-                        "cummulative_count_downstream": data["cummulative_count_downstream"],
-                        "cummulative_count_upstream_offset": data["cummulative_count_upstream_offset"],
-                        "entry_count": data["entry_count"],
-                        "tl_status": self.tl_status(trajectory_time, link_id),
-                        "current_number_of_vehicles": data["current_number_of_vehicles"],
+                        "q_max_up": self.params.q_max,
+                        "q_max_down": self.params.q_max,
                         "next_occupancy": sum(self.next_timestamp_occupancy_dict[link_id][trajectory_time]["next_occupancy"]),
+                        "cummulative_count_upstream_offset": data["cummulative_count_upstream_offset"],
+                        "cummulative_count_downstream": data["cummulative_count_downstream"],
+                        "dt": self.params.dt,
+                        "trajectory_time": trajectory_time,
+                        "tl_status": self.tl_status(trajectory_time, link_id),
+                        "link_id": link_id
                     }
                 )
 
         with open(file_address, "w", encoding="utf-8") as f:
-            json.dump(tasks, f, indent=4)
+            copy_tasks = deepcopy(tasks)
+            for index in range(len(copy_tasks)):
+                copy_tasks[index]["dt"] = copy_tasks[index]["dt"].to(Units.S).value
+            json.dump(copy_tasks, f, indent=4)
         self.tasks = tasks
         self.destruct()
     
@@ -1504,26 +1510,32 @@ class DataLoader:
         )
         if os.path.isfile(file_address):
             self.tasks = json.load(open(file_address, "r", encoding="utf-8"))
+            for index in range(len(self.tasks)):
+                self.tasks[index]["dt"] = self.tasks[index]["dt"] * Units.S
             return
         tasks = []
         for link_id, cell_dict in self.cumulative_counts_dict.items():
             for trajectory_time, data in cell_dict.items():
                 tasks.append(
                     {
-                        "link_id": link_id,
-                        "trajectory_time": trajectory_time,
-                        "cummulative_count_upstream": data["cummulative_count_upstream"],
-                        "cummulative_count_upstream_offset": data["cummulative_count_upstream_offset"],
-                        "cummulative_count_downstream": data["cummulative_count_downstream"],
-                        "entry_count": data["entry_count"],
-                        "tl_status": self.tl_status(trajectory_time, link_id),
-                        "current_number_of_vehicles": data["current_number_of_vehicles"],
+                        "q_max_up": self.params.q_max,
+                        "q_max_down": self.params.q_max,
                         "next_occupancy": sum(self.next_timestamp_occupancy_dict[link_id][trajectory_time]["next_occupancy"]),
+                        "cummulative_count_upstream_offset": data["cummulative_count_upstream_offset"],
+                        "cummulative_count_upstream": data["cummulative_count_upstream"],
+                        "cummulative_count_downstream": data["cummulative_count_downstream"],
+                        "dt": self.params.dt,
+                        "trajectory_time": trajectory_time,
+                        "tl_status": self.tl_status(trajectory_time, link_id),
+                        "link_id": link_id
                     }
                 )
-        with open(file_address, "w", encoding="utf-8") as f:
-            json.dump(tasks, f, indent=4)
         self.tasks = tasks
+        with open(file_address, "w", encoding="utf-8") as f:
+            copy_tasks = deepcopy(tasks)
+            for index in range(len(copy_tasks)):
+                copy_tasks[index]["dt"] = copy_tasks[index]["dt"].to(Units.S).value
+            json.dump(copy_tasks, f, indent=4)
         self.destruct()
 
     def prepare(self, class_name: str, fp_location: str, fp_date: str, fp_time: str):

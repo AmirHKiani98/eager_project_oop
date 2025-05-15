@@ -44,6 +44,21 @@ class SpatialQueue(TrafficModel):
         """
         Run the point queue model with the given arguments.
         """
+        # Required arguments
+        required_args = [
+            "q_max_up", 
+            "q_max_down", 
+            "next_occupancy", 
+            "cummulative_count_upstream_shifted_queue", 
+            "cummulative_count_upstream", 
+            "cummulative_count_downstream", 
+            "dt", 
+            "trajectory_time",
+            "link_id",
+        ]
+        for arg in required_args:
+            if arg not in args:
+                raise ValueError(f"Missing required argument: {arg}")
         # Placeholder for running the point queue model
         q_max_up = args["q_max_up"]
         if not isinstance(q_max_up, Units.Quantity):
@@ -85,12 +100,16 @@ class SpatialQueue(TrafficModel):
             q_max_down
         )
         receiving_flow = self.receiving_flow(q_max_up, dt, cummulative_count_upstream, cummulative_count_downstream, link_length, k_j)
-        
+        trajectory_time = args["trajectory_time"]
+        link_id = args["link_id"]
         
         return {
             "sending_flow": sending_flow,
             "receiving_flow": receiving_flow,
-            "next_occupancy": next_occupancy
+            "next_occupancy": next_occupancy,
+            "trajectory_time": trajectory_time,
+            "link_id": link_id
+
         }
 
 

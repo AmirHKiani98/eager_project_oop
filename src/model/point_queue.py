@@ -19,12 +19,12 @@ class PointQueue(TrafficModel):
     Class representing a point queue traffic model.
     Inherits from the TrafficModel class.
     """
-    def sending_flow(self, cummulative_count_upstream, cummulative_count_downstream, dt, q_max_down):
+    def sending_flow(self, cummulative_count_upstream_offset, cummulative_count_downstream, dt, q_max_down):
         """
         Computes the sending flow from the point queue model.
         """
         return min(
-            cummulative_count_upstream - cummulative_count_downstream,
+            cummulative_count_upstream_offset - cummulative_count_downstream,
             (q_max_down * dt).to(1).value
         )
 
@@ -39,6 +39,21 @@ class PointQueue(TrafficModel):
         """
         Run the point queue model with the given arguments.
         """
+        # Required arguments
+        required_args = [
+            "q_max_up", 
+            "q_max_down", 
+            "next_occupancy", 
+            "cummulative_count_upstream_offset", 
+            "cummulative_count_downstream", 
+            "dt", 
+            "trajectory_time",
+            "link_id",
+            "tls_status"
+        ]
+        for arg in required_args:
+            if arg not in args:
+                raise ValueError(f"Missing required argument: {arg}")
         # Placeholder for running the point queue model
         q_max_up = args["q_max_up"]
         if not isinstance(q_max_up, Units.Quantity):
@@ -53,26 +68,36 @@ class PointQueue(TrafficModel):
             )
         
         next_occupancy = args["next_occupancy"]
-        cummulative_count_upstream = args["cummulative_count_upstream"]
+        cummulative_count_upstream_offset = args["cummulative_count_upstream_offset"]
         cummulative_count_downstream = args["cummulative_count_downstream"]
         dt = args["dt"]
+
         if not isinstance(dt, Units.Quantity):
             raise TypeError(
                 f"dt should be a Units.Quantity (time), got {type(dt)}"
             )
         sending_flow = self.sending_flow(
-            cummulative_count_upstream,
+            cummulative_count_upstream_offset,
             cummulative_count_downstream,
             dt,
             q_max_down
         )
+        if sending_flow < 0:
+            sending_flow = 0
+        tls_status = args["tls_status"]
+        if tls_status != 1:
+            sending_flow = 0
         receiving_flow = self.receiving_flow(q_max_up, dt)
         
+        link_id = args["link_id"]
+        trajectory_time = args["trajectory_time"]
         
         return {
             "sending_flow": sending_flow,
             "receiving_flow": receiving_flow,
-            "next_occupancy": next_occupancy
+            "next_occupancy": next_occupancy,
+            "link_id": link_id,
+            "trajectory_time": trajectory_time
         }
 
 
