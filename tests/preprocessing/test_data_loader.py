@@ -143,20 +143,22 @@ def test_cumulative_df(base_dir):
         "link_id": [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
         "cumulative_link_entry": [0, 1, 5, 10, 17, 27, 30, 30, 30, 30, 30],
         "cumulative_link_exit": [0, 0, 0, 0, 1, 5, 10, 15, 20, 25, 30],
+        "first_cell_entry": [0, 1, 5, 10, 17, 27, 30, 30, 30, 30, 30],
+        "current_number_of_vehicles": [0, 0, 0, 0, 1, 5, 10, 15, 20, 25, 30],
     }
     df = pl.DataFrame(dataframe)
     results = dl.get_cummulative_counts_based_on_t(df, dt)
     print(results.sort("trajectory_time").select(
-        pl.col("cummulative_count_upstream_modified"),
+        pl.col("cummulative_count_upstream_offset"),
         pl.col("cummulative_count_downstream"),
     ).to_numpy())
-    cummulative_count_upstream_modified = results.select(
-        pl.col("cummulative_count_upstream_modified")
+    cummulative_count_upstream_offset = results.select(
+        pl.col("cummulative_count_upstream_offset")
     ).to_numpy()
     cummulative_count_downstream = results.select(
         pl.col("cummulative_count_downstream")
     ).to_numpy()
-    expected_cummulative_count_upstream_modified = [0, 0, 0, 1, 5, 10, 17, 27, 30, 30, 30]
+    expected_cummulative_count_upstream_offset = [0, 0, 0, 1, 5, 10, 17, 27, 30, 30, 30]
     expected_cummulative_count_downstream = [0, 0, 0, 0, 1, 5, 10, 15, 20, 25, 30]
-    assert list(cummulative_count_upstream_modified) == list(expected_cummulative_count_upstream_modified)
+    assert list(cummulative_count_upstream_offset) == list(expected_cummulative_count_upstream_offset)
     assert list(cummulative_count_downstream) == list(expected_cummulative_count_downstream)

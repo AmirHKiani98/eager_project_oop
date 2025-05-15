@@ -17,6 +17,7 @@ from math import atan2, degrees
 from multiprocessing import Pool, cpu_count
 from collections import defaultdict
 import logging
+from typing import Optional
 import chardet
 from sklearn.linear_model import LinearRegression
 from more_itertools import chunked
@@ -1154,57 +1155,15 @@ class DataLoader:
             return convert_keys_to_float(cumulative_counts_dict)
 
         cumulative_counts_df = pl.read_csv(cumulative_counts_file)
-        groups = cumulative_counts_df.group_by("link_id")
-        num_groups = cumulative_counts_df.select(["link_id"]).unique().height
+        cumulative_counts_df = self.get_cummulative_counts_based_on_t(
+            cumulative_counts_df,
+            link_based_t={
+                link.link_id: 1 for link in self.geo_loader.links
+            }
+        )
 
         cumulative_counts_dict = {}
-        for link_id, group in tqdm(groups, total=num_groups, desc="Finding cumulative counts"):
-            link_id = link_id[0] if isinstance(link_id, (list, tuple)) else link_id
-            group = group.sort(["trajectory_time"])
-            link_length = self.geo_loader.get_link_length(link_id)
-            traj_times = group["trajectory_time"].to_numpy()
-            for row in group.iter_rows(named=True):
-                trajectory_time = round(row["trajectory_time"], 2)
-                target_time = (
-                    (trajectory_time * Units.S) + self.params.dt - 
-                    link_length / self.params.free_flow_speed
-                ).to(Units.S).value
-                target_time = round(target_time, 2)
-                insert_pos = np.searchsorted(traj_times, target_time)
-                if insert_pos == 0:
-                    closest_idx = 0
-                elif insert_pos == len(traj_times):
-                    closest_idx = len(traj_times) - 1
-                else:
-                    before = traj_times[insert_pos - 1]
-                    after = traj_times[insert_pos]
-                    closest_idx = insert_pos - 1 if abs(before - target_time) <= abs(after - target_time) else insert_pos
-
-                # ✅ Now fetch the full row at closest_idx
-                closest_row = group[int(closest_idx)]
-                if link_id not in cumulative_counts_dict:
-                    cumulative_counts_dict[link_id] = {}
-                if trajectory_time not in cumulative_counts_dict[link_id]:
-                    cumulative_counts_dict[link_id][trajectory_time] = {}
-                cumulative_counts_dict[link_id][trajectory_time][
-                    "cumulative_count_upstream"
-                ] = closest_row["cumulative_link_entry"].item()
-
-                cumulative_counts_dict[link_id][trajectory_time][
-                    "cumulative_count_upstream_at_t"
-                ] = row["cumulative_link_entry"]
-                
-                cumulative_counts_dict[link_id][trajectory_time][
-                    "cumulative_count_downstream"
-                ] = row["cumulative_link_exit"]
-                
-                cumulative_counts_dict[link_id][trajectory_time][
-                    "entry_count"
-                ] = row["first_cell_entry"]
-                
-                cumulative_counts_dict[link_id][trajectory_time][
-                    "current_number_of_vehicles"
-                ] = row["current_number_of_vehicles"]
+        
                 
         # Convert keys to float
         with open(output_file_address, "w", encoding="utf-8") as f:
@@ -1326,8 +1285,8 @@ class DataLoader:
         with open(file_address, "w", encoding="utf-8") as f:
             json.dump(occcupancy_ground_truths, f, indent=4)
         return occcupancy_ground_truths
-    
-    def get_cummulative_counts_based_on_t(self, cumulative_counts_df: pl.DataFrame, t: Units.Quantity) -> pl.DataFrame:
+
+    def get_cummulative_counts_based_on_t(self, cumulative_counts_df: pl.DataFrame, t: Optional[Units.Quantity] = None, link_based_t: Optional[dict] = None) -> pl.DataFrame:
         """
         For Point Queue and Spatial Queue.
         """
@@ -1341,27 +1300,42 @@ class DataLoader:
         final_cummulative_counts = {
             "link_id": [],
             "target_time": [],
-            "cummulative_count_upstream_modified": [],
+            "cummulative_count_upstream_offset": [],
             "trajectory_time": [],
             "cummulative_count_downstream": [],
+            "cummulative_count_upstream": [],
+            "entry_count": [],
+            "current_number_of_vehicles": []
+            
         }
         for link_id, group in tqdm(groups, total=num_groups, desc="Finding cumulative counts"):
-            group = group.with_columns(group["trajectory_time"].cast(pl.Float64))
+            group = group.with_columns(group["trajectory_time"].cast(pl.Float64).round(2))
             link_id = link_id[0] if isinstance(link_id, (list, tuple)) else link_id
             group = group.sort(["trajectory_time"])
-            traj_times = group["trajectory_time"].to_numpy()
-            min_traj_times = traj_times.min()
             for row in group.iter_rows(named=True):
                 trajectory_time = round(row["trajectory_time"], 2)
-                target_time = (
-                    (trajectory_time * Units.S) + t
-                ).to(Units.S).value
+                
+                if link_based_t != None:
+                    if link_id not in link_based_t:
+                        raise ValueError(
+                            f"Link ID {link_id} not found in link_based_t dictionary."
+                        )
+                    if not isinstance(link_based_t[link_id], Units.Quantity):
+                        raise ValueError(
+                            f"Value for link ID {link_id} in link_based_t is not a valid Units.Quantity."
+                        )
+                    target_time = (trajectory_time * Units.S) + link_based_t[link_id].to(Units.S).value
+                else:
+                    if t is None:
+                        raise ValueError("At least one of t or link_based_t should be provided.")
+                    target_time = (trajectory_time * Units.S) + t
+                target_time = round(target_time.to(Units.S).value, 2)
                 if not isinstance(target_time, float):
                     target_time = float(target_time)
                 if target_time not in group["trajectory_time"]:
-                    cummulative_count_upstream_modified = 0
+                    cummulative_count_upstream_offset = 0
                 else:
-                    cummulative_count_upstream_modified = group.filter(
+                    cummulative_count_upstream_offset = group.filter(
                         pl.col("trajectory_time") == target_time
                     )["cumulative_link_entry"].first()
                 cumulative_downstream = row["cumulative_link_exit"]
@@ -1369,21 +1343,23 @@ class DataLoader:
 
                 final_cummulative_counts["link_id"].append(link_id)
                 final_cummulative_counts["target_time"].append(target_time)
-                final_cummulative_counts["cummulative_count_upstream_modified"].append(
-                    cummulative_count_upstream_modified
+                final_cummulative_counts["cummulative_count_upstream_offset"].append(
+                    cummulative_count_upstream_offset
                 )
                 final_cummulative_counts["trajectory_time"].append(trajectory_time)
                 final_cummulative_counts["cummulative_count_downstream"].append(
                     cumulative_downstream
                 )
+                final_cummulative_counts["cummulative_count_upstream"].append(
+                    row["cumulative_link_entry"]
+                )
 
-                
+                final_cummulative_counts["entry_count"].append(row["first_cell_entry"])
+                final_cummulative_counts["current_number_of_vehicles"].append(row["current_number_of_vehicles"])
+
         return pl.DataFrame(final_cummulative_counts)
-                
 
 
-    
-                
     def destruct(self):
         """
         Clears the dictionaries and the df.
