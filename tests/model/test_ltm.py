@@ -19,3 +19,4 @@ def test_ltm_model():
         "Vehicles on link": [0, 10, 20, 30, 40, 50, 59, 67, 74, 80, 85, 79, 70, 60, 50, 45, 35, 25, 15, 5, 0],
     }
     tl_status = [0 if t <= 10 else 1 for t in range(20)]
+    

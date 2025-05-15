@@ -60,7 +60,9 @@ def test_spatial_queue():
             "next_occupancy": 0,
             "link_id": 1,
             "trajectory_time": 0,
-            "tl_status": 1
+            "tl_status": 1,
+            "entry_count": 0,
+            "current_number_of_vehicles": 0,
         })
         i = int(t.to(Units.HR).value)
 

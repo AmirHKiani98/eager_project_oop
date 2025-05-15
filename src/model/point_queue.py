@@ -55,6 +55,9 @@ class PointQueue(TrafficModel):
             "link_id",
             "current_number_of_vehicles"
         ]
+        for arg in required_args:
+            if arg not in args:
+                raise ValueError(f"Missing required argument: {arg}")
         # Placeholder for running the point queue model
         q_max_up = args["q_max_up"]
         if not isinstance(q_max_up, Units.Quantity):
