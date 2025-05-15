@@ -42,6 +42,19 @@ class PointQueue(TrafficModel):
         Run the point queue model with the given arguments.
         """
         # Required arguments
+        required_args = [
+            "q_max_up",
+            "q_max_down",
+            "next_occupancy",
+            "cummulative_count_upstream_offset",
+            "cummulative_count_downstream",
+            "dt",
+            "tl_status",
+            "entry_count",
+            "trajectory_time",
+            "link_id",
+            "current_number_of_vehicles"
+        ]
         # Placeholder for running the point queue model
         q_max_up = args["q_max_up"]
         if not isinstance(q_max_up, Units.Quantity):
@@ -79,13 +92,21 @@ class PointQueue(TrafficModel):
 
         link_id = args["link_id"]
         trajectory_time = args["trajectory_time"]
-        
+        entry_count = args["entry_count"]
+        # todo not sure if this is correct
+        inflow = min(
+            entry_count,
+            receiving_flow
+        )
+        current_number_of_vehicles = args["current_number_of_vehicles"]
         return {
             "sending_flow": sending_flow,
             "receiving_flow": receiving_flow,
             "next_occupancy": next_occupancy,
             "trajectory_time": trajectory_time,
             "link_id": link_id,
+            "inflow": inflow,
+            "current_number_of_vehicles": current_number_of_vehicles
         }
 
 

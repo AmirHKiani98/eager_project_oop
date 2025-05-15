@@ -56,7 +56,9 @@ class SpatialQueue(TrafficModel):
             "dt", 
             "trajectory_time",
             "link_id",
-            "tl_status"
+            "tl_status",
+            "entry_count",
+            "current_number_of_vehicles",
         ]
         for arg in required_args:
             if arg not in args:
@@ -110,14 +112,21 @@ class SpatialQueue(TrafficModel):
         receiving_flow = SpatialQueue.receiving_flow(q_max_up, dt, cummulative_count_upstream, cummulative_count_downstream, link_length, k_j)
         trajectory_time = args["trajectory_time"]
         link_id = args["link_id"]
-        
+        entry_count = args["entry_count"]
+        # todo not sure if this is correct
+        inflow = min(
+            entry_count,
+            receiving_flow
+        )
+        current_number_of_vehicles = args["current_number_of_vehicles"]
         return {
             "sending_flow": sending_flow,
             "receiving_flow": receiving_flow,
             "next_occupancy": next_occupancy,
             "trajectory_time": trajectory_time,
-            "link_id": link_id
-
+            "link_id": link_id,
+            "inflow": inflow,
+            "current_number_of_vehicles": current_number_of_vehicles
         }
 
 

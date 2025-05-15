@@ -1142,7 +1142,7 @@ class DataLoader:
 
         return first_cell_inflow_dict
     
-    def get_cumulative_count_dt_ffs_link_length(self, location, date, time):
+    def get_cumulative_count_point_queue_spatial_queue(self, location, date, time):
         """
         Returns the cumulative counts for the specified location, date, and time.
         """
@@ -1204,11 +1204,74 @@ class DataLoader:
         
         return cumulative_counts_dict
 
-    def activate_cumulative_dict(self, location, date, time):
+    def get_cumulative_count_ltm(self, location, date, time):
         """
         Returns the cumulative counts for the specified location, date, and time.
         """
-        self.cumulative_counts_dict = self.get_cumulative_count_dt_ffs_link_length(location, date, time)
+        # nbbi: Needs test
+        # nbbi: This can be more time efficient
+        cumulative_counts_file = self.link_cumulative_counts_file.get((location, date, time), None)
+        if not isinstance(cumulative_counts_file, str):
+            raise ValueError(f"File not found for {location}, {date}, {time}")
+        
+        output_file_address = (
+            self.params.cache_dir + "/" +
+            self._get_filename(location, date, time) +
+            "_cumulative_count_ltm_" + self.params.get_hash_str(["dt", "free_flow_speed", "wave_speed"]) + "_" +
+            self.geo_loader.get_hash_str() + ".json"
+        )
+        if os.path.isfile(output_file_address):
+            with open(output_file_address, "r", encoding="utf-8") as f:
+                cumulative_counts_dict = json.load(f)
+                
+            return convert_keys_to_float(cumulative_counts_dict)
+        
+        cumulative_counts_df = pl.read_csv(cumulative_counts_file)
+        cumulative_counts_df_for_sending_flow = self.get_cummulative_counts_based_on_t(
+            cumulative_counts_df,
+            link_based_t={
+                    link.link_id: self.params.dt - (link.get_length() / self.params.free_flow_speed)
+                    for link_id, link in self.geo_loader.links.items()
+                }
+            )
+        
+        cumulative_counts_df_for_receiving_flow = self.get_cummulative_counts_based_on_t(
+            cumulative_counts_df,
+            link_based_t={
+                    link.link_id: self.params.dt - (link.get_length() / self.params.wave_speed)
+                    for link_id, link in self.geo_loader.links.items()
+                }
+            )
+        cumulative_counts_dict = {}
+        for row in cumulative_counts_df_for_sending_flow.iter_rows(named=True):
+            if row["link_id"] not in cumulative_counts_dict:
+                cumulative_counts_dict[row["link_id"]] = {}
+            if row["trajectory_time"] not in cumulative_counts_dict[row["link_id"]]:
+                cumulative_counts_dict[row["link_id"]][row["trajectory_time"]] = {}
+            cumulative_counts_dict[row["link_id"]][row["trajectory_time"]]["target_time"] = row["target_time"]
+            cumulative_counts_dict[row["link_id"]][row["trajectory_time"]]["cummulative_count_upstream_offset"] = row["cummulative_count_upstream_offset"]
+            cumulative_counts_dict[row["link_id"]][row["trajectory_time"]]["cummulative_count_downstream"] = row["cummulative_count_downstream"]
+            cumulative_counts_dict[row["link_id"]][row["trajectory_time"]]["cummulative_count_upstream"] = row["cummulative_count_upstream"]
+            cumulative_counts_dict[row["link_id"]][row["trajectory_time"]]["entry_count"] = row["entry_count"]
+            cumulative_counts_dict[row["link_id"]][row["trajectory_time"]]["current_number_of_vehicles"] = row["current_number_of_vehicles"]
+
+
+        for row in cumulative_counts_df_for_receiving_flow.iter_rows(named=True):
+            if row["link_id"] not in cumulative_counts_dict:
+                cumulative_counts_dict[row["link_id"]] = {}
+            if row["trajectory_time"] not in cumulative_counts_dict[row["link_id"]]:
+                cumulative_counts_dict[row["link_id"]][row["trajectory_time"]] = {}
+            cumulative_counts_dict[row["link_id"]][row["trajectory_time"]]["cummulative_count_downstream_offset"] = row["cummulative_count_downstream_offset"]
+        
+        with open(output_file_address, "w", encoding="utf-8") as f:
+            json.dump(cumulative_counts_dict, f, indent=4)
+        return cumulative_counts_dict
+    
+    def activate_cumulative_dict_queue(self, location, date, time):
+        """
+        Returns the cumulative counts for the specified location, date, and time.
+        """
+        self.cumulative_counts_dict = self.get_cumulative_count_point_queue_spatial_queue(location, date, time)
         
 
     def activate_first_cell_inflow_dict(self, location, date, time):
@@ -1222,6 +1285,12 @@ class DataLoader:
         Returns the next timestamp occupancy for the specified location, date, and time.
         """
         self.next_timestamp_occupancy_dict = self.get_next_timestamp_occupancy(location, date, time)
+    
+    def activate_cummulative_counts_ltm(self, location, date, time):
+        """
+        Returns the cumulative counts for the specified location, date, and time.
+        """
+        self.cumulative_counts_dict = self.get_cumulative_count_ltm(location, date, time)
 
     def set_params(self, params: Parameters):
         """
@@ -1335,6 +1404,7 @@ class DataLoader:
             "link_id": [],
             "target_time": [],
             "cummulative_count_upstream_offset": [],
+            "cummulative_count_downstream_offset": [],
             "trajectory_time": [],
             "cummulative_count_downstream": [],
             "cummulative_count_upstream": [],
@@ -1368,10 +1438,15 @@ class DataLoader:
                     target_time = float(target_time)
                 if target_time not in group["trajectory_time"]:
                     cummulative_count_upstream_offset = 0.0
+                    cummulative_count_downstream_offset = 0.0
                 else:
                     cummulative_count_upstream_offset = group.filter(
                         pl.col("trajectory_time") == target_time
                     )["cumulative_link_entry"].first()
+                    cummulative_count_downstream_offset = group.filter(
+                        pl.col("trajectory_time") == target_time
+                    )["cumulative_link_exit"].first()
+                
                 cumulative_downstream = row["cumulative_link_exit"]
 
 
@@ -1379,6 +1454,9 @@ class DataLoader:
                 final_cummulative_counts["target_time"].append(target_time)
                 final_cummulative_counts["cummulative_count_upstream_offset"].append(
                     cummulative_count_upstream_offset
+                )
+                final_cummulative_counts["cummulative_count_downstream_offset"].append(
+                    cummulative_count_downstream_offset
                 )
                 final_cummulative_counts["trajectory_time"].append(trajectory_time)
                 final_cummulative_counts["cummulative_count_downstream"].append(
@@ -1461,7 +1539,7 @@ class DataLoader:
         
         Prepares the necessary tasks for the specified location, date, and time.
         """
-        self.activate_cumulative_dict(location, date, time)
+        self.activate_cumulative_dict_queue(location, date, time)
         self.activate_next_timestamp_occupancy(location, date, time)
         self.activate_tl_status_dict(location, date, time)
 
@@ -1496,6 +1574,7 @@ class DataLoader:
                         "next_occupancy": sum(self.next_timestamp_occupancy_dict[link_id][trajectory_time]["next_occupancy"]),
                         "cummulative_count_upstream_offset": data["cummulative_count_upstream_offset"],
                         "cummulative_count_downstream": data["cummulative_count_downstream"],
+                        "current_number_of_vehicles": data["current_number_of_vehicles"],
                         "dt": self.params.dt,
                         "trajectory_time": trajectory_time,
                         "tl_status": self.tl_status(trajectory_time, link_id),
@@ -1518,7 +1597,7 @@ class DataLoader:
         
         Prepares the necessary tasks for the specified location, date, and time.
         """
-        self.activate_cumulative_dict(location, date, time)
+        self.activate_cumulative_dict_queue(location, date, time)
         self.activate_tl_status_dict(location, date, time)
         self.activate_next_timestamp_occupancy(location, date, time)
         self.current_file_running = {
@@ -1551,6 +1630,7 @@ class DataLoader:
                         "cummulative_count_upstream_offset": data["cummulative_count_upstream_offset"],
                         "cummulative_count_upstream": data["cummulative_count_upstream"],
                         "cummulative_count_downstream": data["cummulative_count_downstream"],
+                        "current_number_of_vehicles": data["current_number_of_vehicles"],
                         "dt": self.params.dt,
                         "trajectory_time": trajectory_time,
                         "tl_status": self.tl_status(trajectory_time, link_id),
@@ -1570,6 +1650,55 @@ class DataLoader:
                 copy_tasks[index]["link_length"] = copy_tasks[index]["link_length"].to(Units.M).value
             json.dump(copy_tasks, f, indent=4)
         self.destruct()
+
+    def prepare_ltm_tasks(self, location, date, time):
+        """
+        Prepares the necessary tasks for the specified location, date, and time.
+        """
+        self.activate_cummulative_counts_ltm(location, date, time)
+        self.activate_tl_status_dict(location, date, time)
+        self.activate_next_timestamp_occupancy(location, date, time)
+        self.current_file_running = {
+            "location": location,
+            "date": date,
+            "time": time
+        }
+        file_address = (
+            self.params.cache_dir + "/" +
+            f"{self._get_filename(location, date, time)}_prepared_ltm_tasks_"
+            f"{self.geo_loader.get_hash_str()}_{self.params.get_hash_str(['cache_dir', 'free_flow_speed', 'dt', 'wave_speed'])}.json"
+        )
+        if os.path.isfile(file_address):
+            self.tasks = json.load(open(file_address, "r", encoding="utf-8"))
+            for index in range(len(self.tasks)):
+                self.tasks[index]["dt"] = self.tasks[index]["dt"] * Units.S
+                self.tasks[index]["q_max_up"] = self.tasks[index]["q_max_up"] * Units.PER_HR
+                self.tasks[index]["q_max_down"] = self.tasks[index]["q_max_down"] * Units.PER_HR
+                self.tasks[index]["k_j"] = self.tasks[index]["k_j"] * Units.PER_KM
+                self.tasks[index]["link_length"] = self.tasks[index]["link_length"] * Units.M
+            return
+        tasks = []
+        for link_id, cell_dict in self.cumulative_counts_dict.items():
+            for trajectory_time, data in cell_dict.items():
+                tasks.append(
+                    {
+                        "q_max_up": self.params.q_max,
+                        "q_max_down": self.params.q_max,
+                        "next_occupancy": sum(self.next_timestamp_occupancy_dict[link_id][trajectory_time]["next_occupancy"]),
+                        "cummulative_count_upstream_offset_for_sending_flow": data["cummulative_count_upstream_offset"],
+                        "cummulative_count_downstream_receiving_flow": data["cummulative_count_downstream_offset"],
+                        "cummulative_count_upstream": data["cummulative_count_upstream"],
+                        "cummulative_count_downstream": data["cummulative_count_downstream"],
+                        "current_number_of_vehicles": data["current_number_of_vehicles"],
+                        "dt": self.params.dt,
+                        "trajectory_time": trajectory_time,
+                        "tl_status": self.tl_status(trajectory_time, link_id),
+                        "link_id": link_id,
+                        "k_j": self.params.jam_density_link,
+                        "link_length": self.geo_loader.links[link_id].get_length(),
+                        "entry_count": data["entry_count"],
+                    }
+                )
 
     def prepare(self, class_name: str, fp_location: str, fp_date: str, fp_time: str):
         """
