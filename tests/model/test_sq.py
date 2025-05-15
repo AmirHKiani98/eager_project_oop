@@ -14,7 +14,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger("rich")
 
-def test_point_queue():
+def test_spatial_queue():
     """
     Test the Point Queue model.
     Based on the table 9.1 - Stephen Boyles
@@ -57,7 +57,10 @@ def test_point_queue():
             "dt": dt,
             "q_max_up": q_max_up,
             "q_max_down": q_max_down,
-            "next_occupancy": 0
+            "next_occupancy": 0,
+            "link_id": 1,
+            "trajectory_time": 0,
+            "tls_status": 1
         })
         i = int(t.to(Units.HR).value)
 

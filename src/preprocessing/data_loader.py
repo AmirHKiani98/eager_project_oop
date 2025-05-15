@@ -1455,6 +1455,9 @@ class DataLoader:
             "date": date,
             "time": time
         }
+        logger.debug(
+            f"Preparing tasks for {location}, {date}, {time} with params: {self.params}"
+        )
         file_address = (
             self.params.cache_dir + "/" +
             f"{self._get_filename(location, date, time)}_prepared_pq_tasks_"
@@ -1548,6 +1551,9 @@ class DataLoader:
             fp_date (str): The date of the file.
             fp_time (str): The time of the file.
         """
+        logger.info(
+            f"Preparing tasks for {class_name}"
+        )
         if class_name == "CTM":
             self.prepare_ctm_tasks(
                 fp_location,

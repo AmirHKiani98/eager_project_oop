@@ -91,30 +91,6 @@ class TrafficModel:
         """
         return self.dl.geo_loader.get_cell_length(cell_id, link_id)
 
-    def is_tl(self, link_id):
-        """
-        Check if a link has a traffic light.
-
-        Args:
-            link_id (int): The ID of the link.
-
-        Returns:
-            bool: True if the link has a traffic light, False otherwise.
-        """
-        return self.dl.is_tl(link_id)
-
-    def tl_status(self, time, link_id):
-        """
-        Get the status of a traffic light.
-
-        Args:
-            time (int): The current time.
-            link_id (int): The ID of the link.
-
-        Returns:
-            int: Status of the traffic light (1 for green, 0 for red).
-        """
-        return self.dl.tl_status(time, link_id)
 
     def compute_outflow(
         self,

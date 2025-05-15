@@ -56,7 +56,10 @@ def test_point_queue():
             "q_max_up": q_max_up,
             "q_max_down": q_max_down,
             "next_occupancy": 0,
-            "trajectory_time": t
+            "trajectory_time": t,
+            "link_id": 1,
+            "trajectory_time": 0,
+            "tls_status": 1
         })
         i = int(t.to(Units.HR).value)
        
