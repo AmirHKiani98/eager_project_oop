@@ -1528,7 +1528,7 @@ class DataLoader:
         }
         file_address = (
             self.params.cache_dir + "/" +
-            f"{self._get_filename(location, date, time)}_prepared_pq_tasks_"
+            f"{self._get_filename(location, date, time)}_prepared_sq_tasks_"
             f"{self.geo_loader.get_hash_str()}_{self.params.get_hash_str(['cache_dir', 'free_flow_speed', 'dt'])}.json"
         )
         if os.path.isfile(file_address):

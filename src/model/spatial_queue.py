@@ -20,8 +20,8 @@ class SpatialQueue(TrafficModel):
     Inherits from the TrafficModel class.
     """
 
-
-    def sending_flow(self, cummulative_count_upstream, cummulative_count_downstream, dt, q_max_down):
+    @staticmethod
+    def sending_flow(cummulative_count_upstream, cummulative_count_downstream, dt, q_max_down):
         """
         Computes the sending flow from the point queue model.
         """
@@ -30,7 +30,8 @@ class SpatialQueue(TrafficModel):
             (q_max_down * dt).to(1).value
         )
 
-    def receiving_flow(self, q_max_up, dt, cummulative_count_upstream, cummulative_count_downstream, link_length, k_j):
+    @staticmethod
+    def receiving_flow(q_max_up, dt, cummulative_count_upstream, cummulative_count_downstream, link_length, k_j):
         """
         Computes the receiving flow from the point queue model.
         """
@@ -39,8 +40,8 @@ class SpatialQueue(TrafficModel):
             (q_max_up * dt).to(1).value
             )
     
-
-    def run(self, args):
+    @staticmethod
+    def run(args):
         """
         Run the point queue model with the given arguments.
         """
@@ -49,7 +50,7 @@ class SpatialQueue(TrafficModel):
             "q_max_up", 
             "q_max_down", 
             "next_occupancy", 
-            "cummulative_count_upstream_shifted_queue", 
+            "cummulative_count_upstream_offset", 
             "cummulative_count_upstream", 
             "cummulative_count_downstream", 
             "dt", 
@@ -74,7 +75,7 @@ class SpatialQueue(TrafficModel):
             )
         
         next_occupancy = args["next_occupancy"]
-        cummulative_count_upstream_shifted_queue = args["cummulative_count_upstream_shifted_queue"]
+        cummulative_count_upstream_offset = args["cummulative_count_upstream_offset"]
         cummulative_count_upstream = args["cummulative_count_upstream"]
         cummulative_count_downstream = args["cummulative_count_downstream"]
         link_length = args["link_length"]
@@ -94,8 +95,8 @@ class SpatialQueue(TrafficModel):
             raise TypeError(
                 f"dt should be a Units.Quantity (time), got {type(dt)}"
             )
-        sending_flow = self.sending_flow(
-            cummulative_count_upstream_shifted_queue,
+        sending_flow = SpatialQueue.sending_flow(
+            cummulative_count_upstream_offset,
             cummulative_count_downstream,
             dt,
             q_max_down
@@ -106,7 +107,7 @@ class SpatialQueue(TrafficModel):
         tl_status = args["tl_status"]
         if tl_status != 1:
             sending_flow = 0
-        receiving_flow = self.receiving_flow(q_max_up, dt, cummulative_count_upstream, cummulative_count_downstream, link_length, k_j)
+        receiving_flow = SpatialQueue.receiving_flow(q_max_up, dt, cummulative_count_upstream, cummulative_count_downstream, link_length, k_j)
         trajectory_time = args["trajectory_time"]
         link_id = args["link_id"]
         

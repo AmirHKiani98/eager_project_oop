@@ -1,34 +1,48 @@
-[05:00:20] DEBUG    Setting _is_initialized to  params.py:236
-                    False                                    
-           DEBUG    Setting cache_dir to .cache params.py:236
-           DEBUG    Setting num_lanes to 3      params.py:236
-           DEBUG    Setting vehicle_length to   params.py:236
-                    5.0 m                                    
-           DEBUG    Setting free_flow_speed to  params.py:236
-                    50.0 km / h                              
-           DEBUG    Setting wave_speed to 10.0  params.py:236
-                    km / h                                   
-           DEBUG    Setting dt to 1.0 s         params.py:236
-           DEBUG    Setting jam_density_link to params.py:236
-                    150.0 1 / km                             
-           DEBUG    Setting q_max to 2500.0 1 / params.py:236
-                    h                                        
-           DEBUG    Setting flow_capacity to    params.py:236
-                    2500.0 s / h                             
-           DEBUG    Parameters initialized      params.py:117
-                    with: Vehicle Length: 5.0                
-                    m, Free Flow Speed: 50.0 km              
-                    / h, Wave Speed: 10.0 km /               
-                    h, Number of Lanes: 3, Jam               
-                    Density Link: 150.0 1 / km,              
-                    Flow Capacity: 2500.0 s /                
-                    h, Time Step: 1.0 s                      
-           DEBUG    Setting _is_initialized to  params.py:236
-                    True                                     
-           DEBUG    Metadata saved with hash:   params.py:226
-                    13cef4bf0db3dce7246fcfb605a              
-                    9e2c7                                    
-usage: main.py [-h] [--model MODEL] [--fp-location FP_LOCATION]
-               [--fp-date FP_DATE] [--fp-time FP_TIME] [--fp-geo FP_GEO]
-               [--calibration]
-main.py: error: unrecognized arguments: --batch-size=50000
+Loading the files:   0%|          | 0/1 [00:00<?, ?it/s][05:08:56] INFO     Cumulative counts file already       data_loader.py:971
+                    exists:                                                
+                    .cache/d1_20181029_0800_0830_cumulat                   
+                    ive_counts__0e58ec50058789e8333f1422                   
+                    3f770bb5_682a48de.csv                                  
+Loading the files: 100%|██████████| 1/1 [00:00<00:00, 396.21it/s]
+           INFO     Preparing tasks for SpatialQueue    data_loader.py:1574
+[05:08:57] INFO     Running calibration with params:   traffic_model.py:218
+                    free_flow_speed: 30.0 km / h,                          
+                    jam_density: 120.0 1 / km,                             
+                    wave_speed: 10.0 km / h, q_max:                        
+                    1000.0 1 / h                                           
+           INFO     Preparing tasks for SpatialQueue    data_loader.py:1574
+Processing traffic model:   0%|          | 0/2 [00:00<?, ?it/s]Processing traffic model:   0%|          | 0/2 [00:01<?, ?it/s]
+multiprocessing.pool.RemoteTraceback: 
+"""
+Traceback (most recent call last):
+  File "/opt/anaconda3/lib/python3.12/multiprocessing/pool.py", line 125, in worker
+    result = (True, func(*args, **kwds))
+                    ^^^^^^^^^^^^^^^^^^^
+  File "/opt/anaconda3/lib/python3.12/multiprocessing/pool.py", line 48, in mapstar
+    return list(map(*args))
+           ^^^^^^^^^^^^^^^^
+  File "/Users/amirhosseinkiani/Documents/Github/eager_project_oop/src/model/spatial_queue.py", line 63, in run
+    raise ValueError(f"Missing required argument: {arg}")
+ValueError: Missing required argument: cummulative_count_upstream
+"""
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "/Users/amirhosseinkiani/Documents/Github/eager_project_oop/src/main.py", line 159, in <module>
+    main()
+  File "/Users/amirhosseinkiani/Documents/Github/eager_project_oop/src/main.py", line 156, in main
+    model.run_calibration(num_processes=num_processes, batch_size=batch_size)
+  File "/Users/amirhosseinkiani/Documents/Github/eager_project_oop/src/model/traffic_model.py", line 235, in run_calibration
+    self.run_with_multiprocessing(num_processes, batch_size)
+  File "/Users/amirhosseinkiani/Documents/Github/eager_project_oop/src/model/traffic_model.py", line 162, in run_with_multiprocessing
+    results = pool.map(
+              ^^^^^^^^^
+  File "/opt/anaconda3/lib/python3.12/multiprocessing/pool.py", line 367, in map
+    return self._map_async(func, iterable, mapstar, chunksize).get()
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/anaconda3/lib/python3.12/multiprocessing/pool.py", line 774, in get
+    raise self._value
+ValueError: Missing required argument: cummulative_count_upstream
