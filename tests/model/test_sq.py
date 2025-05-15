@@ -40,16 +40,16 @@ def test_spatial_queue():
         t_before = int((t + dt - L/uf).to(Units.HR).value)
         t_current = int(t.to(Units.HR).value)
         if t_before < 0:
-            cummulative_count_upstream_shifted_queue = 0
+            cummulative_count_upstream_offset = 0
             cummulative_count_downstream = 0
             cummulative_count_upstream = 0
         else:
-            cummulative_count_upstream_shifted_queue = table["cummulative_count_upstream"][t_before]
+            cummulative_count_upstream_offset = table["cummulative_count_upstream"][t_before]
             cummulative_count_downstream = table["cummulative_count_downstream"][t_current]
             cummulative_count_upstream = table["cummulative_count_upstream"][t_current]
 
         values = pq.run({
-            "cummulative_count_upstream_shifted_queue": cummulative_count_upstream_shifted_queue,
+            "cummulative_count_upstream_offset": cummulative_count_upstream_offset,
             "cummulative_count_upstream": cummulative_count_upstream,
             "cummulative_count_downstream": cummulative_count_downstream,
             "link_length": L,
