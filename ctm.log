@@ -112,3 +112,27 @@ nohup: ignoring input
                     17.5 km / h, q_max: 3250.0 1 / h                            
            INFO     Preparing tasks for CTM                  data_loader.py:1574
 Processing traffic model:   0%|          | 0/2 [00:00<?, ?it/s]Processing traffic model:  50%|█████     | 1/2 [00:01<00:01,  1.15s/it]Processing traffic model: 100%|██████████| 2/2 [00:01<00:00,  1.72it/s]Processing traffic model: 100%|██████████| 2/2 [00:01<00:00,  1.50it/s]
+[09:55:13] INFO     Running calibration with params:        traffic_model.py:218
+                    free_flow_speed: 30.0 km / h,                               
+                    jam_density: 120.0 1 / km, wave_speed:                      
+                    17.5 km / h, q_max: 4000.0 1 / h                            
+           INFO     Preparing tasks for CTM                  data_loader.py:1574
+Processing traffic model:   0%|          | 0/2 [00:00<?, ?it/s]Processing traffic model:  50%|█████     | 1/2 [00:01<00:01,  1.21s/it]Processing traffic model: 100%|██████████| 2/2 [00:01<00:00,  1.61it/s]Processing traffic model: 100%|██████████| 2/2 [00:01<00:00,  1.41it/s]
+[09:55:18] INFO     Running calibration with params:        traffic_model.py:218
+                    free_flow_speed: 30.0 km / h,                               
+                    jam_density: 120.0 1 / km, wave_speed:                      
+                    20.0 km / h, q_max: 1000.0 1 / h                            
+           INFO     Preparing tasks for CTM                  data_loader.py:1574
+Processing traffic model:   0%|          | 0/2 [00:00<?, ?it/s]Processing traffic model:  50%|█████     | 1/2 [00:01<00:01,  1.79s/it]Processing traffic model: 100%|██████████| 2/2 [00:02<00:00,  1.05s/it]Processing traffic model: 100%|██████████| 2/2 [00:02<00:00,  1.16s/it]
+[09:55:24] INFO     Running calibration with params:        traffic_model.py:218
+                    free_flow_speed: 30.0 km / h,                               
+                    jam_density: 120.0 1 / km, wave_speed:                      
+                    20.0 km / h, q_max: 1750.0 1 / h                            
+           INFO     Preparing tasks for CTM                  data_loader.py:1574
+Processing traffic model:   0%|          | 0/2 [00:00<?, ?it/s]Processing traffic model:  50%|█████     | 1/2 [00:00<00:00,  1.29it/s]Processing traffic model: 100%|██████████| 2/2 [00:01<00:00,  1.45it/s]Processing traffic model: 100%|██████████| 2/2 [00:01<00:00,  1.42it/s]
+[09:55:29] INFO     Running calibration with params:        traffic_model.py:218
+                    free_flow_speed: 30.0 km / h,                               
+                    jam_density: 120.0 1 / km, wave_speed:                      
+                    20.0 km / h, q_max: 2500.0 1 / h                            
+           INFO     Preparing tasks for CTM                  data_loader.py:1574
+Processing traffic model:   0%|          | 0/2 [00:00<?, ?it/s]
