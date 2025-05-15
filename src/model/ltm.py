@@ -74,9 +74,9 @@ class LTM(TrafficModel):
         required_args = [
             "q_max", 
             "next_occupancy", 
-            "cummulative_count_downstream_receiving_flow", 
-            "cummulative_count_upstream", 
+            "cummulative_count_upstream_sending_flow", 
             "cummulative_count_downstream", 
+            "cummulative_count_upstream", 
             "cummulative_count_downstream_receiving_flow",
             "dt",
             "link_length",
@@ -89,7 +89,7 @@ class LTM(TrafficModel):
         for arg in required_args:
             if arg not in args:
                 raise ValueError(f"Missing required argument: {arg}")
-        cummulative_count_upstream_sending_flow = args["cummulative_count_downstream_receiving_flow"] # at t + dt - L/ffs
+        cummulative_count_upstream_sending_flow = args["cummulative_count_upstream_sending_flow"] # at t + dt - L/ffs
         cummulative_count_downstream = args["cummulative_count_downstream"] # at t
 
         cummulative_count_upstream  = args["cummulative_count_upstream"]  # at t
