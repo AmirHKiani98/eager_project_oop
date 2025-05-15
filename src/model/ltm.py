@@ -32,11 +32,11 @@ class LTM(TrafficModel):
             raise TypeError(
                 f"q_max should be a Units.Quantity (Per time), got {type(q_max)}"
             )
-        return min(
+        return float(min(
             cummulative_count_upstream - cummulative_count_downstream,
             (q_max * dt).to(1).value # type: ignore
-        )
-    
+        ))
+
     @staticmethod
     def receiving_flow(q_max, dt, cummulative_count_upstream, cummulative_count_downstream, link_length, k_j):
         """
@@ -59,10 +59,10 @@ class LTM(TrafficModel):
                 f"k_j should be a Units.Quantity (Density), got {type(k_j)}"
             )
         
-        return min(
+        return float(min(
             (q_max * dt).to(1).value, # type: ignore
             cummulative_count_downstream + (k_j * link_length).to(1).value - cummulative_count_upstream # type: ignore
-        )
+        ))
 
 
     @staticmethod
@@ -84,7 +84,8 @@ class LTM(TrafficModel):
             "trajectory_time",
             "link_id",
             "entry_count",
-            "current_number_of_vehicles"
+            "current_number_of_vehicles",
+            "tl_status"
         ]
         for arg in required_args:
             if arg not in args:
@@ -141,7 +142,7 @@ class LTM(TrafficModel):
         if receiving_flow < 0:
             receiving_flow = 0
         inflow = min(
-            entry_count,
+            float(entry_count),
             receiving_flow
         )
         # Update the next occupancy
@@ -149,11 +150,13 @@ class LTM(TrafficModel):
         link_id = args["link_id"]
         trajectory_time = args["trajectory_time"]
         current_number_of_vehicles = args["current_number_of_vehicles"]
+        
         return {
             "sending_flow": sending_flow,
             "receiving_flow": receiving_flow,
             "next_occupancy": next_occupancy,
             "trajectory_time": trajectory_time,
+            "inflow": inflow,
             "link_id": link_id,
             "current_number_of_vehicles": current_number_of_vehicles
         }
