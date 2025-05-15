@@ -160,7 +160,7 @@ class TrafficModel:
                 desc="Processing traffic model"
             ):
                 results = pool.map(
-                    self.run,
+                    type(self).run,
                     batch
                 )
                 all_results.extend(results)
@@ -175,8 +175,9 @@ class TrafficModel:
         """
         raise NotImplementedError("Subclasses must implement this method.")
 
+    @staticmethod
     @abstractmethod
-    def run(self, args):
+    def run(args):
         """
         Abstract method to run the traffic model.
         """

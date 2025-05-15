@@ -19,7 +19,8 @@ class PointQueue(TrafficModel):
     Class representing a point queue traffic model.
     Inherits from the TrafficModel class.
     """
-    def sending_flow(self, cummulative_count_upstream_offset, cummulative_count_downstream, dt, q_max_down):
+    @staticmethod
+    def sending_flow(cummulative_count_upstream_offset, cummulative_count_downstream, dt, q_max_down):
         """
         Computes the sending flow from the point queue model.
         """
@@ -28,33 +29,19 @@ class PointQueue(TrafficModel):
             (q_max_down * dt).to(1).value
         )
 
-    def receiving_flow(self, q_max_up, dt):
+    @staticmethod
+    def receiving_flow(q_max_up, dt):
         """
         Computes the receiving flow from the point queue model.
         """
         return (q_max_up * dt).to(1).value
     
-
-    def run(self, args):
+    @staticmethod
+    def run(args):
         """
         Run the point queue model with the given arguments.
         """
         # Required arguments
-        required_args = [
-            "q_max_up", 
-            "q_max_down", 
-            "next_occupancy", 
-            "cummulative_count_upstream_offset", 
-            "cummulative_count_downstream", 
-            "dt", 
-            "trajectory_time",
-            "link_id",
-            "tl_status"
-        ]
-        logger.debug(f"Running PointQueue with args: {args}")
-        for arg in required_args:
-            if arg not in args:
-                raise ValueError(f"Missing required argument: {arg}")
         # Placeholder for running the point queue model
         q_max_up = args["q_max_up"]
         if not isinstance(q_max_up, Units.Quantity):
@@ -77,7 +64,7 @@ class PointQueue(TrafficModel):
             raise TypeError(
                 f"dt should be a Units.Quantity (time), got {type(dt)}"
             )
-        sending_flow = self.sending_flow(
+        sending_flow = PointQueue.sending_flow(
             cummulative_count_upstream_offset,
             cummulative_count_downstream,
             dt,
@@ -88,8 +75,8 @@ class PointQueue(TrafficModel):
         tl_status = args["tl_status"]
         if tl_status != 1:
             sending_flow = 0
-        receiving_flow = self.receiving_flow(q_max_up, dt)
-        
+        receiving_flow = PointQueue.receiving_flow(q_max_up, dt)
+
         link_id = args["link_id"]
         trajectory_time = args["trajectory_time"]
         
