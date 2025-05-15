@@ -21,21 +21,21 @@ class SpatialQueue(TrafficModel):
     """
 
 
-    def sending_flow(self, cumulative_count_upstream, cumulative_count_downstream, dt, q_max_down):
+    def sending_flow(self, cummulative_count_upstream, cummulative_count_downstream, dt, q_max_down):
         """
         Computes the sending flow from the point queue model.
         """
         return min(
-            cumulative_count_upstream - cumulative_count_downstream,
+            cummulative_count_upstream - cummulative_count_downstream,
             (q_max_down * dt).to(1).value
         )
 
-    def receiving_flow(self, q_max_up, dt, cumulative_count_upstream, cumulative_count_downstream, link_length, k_j):
+    def receiving_flow(self, q_max_up, dt, cummulative_count_upstream, cummulative_count_downstream, link_length, k_j):
         """
         Computes the receiving flow from the point queue model.
         """
         return min(
-            (k_j*link_length - (cumulative_count_upstream - cumulative_count_downstream)).to(1).value,
+            (k_j*link_length - (cummulative_count_upstream - cummulative_count_downstream)).to(1).value,
             (q_max_up * dt).to(1).value
             )
     
@@ -58,9 +58,9 @@ class SpatialQueue(TrafficModel):
             )
         
         next_occupancy = args["next_occupancy"]
-        cumulative_count_upstream_shifted_queue = args["cumulative_count_upstream_shifted_queue"]
-        cumulative_count_upstream = args["cumulative_count_upstream"]
-        cumulative_count_downstream = args["cumulative_count_downstream"]
+        cummulative_count_upstream_shifted_queue = args["cummulative_count_upstream_shifted_queue"]
+        cummulative_count_upstream = args["cummulative_count_upstream"]
+        cummulative_count_downstream = args["cummulative_count_downstream"]
         link_length = args["link_length"]
         if not isinstance(link_length, Units.Quantity):
             raise TypeError(
@@ -79,12 +79,12 @@ class SpatialQueue(TrafficModel):
                 f"dt should be a Units.Quantity (time), got {type(dt)}"
             )
         sending_flow = self.sending_flow(
-            cumulative_count_upstream_shifted_queue,
-            cumulative_count_downstream,
+            cummulative_count_upstream_shifted_queue,
+            cummulative_count_downstream,
             dt,
             q_max_down
         )
-        receiving_flow = self.receiving_flow(q_max_up, dt, cumulative_count_upstream, cumulative_count_downstream, link_length, k_j)
+        receiving_flow = self.receiving_flow(q_max_up, dt, cummulative_count_upstream, cummulative_count_downstream, link_length, k_j)
         
         
         return {

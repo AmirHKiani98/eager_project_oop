@@ -27,31 +27,31 @@ def test_point_queue():
     L = 1 * Units.KM
     uf = L/(3*dt)
     table = {
-        "cumulative_count_upstream": [0, 1, 5, 10, 17, 27, 30, 30, 30, 30, 30],
-        "cumulative_count_downstream": [0, 0, 0, 0, 1, 5, 10, 15, 20, 25, 30],
+        "cummulative_count_upstream": [0, 1, 5, 10, 17, 27, 30, 30, 30, 30, 30],
+        "cummulative_count_downstream": [0, 0, 0, 0, 1, 5, 10, 15, 20, 25, 30],
     }
 
     expected_values = {
         "sending_flow": [0, 0, 0, 1, 4, 5, 5, 5, 5, 5, 0],
         "receiving_flow": [10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10],
     }
-    cumulative_count_downstreams = []
-    cumulative_count_upstreams = []
-    for t in [i * Units.HR for i in range(len(table["cumulative_count_upstream"]))]:
+    cummulative_count_downstreams = []
+    cummulative_count_upstreams = []
+    for t in [i * Units.HR for i in range(len(table["cummulative_count_upstream"]))]:
         t_before = int((t + dt - L/uf).to(Units.HR).value)
         t_current = int(t.to(Units.HR).value)
         logger.debug(f"t_before: {t_before}, t_current: {t_current}")
         if t_before < 0:
-            cumulative_count_upstream = 0
+            cummulative_count_upstream = 0
         else:
-            cumulative_count_upstream = table["cumulative_count_upstream"][t_before]
-        cumulative_count_downstream = table["cumulative_count_downstream"][t_current]
+            cummulative_count_upstream = table["cummulative_count_upstream"][t_before]
+        cummulative_count_downstream = table["cummulative_count_downstream"][t_current]
 
-        cumulative_count_downstreams.append(cumulative_count_downstream)
-        cumulative_count_upstreams.append(cumulative_count_upstream)
+        cummulative_count_downstreams.append(cummulative_count_downstream)
+        cummulative_count_upstreams.append(cummulative_count_upstream)
         values = pq.run({
-            "cumulative_count_upstream": cumulative_count_upstream,
-            "cumulative_count_downstream": cumulative_count_downstream,
+            "cummulative_count_upstream": cummulative_count_upstream,
+            "cummulative_count_downstream": cummulative_count_downstream,
             "dt": dt,
             "q_max_up": q_max_up,
             "q_max_down": q_max_down,
@@ -62,8 +62,8 @@ def test_point_queue():
         assert values["sending_flow"] == expected_values["sending_flow"][i]
         assert values["receiving_flow"] == expected_values["receiving_flow"][i]
     logger.debug(
-        f"cumulative_count_downstreams: {cumulative_count_downstreams},\n"
-        f"cumulative_count_upstreams: {cumulative_count_upstreams}"
+        f"cummulative_count_downstreams: {cummulative_count_downstreams},\n"
+        f"cummulative_count_upstreams: {cummulative_count_upstreams}"
     )
     # Cumulative Count Upstream: [0, 0, 0, 1, 5, 10, 17, 27, 30, 30, 30]
     # Cumulative Count Downstream: [0, 0, 0, 0, 1, 5, 10, 15, 20, 25, 30]
