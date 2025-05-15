@@ -1160,7 +1160,7 @@ class DataLoader:
             cumulative_counts_df,
             link_based_t={
                 link.link_id: self.params.dt - (link.get_length() / self.params.free_flow_speed) 
-                for link in self.geo_loader.links
+                for link_id, link in self.geo_loader.links.items()
             }
         )
         cumulative_counts_dict = {}
@@ -1315,9 +1315,10 @@ class DataLoader:
         For Point Queue and Spatial Queue.
         """
         # nbbi: Needs test
-        if not isinstance(t, Units.Quantity):
-            raise ValueError("t should be a Units.Quantity object")
-        
+        if t is not None:
+            if not isinstance(t, Units.Quantity):
+                raise ValueError(f"t should be a Units.Quantity object. Got {type(t)}")
+
         groups = cumulative_counts_df.group_by("link_id")
         num_groups = cumulative_counts_df.select(["link_id"]).unique().height
 
@@ -1348,7 +1349,7 @@ class DataLoader:
                         raise ValueError(
                             f"Value for link ID {link_id} in link_based_t is not a valid Units.Quantity."
                         )
-                    target_time = (trajectory_time * Units.S) + link_based_t[link_id].to(Units.S).value
+                    target_time = (trajectory_time * Units.S) + link_based_t[link_id].to(Units.S)
                 else:
                     if t is None:
                         raise ValueError("At least one of t or link_based_t should be provided.")
@@ -1357,7 +1358,7 @@ class DataLoader:
                 if not isinstance(target_time, float):
                     target_time = float(target_time)
                 if target_time not in group["trajectory_time"]:
-                    cummulative_count_upstream_offset = 0
+                    cummulative_count_upstream_offset = 0.0
                 else:
                     cummulative_count_upstream_offset = group.filter(
                         pl.col("trajectory_time") == target_time
@@ -1467,6 +1468,8 @@ class DataLoader:
             self.tasks = json.load(open(file_address, "r", encoding="utf-8"))
             for index in range(len(self.tasks)):
                 self.tasks[index]["dt"] = self.tasks[index]["dt"] * Units.S
+                self.tasks[index]["q_max_up"] = self.tasks[index]["q_max_up"] * Units.PER_HR
+                self.tasks[index]["q_max_down"] = self.tasks[index]["q_max_down"] * Units.PER_HR
             return
         tasks = []
         for link_id, cell_dict in self.cumulative_counts_dict.items():
@@ -1489,6 +1492,8 @@ class DataLoader:
             copy_tasks = deepcopy(tasks)
             for index in range(len(copy_tasks)):
                 copy_tasks[index]["dt"] = copy_tasks[index]["dt"].to(Units.S).value
+                copy_tasks[index]["q_max_up"] = copy_tasks[index]["q_max_up"].to(Units.PER_HR).value
+                copy_tasks[index]["q_max_down"] = copy_tasks[index]["q_max_down"].to(Units.PER_HR).value
             json.dump(copy_tasks, f, indent=4)
         self.tasks = tasks
         self.destruct()
