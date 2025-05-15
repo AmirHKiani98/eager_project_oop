@@ -1158,13 +1158,36 @@ class DataLoader:
         cumulative_counts_df = self.get_cummulative_counts_based_on_t(
             cumulative_counts_df,
             link_based_t={
-                link.link_id: 1 for link in self.geo_loader.links
+                link.link_id: self.params.dt - (link.get_length() / self.params.free_flow_speed) 
+                for link in self.geo_loader.links
             }
         )
-
         cumulative_counts_dict = {}
-        
-                
+        """
+        "link_id": [],
+            "target_time": [],
+            "cummulative_count_upstream_offset": [],
+            "trajectory_time": [],
+            "cummulative_count_downstream": [],
+            "cummulative_count_upstream": [],
+            "entry_count": [],
+            "current_number_of_vehicles": []
+        """
+        for row in cumulative_counts_df.iter_rows(named=True):
+            if row["link_id"] not in cumulative_counts_dict:
+                cumulative_counts_dict[row["link_id"]] = {}
+            if row["trajectory_time"] not in cumulative_counts_dict[row["link_id"]]:
+                cumulative_counts_dict[row["link_id"]][row["trajectory_time"]] = {}
+            cumulative_counts_dict[row["link_id"]][row["trajectory_time"]]["target_time"] = row["target_time"]
+            cumulative_counts_dict[row["link_id"]][row["trajectory_time"]]["cummulative_count_upstream_offset"] = row["cummulative_count_upstream_offset"]
+            cumulative_counts_dict[row["link_id"]][row["trajectory_time"]]["cummulative_count_downstream"] = row["cummulative_count_downstream"]
+            cumulative_counts_dict[row["link_id"]][row["trajectory_time"]]["cummulative_count_upstream"] = row["cummulative_count_upstream"]
+            cumulative_counts_dict[row["link_id"]][row["trajectory_time"]]["entry_count"] = row["entry_count"]
+            cumulative_counts_dict[row["link_id"]][row["trajectory_time"]]["current_number_of_vehicles"] = row["current_number_of_vehicles"]
+
+
+
+
         # Convert keys to float
         with open(output_file_address, "w", encoding="utf-8") as f:
             json.dump(cumulative_counts_dict, f, indent=4)
