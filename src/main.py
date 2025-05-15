@@ -63,6 +63,11 @@ def main():
         default="ctm"
     )
     parser.add_argument(
+        "--batch-size",
+        type=int,
+        default=50000
+    )
+    parser.add_argument(
         "--fp-location",
         type=str,
         default="d1"
@@ -109,7 +114,7 @@ def main():
         fp_time=args.fp_time,
         geo_loader=model_geo_loader
     )
-    batch_size = 1
+    batch_size = args.batch_size
     if args.model == "ctm":
         model = CTM(
             dl=dl,
