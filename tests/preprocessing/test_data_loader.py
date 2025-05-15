@@ -14,10 +14,10 @@ import json
 import polars as pl
 from polars.testing import assert_frame_equal
 from rich.logging import RichHandler
+import numpy as np
 from shapely.geometry import Point as POINT
 from src.preprocessing.data_loader import DataLoader
 from src.common_utility.units import Units
-
 logging.basicConfig(
     level="DEBUG",
     format="%(message)s",
@@ -137,26 +137,26 @@ def test_cumulative_df(base_dir):
     )
     # Bypassing the __init__ method of DataLoader
     dl = DataLoader.__new__(DataLoader)
-    dt = -1 * 0.04 * Units.S
+    dt = -2 * Units.S
     dataframe = {
-        "link_id": [1, 1, 1, 1, 1, 1],
-        "trajectory_time": [0.0, 0.04, 0.08, 0.12, 0.16, 0.20],
-        "cumulative_link_entry": [0, 11, 12, 13, 14, 15],
-        "cumulative_link_exit": [0, 0, 1, 2, 3, 4],
+        "trajectory_time": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+        "link_id": [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+        "cumulative_link_entry": [0, 1, 5, 10, 17, 27, 30, 30, 30, 30, 30],
+        "cumulative_link_exit": [0, 0, 0, 0, 1, 5, 10, 15, 20, 25, 30],
     }
     df = pl.DataFrame(dataframe)
     results = dl.get_cummulative_counts_based_on_t(df, dt)
-    expected = {
-        1: {
-            0.0: {"cumulative_count_upstream": 0, "cummulative_count_downstream": 0},
-            0.04: {"cumulative_count_upstream": 0, "cummulative_count_downstream": 0},
-            0.08: {"cumulative_count_upstream": 11, "cummulative_count_downstream": 1},
-            0.08: {"cumulative_count_upstream": 12, "cummulative_count_downstream": 2},
-            0.08: {"cumulative_count_upstream": 13, "cummulative_count_downstream": 3},
-            0.08: {"cumulative_count_upstream": 14, "cummulative_count_downstream": 4},
-        }
-    }
-    print(json.dumps(results, indent=4))
-    print(json.dumps(expected, indent=4))
-
-    assert results == expected
+    print(results.sort("trajectory_time").select(
+        pl.col("cummulative_count_upstream_modified"),
+        pl.col("cummulative_count_downstream"),
+    ).to_numpy())
+    cummulative_count_upstream_modified = results.select(
+        pl.col("cummulative_count_upstream_modified")
+    ).to_numpy()
+    cummulative_count_downstream = results.select(
+        pl.col("cummulative_count_downstream")
+    ).to_numpy()
+    expected_cummulative_count_upstream_modified = [0, 0, 0, 1, 5, 10, 17, 27, 30, 30, 30]
+    expected_cummulative_count_downstream = [0, 0, 0, 0, 1, 5, 10, 15, 20, 25, 30]
+    assert list(cummulative_count_upstream_modified) == list(expected_cummulative_count_upstream_modified)
+    assert list(cummulative_count_downstream) == list(expected_cummulative_count_downstream)

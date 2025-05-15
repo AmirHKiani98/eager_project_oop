@@ -34,7 +34,6 @@ def test_find_closest_link_cell(simple_geo_loader):
     closeset_link2, _, closest_cell2, _ = simple_geo_loader.find_closest_link_and_cell(point2)
     closeset_link3, _, closest_cell3, _ = simple_geo_loader.find_closest_link_and_cell(point3)
     closeset_link4, _, closest_cell4, _ = simple_geo_loader.find_closest_link_and_cell(point4)
-    print(simple_geo_loader.links)
     # Check the results
     assert closeset_link1.link_id == 1
     assert closeset_link2.link_id == 1

@@ -1341,11 +1341,12 @@ class DataLoader:
         final_cummulative_counts = {
             "link_id": [],
             "target_time": [],
-            "cumulative_count_upstream": [],
+            "cummulative_count_upstream_modified": [],
             "trajectory_time": [],
-            "cumulative_count_downstream": [],
+            "cummulative_count_downstream": [],
         }
         for link_id, group in tqdm(groups, total=num_groups, desc="Finding cumulative counts"):
+            group = group.with_columns(group["trajectory_time"].cast(pl.Float64))
             link_id = link_id[0] if isinstance(link_id, (list, tuple)) else link_id
             group = group.sort(["trajectory_time"])
             traj_times = group["trajectory_time"].to_numpy()
@@ -1355,19 +1356,25 @@ class DataLoader:
                 target_time = (
                     (trajectory_time * Units.S) + t
                 ).to(Units.S).value
-            
+                if not isinstance(target_time, float):
+                    target_time = float(target_time)
                 if target_time not in group["trajectory_time"]:
-                    continue
-                
-                cumulative_upstream = group.filter(
-                    pl.col("trajectory_time") == target_time
-                )["cumulative_link_entry"].first()
+                    cummulative_count_upstream_modified = 0
+                else:
+                    cummulative_count_upstream_modified = group.filter(
+                        pl.col("trajectory_time") == target_time
+                    )["cumulative_link_entry"].first()
+                cumulative_downstream = row["cumulative_link_exit"]
+
+
                 final_cummulative_counts["link_id"].append(link_id)
                 final_cummulative_counts["target_time"].append(target_time)
-                final_cummulative_counts["cumulative_count_upstream"].append(cumulative_upstream)
+                final_cummulative_counts["cummulative_count_upstream_modified"].append(
+                    cummulative_count_upstream_modified
+                )
                 final_cummulative_counts["trajectory_time"].append(trajectory_time)
-                final_cummulative_counts["cumulative_count_downstream"].append(
-                    row["cumulative_link_exit"]
+                final_cummulative_counts["cummulative_count_downstream"].append(
+                    cumulative_downstream
                 )
 
                 
