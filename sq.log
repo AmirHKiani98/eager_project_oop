@@ -1,0 +1,34 @@
+[05:00:20] DEBUG    Setting _is_initialized to  params.py:236
+                    False                                    
+           DEBUG    Setting cache_dir to .cache params.py:236
+           DEBUG    Setting num_lanes to 3      params.py:236
+           DEBUG    Setting vehicle_length to   params.py:236
+                    5.0 m                                    
+           DEBUG    Setting free_flow_speed to  params.py:236
+                    50.0 km / h                              
+           DEBUG    Setting wave_speed to 10.0  params.py:236
+                    km / h                                   
+           DEBUG    Setting dt to 1.0 s         params.py:236
+           DEBUG    Setting jam_density_link to params.py:236
+                    150.0 1 / km                             
+           DEBUG    Setting q_max to 2500.0 1 / params.py:236
+                    h                                        
+           DEBUG    Setting flow_capacity to    params.py:236
+                    2500.0 s / h                             
+           DEBUG    Parameters initialized      params.py:117
+                    with: Vehicle Length: 5.0                
+                    m, Free Flow Speed: 50.0 km              
+                    / h, Wave Speed: 10.0 km /               
+                    h, Number of Lanes: 3, Jam               
+                    Density Link: 150.0 1 / km,              
+                    Flow Capacity: 2500.0 s /                
+                    h, Time Step: 1.0 s                      
+           DEBUG    Setting _is_initialized to  params.py:236
+                    True                                     
+           DEBUG    Metadata saved with hash:   params.py:226
+                    13cef4bf0db3dce7246fcfb605a              
+                    9e2c7                                    
+usage: main.py [-h] [--model MODEL] [--fp-location FP_LOCATION]
+               [--fp-date FP_DATE] [--fp-time FP_TIME] [--fp-geo FP_GEO]
+               [--calibration]
+main.py: error: unrecognized arguments: --batch-size=50000
