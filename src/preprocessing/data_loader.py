@@ -1535,6 +1535,10 @@ class DataLoader:
             self.tasks = json.load(open(file_address, "r", encoding="utf-8"))
             for index in range(len(self.tasks)):
                 self.tasks[index]["dt"] = self.tasks[index]["dt"] * Units.S
+                self.tasks[index]["q_max_up"] = self.tasks[index]["q_max_up"] * Units.PER_HR
+                self.tasks[index]["q_max_down"] = self.tasks[index]["q_max_down"] * Units.PER_HR
+                self.tasks[index]["k_j"] = self.tasks[index]["k_j"] * Units.PER_KM
+                self.tasks[index]["link_length"] = self.tasks[index]["link_length"] * Units.M
             return
         tasks = []
         for link_id, cell_dict in self.cumulative_counts_dict.items():
@@ -1550,7 +1554,9 @@ class DataLoader:
                         "dt": self.params.dt,
                         "trajectory_time": trajectory_time,
                         "tl_status": self.tl_status(trajectory_time, link_id),
-                        "link_id": link_id
+                        "link_id": link_id,
+                        "k_j": self.params.jam_density_link,
+                        "link_length": self.geo_loader.links[link_id].get_length(),
                     }
                 )
         self.tasks = tasks
@@ -1558,6 +1564,10 @@ class DataLoader:
             copy_tasks = deepcopy(tasks)
             for index in range(len(copy_tasks)):
                 copy_tasks[index]["dt"] = copy_tasks[index]["dt"].to(Units.S).value
+                copy_tasks[index]["q_max_up"] = copy_tasks[index]["q_max_up"].to(Units.PER_HR).value
+                copy_tasks[index]["q_max_down"] = copy_tasks[index]["q_max_down"].to(Units.PER_HR).value
+                copy_tasks[index]["k_j"] = copy_tasks[index]["k_j"].to(Units.PER_KM).value
+                copy_tasks[index]["link_length"] = copy_tasks[index]["link_length"].to(Units.M).value
             json.dump(copy_tasks, f, indent=4)
         self.destruct()
 

@@ -1,48 +1,185 @@
-Loading the files:   0%|          | 0/1 [00:00<?, ?it/s][05:08:56] INFO     Cumulative counts file already       data_loader.py:971
-                    exists:                                                
-                    .cache/d1_20181029_0800_0830_cumulat                   
-                    ive_counts__0e58ec50058789e8333f1422                   
-                    3f770bb5_682a48de.csv                                  
-Loading the files: 100%|██████████| 1/1 [00:00<00:00, 396.21it/s]
-           INFO     Preparing tasks for SpatialQueue    data_loader.py:1574
-[05:08:57] INFO     Running calibration with params:   traffic_model.py:218
-                    free_flow_speed: 30.0 km / h,                          
-                    jam_density: 120.0 1 / km,                             
-                    wave_speed: 10.0 km / h, q_max:                        
-                    1000.0 1 / h                                           
-           INFO     Preparing tasks for SpatialQueue    data_loader.py:1574
-Processing traffic model:   0%|          | 0/2 [00:00<?, ?it/s]Processing traffic model:   0%|          | 0/2 [00:01<?, ?it/s]
-multiprocessing.pool.RemoteTraceback: 
-"""
-Traceback (most recent call last):
-  File "/opt/anaconda3/lib/python3.12/multiprocessing/pool.py", line 125, in worker
-    result = (True, func(*args, **kwds))
-                    ^^^^^^^^^^^^^^^^^^^
-  File "/opt/anaconda3/lib/python3.12/multiprocessing/pool.py", line 48, in mapstar
-    return list(map(*args))
-           ^^^^^^^^^^^^^^^^
-  File "/Users/amirhosseinkiani/Documents/Github/eager_project_oop/src/model/spatial_queue.py", line 63, in run
-    raise ValueError(f"Missing required argument: {arg}")
-ValueError: Missing required argument: cummulative_count_upstream
-"""
-
-The above exception was the direct cause of the following exception:
-
-Traceback (most recent call last):
-  File "<frozen runpy>", line 198, in _run_module_as_main
-  File "<frozen runpy>", line 88, in _run_code
-  File "/Users/amirhosseinkiani/Documents/Github/eager_project_oop/src/main.py", line 159, in <module>
-    main()
-  File "/Users/amirhosseinkiani/Documents/Github/eager_project_oop/src/main.py", line 156, in main
-    model.run_calibration(num_processes=num_processes, batch_size=batch_size)
-  File "/Users/amirhosseinkiani/Documents/Github/eager_project_oop/src/model/traffic_model.py", line 235, in run_calibration
-    self.run_with_multiprocessing(num_processes, batch_size)
-  File "/Users/amirhosseinkiani/Documents/Github/eager_project_oop/src/model/traffic_model.py", line 162, in run_with_multiprocessing
-    results = pool.map(
-              ^^^^^^^^^
-  File "/opt/anaconda3/lib/python3.12/multiprocessing/pool.py", line 367, in map
-    return self._map_async(func, iterable, mapstar, chunksize).get()
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/opt/anaconda3/lib/python3.12/multiprocessing/pool.py", line 774, in get
-    raise self._value
-ValueError: Missing required argument: cummulative_count_upstream
+Loading the files:   0%|          | 0/1 [00:00<?, ?it/s][05:17:54] INFO     Cumulative counts file  data_loader.py:971
+                    already exists:                           
+                    .cache/d1_20181029_0800                   
+                    _0830_cumulative_counts                   
+                    __0e58ec50058789e8333f1                   
+                    4223f770bb5_682a48de.cs                   
+                    v                                         
+Loading the files: 100%|██████████| 1/1 [00:00<00:00, 382.41it/s]
+           INFO     Preparing tasks for    data_loader.py:1584
+                    SpatialQueue                              
+[05:17:57] INFO     Running calibration   traffic_model.py:218
+                    with params:                              
+                    free_flow_speed: 30.0                     
+                    km / h, jam_density:                      
+                    120.0 1 / km,                             
+                    wave_speed: 10.0 km /                     
+                    h, q_max: 1000.0 1 /                      
+                    h                                         
+           INFO     Preparing tasks for    data_loader.py:1584
+                    SpatialQueue                              
+Processing traffic model:   0%|          | 0/2 [00:00<?, ?it/s]Processing traffic model:  50%|█████     | 1/2 [00:03<00:03,  3.31s/it]Processing traffic model: 100%|██████████| 2/2 [00:03<00:00,  1.65s/it]Processing traffic model: 100%|██████████| 2/2 [00:03<00:00,  1.90s/it]
+[05:18:04] INFO     Running calibration   traffic_model.py:218
+                    with params:                              
+                    free_flow_speed: 30.0                     
+                    km / h, jam_density:                      
+                    120.0 1 / km,                             
+                    wave_speed: 10.0 km /                     
+                    h, q_max: 1750.0 1 /                      
+                    h                                         
+           INFO     Preparing tasks for    data_loader.py:1584
+                    SpatialQueue                              
+Processing traffic model:   0%|          | 0/2 [00:00<?, ?it/s]Processing traffic model:  50%|█████     | 1/2 [00:02<00:02,  2.97s/it]Processing traffic model: 100%|██████████| 2/2 [00:04<00:00,  1.86s/it]Processing traffic model: 100%|██████████| 2/2 [00:04<00:00,  2.02s/it]
+[05:18:12] INFO     Running calibration   traffic_model.py:218
+                    with params:                              
+                    free_flow_speed: 30.0                     
+                    km / h, jam_density:                      
+                    120.0 1 / km,                             
+                    wave_speed: 10.0 km /                     
+                    h, q_max: 2500.0 1 /                      
+                    h                                         
+           INFO     Preparing tasks for    data_loader.py:1584
+                    SpatialQueue                              
+Processing traffic model:   0%|          | 0/2 [00:00<?, ?it/s]Processing traffic model:  50%|█████     | 1/2 [00:03<00:03,  3.08s/it]Processing traffic model: 100%|██████████| 2/2 [00:04<00:00,  1.91s/it]Processing traffic model: 100%|██████████| 2/2 [00:04<00:00,  2.09s/it]
+[05:18:19] INFO     Running calibration   traffic_model.py:218
+                    with params:                              
+                    free_flow_speed: 30.0                     
+                    km / h, jam_density:                      
+                    120.0 1 / km,                             
+                    wave_speed: 10.0 km /                     
+                    h, q_max: 3250.0 1 /                      
+                    h                                         
+           INFO     Preparing tasks for    data_loader.py:1584
+                    SpatialQueue                              
+Processing traffic model:   0%|          | 0/2 [00:00<?, ?it/s]Processing traffic model:  50%|█████     | 1/2 [00:02<00:02,  2.84s/it]Processing traffic model: 100%|██████████| 2/2 [00:03<00:00,  1.78s/it]Processing traffic model: 100%|██████████| 2/2 [00:03<00:00,  1.94s/it]
+[05:18:25] INFO     Running calibration   traffic_model.py:218
+                    with params:                              
+                    free_flow_speed: 30.0                     
+                    km / h, jam_density:                      
+                    120.0 1 / km,                             
+                    wave_speed: 10.0 km /                     
+                    h, q_max: 4000.0 1 /                      
+                    h                                         
+           INFO     Preparing tasks for    data_loader.py:1584
+                    SpatialQueue                              
+Processing traffic model:   0%|          | 0/2 [00:00<?, ?it/s]Processing traffic model:  50%|█████     | 1/2 [00:02<00:02,  2.94s/it]Processing traffic model: 100%|██████████| 2/2 [00:03<00:00,  1.76s/it]Processing traffic model: 100%|██████████| 2/2 [00:03<00:00,  1.94s/it]
+[05:18:32] INFO     Running calibration   traffic_model.py:218
+                    with params:                              
+                    free_flow_speed: 30.0                     
+                    km / h, jam_density:                      
+                    120.0 1 / km,                             
+                    wave_speed: 12.5 km /                     
+                    h, q_max: 1000.0 1 /                      
+                    h                                         
+           INFO     Preparing tasks for    data_loader.py:1584
+                    SpatialQueue                              
+Processing traffic model:   0%|          | 0/2 [00:00<?, ?it/s]Processing traffic model:  50%|█████     | 1/2 [00:02<00:02,  2.97s/it]Processing traffic model: 100%|██████████| 2/2 [00:04<00:00,  1.84s/it]Processing traffic model: 100%|██████████| 2/2 [00:04<00:00,  2.01s/it]
+[05:18:39] INFO     Running calibration   traffic_model.py:218
+                    with params:                              
+                    free_flow_speed: 30.0                     
+                    km / h, jam_density:                      
+                    120.0 1 / km,                             
+                    wave_speed: 12.5 km /                     
+                    h, q_max: 1750.0 1 /                      
+                    h                                         
+           INFO     Preparing tasks for    data_loader.py:1584
+                    SpatialQueue                              
+Processing traffic model:   0%|          | 0/2 [00:00<?, ?it/s]Processing traffic model:  50%|█████     | 1/2 [00:02<00:02,  2.73s/it]Processing traffic model: 100%|██████████| 2/2 [00:03<00:00,  1.66s/it]Processing traffic model: 100%|██████████| 2/2 [00:03<00:00,  1.82s/it]
+[05:18:46] INFO     Running calibration   traffic_model.py:218
+                    with params:                              
+                    free_flow_speed: 30.0                     
+                    km / h, jam_density:                      
+                    120.0 1 / km,                             
+                    wave_speed: 12.5 km /                     
+                    h, q_max: 2500.0 1 /                      
+                    h                                         
+           INFO     Preparing tasks for    data_loader.py:1584
+                    SpatialQueue                              
+Processing traffic model:   0%|          | 0/2 [00:00<?, ?it/s]Processing traffic model:  50%|█████     | 1/2 [00:02<00:02,  2.68s/it]Processing traffic model: 100%|██████████| 2/2 [00:03<00:00,  1.65s/it]Processing traffic model: 100%|██████████| 2/2 [00:03<00:00,  1.80s/it]
+[05:18:52] INFO     Running calibration   traffic_model.py:218
+                    with params:                              
+                    free_flow_speed: 30.0                     
+                    km / h, jam_density:                      
+                    120.0 1 / km,                             
+                    wave_speed: 12.5 km /                     
+                    h, q_max: 3250.0 1 /                      
+                    h                                         
+           INFO     Preparing tasks for    data_loader.py:1584
+                    SpatialQueue                              
+Processing traffic model:   0%|          | 0/2 [00:00<?, ?it/s]Processing traffic model:  50%|█████     | 1/2 [00:02<00:02,  2.66s/it]Processing traffic model: 100%|██████████| 2/2 [00:03<00:00,  1.65s/it]Processing traffic model: 100%|██████████| 2/2 [00:03<00:00,  1.80s/it]
+[05:18:58] INFO     Running calibration   traffic_model.py:218
+                    with params:                              
+                    free_flow_speed: 30.0                     
+                    km / h, jam_density:                      
+                    120.0 1 / km,                             
+                    wave_speed: 12.5 km /                     
+                    h, q_max: 4000.0 1 /                      
+                    h                                         
+           INFO     Preparing tasks for    data_loader.py:1584
+                    SpatialQueue                              
+Processing traffic model:   0%|          | 0/2 [00:00<?, ?it/s]Processing traffic model:  50%|█████     | 1/2 [00:02<00:02,  2.72s/it]Processing traffic model: 100%|██████████| 2/2 [00:03<00:00,  1.67s/it]Processing traffic model: 100%|██████████| 2/2 [00:03<00:00,  1.82s/it]
+[05:19:05] INFO     Running calibration   traffic_model.py:218
+                    with params:                              
+                    free_flow_speed: 30.0                     
+                    km / h, jam_density:                      
+                    120.0 1 / km,                             
+                    wave_speed: 15.0 km /                     
+                    h, q_max: 1000.0 1 /                      
+                    h                                         
+           INFO     Preparing tasks for    data_loader.py:1584
+                    SpatialQueue                              
+Processing traffic model:   0%|          | 0/2 [00:00<?, ?it/s]Processing traffic model:  50%|█████     | 1/2 [00:02<00:02,  2.78s/it]Processing traffic model: 100%|██████████| 2/2 [00:03<00:00,  1.68s/it]Processing traffic model: 100%|██████████| 2/2 [00:03<00:00,  1.85s/it]
+[05:19:12] INFO     Running calibration   traffic_model.py:218
+                    with params:                              
+                    free_flow_speed: 30.0                     
+                    km / h, jam_density:                      
+                    120.0 1 / km,                             
+                    wave_speed: 15.0 km /                     
+                    h, q_max: 1750.0 1 /                      
+                    h                                         
+           INFO     Preparing tasks for    data_loader.py:1584
+                    SpatialQueue                              
+Processing traffic model:   0%|          | 0/2 [00:00<?, ?it/s]Processing traffic model:  50%|█████     | 1/2 [00:02<00:02,  2.66s/it]Processing traffic model: 100%|██████████| 2/2 [00:03<00:00,  1.65s/it]Processing traffic model: 100%|██████████| 2/2 [00:03<00:00,  1.80s/it]
+[05:19:18] INFO     Running calibration   traffic_model.py:218
+                    with params:                              
+                    free_flow_speed: 30.0                     
+                    km / h, jam_density:                      
+                    120.0 1 / km,                             
+                    wave_speed: 15.0 km /                     
+                    h, q_max: 2500.0 1 /                      
+                    h                                         
+           INFO     Preparing tasks for    data_loader.py:1584
+                    SpatialQueue                              
+Processing traffic model:   0%|          | 0/2 [00:00<?, ?it/s]Processing traffic model:  50%|█████     | 1/2 [00:02<00:02,  2.75s/it]Processing traffic model: 100%|██████████| 2/2 [00:03<00:00,  1.69s/it]Processing traffic model: 100%|██████████| 2/2 [00:03<00:00,  1.85s/it]
+[05:19:25] INFO     Running calibration   traffic_model.py:218
+                    with params:                              
+                    free_flow_speed: 30.0                     
+                    km / h, jam_density:                      
+                    120.0 1 / km,                             
+                    wave_speed: 15.0 km /                     
+                    h, q_max: 3250.0 1 /                      
+                    h                                         
+           INFO     Preparing tasks for    data_loader.py:1584
+                    SpatialQueue                              
+Processing traffic model:   0%|          | 0/2 [00:00<?, ?it/s]Processing traffic model:  50%|█████     | 1/2 [00:02<00:02,  2.75s/it]Processing traffic model: 100%|██████████| 2/2 [00:03<00:00,  1.69s/it]Processing traffic model: 100%|██████████| 2/2 [00:03<00:00,  1.84s/it]
+[05:19:31] INFO     Running calibration   traffic_model.py:218
+                    with params:                              
+                    free_flow_speed: 30.0                     
+                    km / h, jam_density:                      
+                    120.0 1 / km,                             
+                    wave_speed: 15.0 km /                     
+                    h, q_max: 4000.0 1 /                      
+                    h                                         
+           INFO     Preparing tasks for    data_loader.py:1584
+                    SpatialQueue                              
+Processing traffic model:   0%|          | 0/2 [00:00<?, ?it/s]Processing traffic model:  50%|█████     | 1/2 [00:02<00:02,  2.69s/it]Processing traffic model: 100%|██████████| 2/2 [00:03<00:00,  1.66s/it]Processing traffic model: 100%|██████████| 2/2 [00:03<00:00,  1.81s/it]
+[05:19:38] INFO     Running calibration   traffic_model.py:218
+                    with params:                              
+                    free_flow_speed: 30.0                     
+                    km / h, jam_density:                      
+                    120.0 1 / km,                             
+                    wave_speed: 17.5 km /                     
+                    h, q_max: 1000.0 1 /                      
+                    h                                         
+           INFO     Preparing tasks for    data_loader.py:1584
+                    SpatialQueue                              
