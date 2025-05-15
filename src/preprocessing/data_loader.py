@@ -1429,12 +1429,16 @@ class DataLoader:
             return
         
         tasks = [] # ["cell_occupancies list", "first_cell_inflow", "link_id", "is_tl", "tl_status"]
+        cell_capacities = self.geo_loader.get_cell_capacities(self.params)
+        max_flows = self.geo_loader.get_max_flows(self.params)
         for link_id, cell_dict in self.next_timestamp_occupancy_dict.items():
             for trajectory_time, occupancy_list in cell_dict.items():
                 tasks.append(
                     {
                         "occupancy_list": occupancy_list["current_occupancy"],
+                        "cell_capacities": deepcopy(cell_capacities[link_id]),
                         "next_occupancy": occupancy_list["next_occupancy"],
+                        "max_flows": deepcopy(max_flows[link_id]),
                         "first_cell_inflow": self.first_cell_inflow_dict[link_id][
                             trajectory_time
                         ],
@@ -1442,6 +1446,8 @@ class DataLoader:
                         "is_tl": self.is_tl(link_id),
                         "tl_status": self.tl_status(trajectory_time, link_id),
                         "trajectory_time": trajectory_time,
+                        "flow_capacity": self.params.flow_capacity.to(1).value, # type: ignore
+                        "alpha": self.params.alpha.to(1).value
                     }
                 )
         with open(file_address, "w", encoding="utf-8") as f:
@@ -1589,6 +1595,7 @@ class DataLoader:
         else:
             raise ValueError(f"Unknown class name: {class_name}")
 
+    
 
 if __name__ == "__main__":
     params = Parameters()

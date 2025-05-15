@@ -110,6 +110,7 @@ class Parameters():
         self.dt = dt
         self.jam_density_link = jam_density_link
         self.q_max = q_max
+        self.alpha = self.wave_speed/self.free_flow_speed
         # Calculate the maximum number of vehicles that can flow into the system per time step.
         # nbbi: flow_capacity should be an attribute of Cell model.
         self.flow_capacity = self.q_max * self.dt # veh
@@ -150,19 +151,14 @@ class Parameters():
     def get_spatial_line_capacity(self, spatial_line_length: Units.Quantity):
         """
         Calculate the maximum number of vehicles that can be on a link based on the cell length.
-
-        Args:
-            spatial_line_length (Units.Quantity): The length of a cell in meters.
-
-        Returns:
-            float: The maximum number of vehicles that can be on the link.
-
-        Raises:
-            ValueError: If `spatial_line_length` is not provided in meters.
         """
         if not isinstance(spatial_line_length, Units.Quantity):
             raise TypeError("spatial_line_length must be an astropy Quantity with units")
-        return spatial_line_length * self.jam_density_link
+        
+        if not isinstance(self.jam_density_link, Units.Quantity):
+            raise TypeError("jam_density_link must be an astropy Quantity with units")
+        
+        return (spatial_line_length * self.jam_density_link)
 
     def get_time_step(self, cell_length):
         """
