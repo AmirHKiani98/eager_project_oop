@@ -1069,7 +1069,7 @@ class DataLoader:
         """
         Returns the traffic light status for the specified time and link ID.
         """
-        return self.traffic_light_status_dict[link_id][time]
+        return self.traffic_light_status_dict[link_id].get(time, 0) # Default to 0 if not found
 
     def get_link_density(self, time, link_id):
         """
