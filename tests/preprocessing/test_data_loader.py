@@ -125,3 +125,17 @@ def test_density_exit_entered(sample_fully_modified_dataframe_path, simple_geo_l
         link2_cell2["trajectory_time"], link2_cell1["trajectory_time"], check_dtypes=True,
         check_order=False
     )
+
+
+def test_cumulative_df(base_dir):
+    """
+    Test the cumulative_df function.
+    """
+    df = pl.read_csv(
+        base_dir / "tests" / "assets" / "cummulative_df.csv",
+    )
+    # Bypassing the __init__ method of DataLoader
+    dl = DataLoader.__new__(DataLoader)
+    print(dl.get_cummulative_counts_based_on_t(df, -1 * 0.04 * Units.S))
+
+    assert False

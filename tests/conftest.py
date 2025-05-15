@@ -13,10 +13,21 @@ Raises:
 import polars as pl
 import pytest
 from shapely.geometry import Point as POINT
+from pathlib import Path
 from src.preprocessing.geo_loader import GeoLoader
 from src.preprocessing.data_loader import DataLoader
 from src.model.params import Parameters
 from src.common_utility.units import Units
+
+@pytest.fixture
+def base_dir():
+    """
+    Returns the base directory path for test assets.
+
+    Returns:
+        str: The base directory path.
+    """
+    return Path(__file__).parent.parent 
 
 @pytest.fixture
 def simple_traffic_params():

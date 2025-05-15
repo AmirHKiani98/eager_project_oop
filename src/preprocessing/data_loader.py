@@ -292,7 +292,7 @@ class DataLoader:
                         )
                         self.link_cumulative_counts_file[
                             (location, date, time)
-                        ] = self.get_cumulative_counts_file(
+                        ] = self.get_cummulative_counts_file(
                             location, date, time
                         )
                         self.test_files[(location, date, time)].append(
@@ -945,7 +945,7 @@ class DataLoader:
         # logger.debug(f"Occupancy or density DataFrame saved to {output_file_address}")
         return cell_vector_occupancy_or_density_dict, entries_dict, exits_dict
 
-    def get_cumulative_counts_file(self, location, date, time):
+    def get_cummulative_counts_file(self, location, date, time):
         # nbbi: Needs test
         """
         Returns the cumulative counts for the specified location, date, and time.
@@ -1326,38 +1326,15 @@ class DataLoader:
         with open(file_address, "w", encoding="utf-8") as f:
             json.dump(occcupancy_ground_truths, f, indent=4)
         return occcupancy_ground_truths
-        
-
-    def get_cumulative_counts_based_on_x(self, location, date, time, x: Units.Quantity):
+    
+    def get_cummulative_counts_based_on_t(self, cumulative_counts_df: pl.DataFrame, t: Units.Quantity):
         """
-        For LTM and PW traffic models we need to know x which is how
-        far into the link we are.
-        """
-
-        """
-        Returns the cumulative counts for the specified location, date, and time.
+        For Point Queue and Spatial Queue.
         """
         # nbbi: Needs test
-        if not isinstance(x, Units.Quantity):
-            raise ValueError("x should be a Units.Quantity object")
-        cumulative_counts_file = self.link_cumulative_counts_file.get((location, date, time), None)
-        if not isinstance(cumulative_counts_file, str):
-            raise ValueError(f"File not found for {location}, {date}, {time}")
-        x_value = x.to(Units.M).value
-        output_file_address = (
-            self.params.cache_dir + "/" +
-            self._get_filename(location, date, time) +
-            "_cumulative_count_dt_ffs_link_length_xmeter_{x_value}" +
-            self.params.get_hash_str(["dt", "free_flow_speed"]) + "_" +
-            self.geo_loader.get_hash_str() + ".json"
-        )
-        if os.path.isfile(output_file_address):
-            with open(output_file_address, "r", encoding="utf-8") as f:
-                cumulative_counts_dict = json.load(f)
-                
-            return convert_keys_to_float(cumulative_counts_dict)
+        if not isinstance(t, Units.Quantity):
+            raise ValueError("t should be a Units.Quantity object")
         
-        cumulative_counts_df = pl.read_csv(cumulative_counts_file)
         groups = cumulative_counts_df.group_by("link_id")
         num_groups = cumulative_counts_df.select(["link_id"]).unique().height
 
@@ -1365,15 +1342,41 @@ class DataLoader:
         for link_id, group in tqdm(groups, total=num_groups, desc="Finding cumulative counts"):
             link_id = link_id[0] if isinstance(link_id, (list, tuple)) else link_id
             group = group.sort(["trajectory_time"])
-            link_length = self.geo_loader.get_link_length(link_id)
             traj_times = group["trajectory_time"].to_numpy()
             for row in group.iter_rows(named=True):
                 trajectory_time = round(row["trajectory_time"], 2)
-                target_time_xvf = (
-                    trajectory_time 
-                    + self.params.dt.to(Units.S).value 
-                    - (x_value / self.params.free_flow_speed).to(Units.S).value
-                )
+                target_time = (
+                    (trajectory_time * Units.S) + t
+                ).to(Units.S).value
+                target_time = round(target_time, 2)
+                insert_pos = np.searchsorted(traj_times, target_time)
+                if insert_pos == 0:
+                    closest_idx = 0
+                elif insert_pos == len(traj_times):
+                    closest_idx = len(traj_times) - 1
+                else:
+                    before = traj_times[insert_pos - 1]
+                    after = traj_times[insert_pos]
+                    closest_idx = insert_pos - 1 if abs(before - target_time) <= abs(after - target_time) else insert_pos
+
+                # ✅ Now fetch the full row at closest_idx
+                closest_row = group[int(closest_idx)]
+                if link_id not in cumulative_counts_dict:
+                    cumulative_counts_dict[link_id] = {}
+                if trajectory_time not in cumulative_counts_dict[link_id]:
+                    cumulative_counts_dict[link_id][trajectory_time] = {}
+                
+                cumulative_counts_dict[link_id][trajectory_time][
+                    "cumulative_count_upstream"
+                ] = closest_row["cumulative_link_entry"].item()
+                cumulative_counts_dict[link_id][trajectory_time][
+                    "cumulative_count_downstream"
+                ] = row["cumulative_link_exit"]
+        return cumulative_counts_dict
+                
+
+
+    
                 
     def destruct(self):
         """
