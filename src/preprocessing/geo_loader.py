@@ -16,6 +16,7 @@ from rich.logging import RichHandler
 from src.preprocessing.cell import Cell
 from src.preprocessing.link import Link
 from src.common_utility.units import Units
+from src.model.params import Parameters
 
 logging.basicConfig(
     level="DEBUG",
@@ -348,3 +349,21 @@ class GeoLoader:
                 min_distance = distance
                 closest_location = link
         return (closest_location, min_distance)
+
+    def get_cell_capacities(self, params: Parameters):
+        """
+        Returns the cell capacities for the specified parameters.
+        """
+        cell_capacities = {}
+        for link_id, link in self.links.items():
+            cell_capacities[link_id] = [cell.get_capacity(params).to(1).value for cell_id, cell in sorted(link.cells.items(), key=lambda x: x[0])]
+        return cell_capacities
+
+    def get_max_flows(self, params: Parameters):
+        """
+        Returns the maximum flows for the specified parameters.
+        """
+        max_flows = {}
+        for link_id, link in self.links.items():
+            max_flows[link_id] = [params.get_max_flow(cell.get_length()).to(1).value for cell_id, cell in sorted(link.cells.items(), key=lambda x: x[0])]
+        return max_flows

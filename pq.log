@@ -1,0 +1,28 @@
+Loading the files:   0%|          | 0/1 [00:00<?, ?it/s][04:21:55] INFO     Cumulative counts file already exists:     data_loader.py:971
+                    .cache/d1_20181029_0800_0830_cumulative_co                   
+                    unts__0e58ec50058789e8333f14223f770bb5_682                   
+                    a48de.csv                                                    
+Loading the files: 100%|██████████| 1/1 [00:00<00:00, 288.68it/s]
+           INFO     Preparing tasks for PointQueue            data_loader.py:1568
+           DEBUG    Preparing tasks for d1, 20181029,         data_loader.py:1468
+                    0800_0830 with params:                                       
+                    <src.model.params.Parameters object at                       
+                    0x10f7622d0>                                                 
+[04:21:56] INFO     Running calibration with params:         traffic_model.py:218
+                    free_flow_speed: 30.0 km / h,                                
+                    jam_density: 120.0 1 / km, wave_speed:                       
+                    10.0 km / h, q_max: 1000.0 1 / h                             
+           INFO     Preparing tasks for PointQueue            data_loader.py:1568
+[04:21:57] DEBUG    Preparing tasks for d1, 20181029,         data_loader.py:1468
+                    0800_0830 with params:                                       
+                    <src.model.params.Parameters object at                       
+                    0x10f7622d0>                                                 
+[04:21:58] INFO     Running calibration with params:         traffic_model.py:218
+                    free_flow_speed: 30.0 km / h,                                
+                    jam_density: 120.0 1 / km, wave_speed:                       
+                    10.0 km / h, q_max: 1750.0 1 / h                             
+           INFO     Preparing tasks for PointQueue            data_loader.py:1568
+[04:21:59] DEBUG    Preparing tasks for d1, 20181029,         data_loader.py:1468
+                    0800_0830 with params:                                       
+                    <src.model.params.Parameters object at                       
+                    0x10f7622d0>                                                 

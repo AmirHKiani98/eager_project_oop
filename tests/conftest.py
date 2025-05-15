@@ -13,10 +13,21 @@ Raises:
 import polars as pl
 import pytest
 from shapely.geometry import Point as POINT
+from pathlib import Path
 from src.preprocessing.geo_loader import GeoLoader
 from src.preprocessing.data_loader import DataLoader
 from src.model.params import Parameters
 from src.common_utility.units import Units
+
+@pytest.fixture
+def base_dir():
+    """
+    Returns the base directory path for test assets.
+
+    Returns:
+        str: The base directory path.
+    """
+    return Path(__file__).parent.parent 
 
 @pytest.fixture
 def simple_traffic_params():
@@ -124,3 +135,34 @@ def sample_fully_modified_dataframe_path():
             example data with timestamps and corresponding traffic values.
     """
     return "tests/assets/test_fully_modified_data_df.csv"
+
+@pytest.fixture
+def geo_loc_1():
+    """
+    Parameters object for testing based on table 9.1.
+    """
+    return GeoLoader(
+        locations=[
+            POINT(45, 45),
+            POINT(45, 46)
+        ],
+        cell_length=20.0
+    )
+
+@pytest.fixture
+def params_1(geo_loc_1):
+    """
+    Parameters object for testing based on table 9.1.
+    
+    Args:
+        geo_loc_1 (GeoLoader): A GeoLoader instance for location parameters.
+    """
+    link_length = geo_loc_1.get_link_length(1)
+    dt = 1 * Units.S
+    return Parameters(
+        free_flow_speed=link_length/(dt*3),
+        dt=dt,
+        jam_density_link=180.0 * Units.PER_KM,
+        q_max=1800.0 * Units.PER_HR,
+    )
+

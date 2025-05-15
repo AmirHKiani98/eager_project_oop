@@ -10,13 +10,14 @@ Asserts:
     - The shape and content of the result match the expected DataFrame.
 """
 import logging
+import json
 import polars as pl
 from polars.testing import assert_frame_equal
 from rich.logging import RichHandler
+import numpy as np
 from shapely.geometry import Point as POINT
 from src.preprocessing.data_loader import DataLoader
 from src.common_utility.units import Units
-
 logging.basicConfig(
     level="DEBUG",
     format="%(message)s",
@@ -125,3 +126,39 @@ def test_density_exit_entered(sample_fully_modified_dataframe_path, simple_geo_l
         link2_cell2["trajectory_time"], link2_cell1["trajectory_time"], check_dtypes=True,
         check_order=False
     )
+
+
+def test_cumulative_df(base_dir):
+    """
+    Test the cumulative_df function.
+    """
+    df = pl.read_csv(
+        base_dir / "tests" / "assets" / "cummulative_df.csv",
+    )
+    # Bypassing the __init__ method of DataLoader
+    dl = DataLoader.__new__(DataLoader)
+    dt = -2 * Units.S
+    dataframe = {
+        "trajectory_time": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+        "link_id": [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+        "cumulative_link_entry": [0, 1, 5, 10, 17, 27, 30, 30, 30, 30, 30],
+        "cumulative_link_exit": [0, 0, 0, 0, 1, 5, 10, 15, 20, 25, 30],
+        "first_cell_entry": [0, 1, 5, 10, 17, 27, 30, 30, 30, 30, 30],
+        "current_number_of_vehicles": [0, 0, 0, 0, 1, 5, 10, 15, 20, 25, 30],
+    }
+    df = pl.DataFrame(dataframe)
+    results = dl.get_cummulative_counts_based_on_t(df, dt)
+    print(results.sort("trajectory_time").select(
+        pl.col("cummulative_count_upstream_offset"),
+        pl.col("cummulative_count_downstream"),
+    ).to_numpy())
+    cummulative_count_upstream_offset = results.select(
+        pl.col("cummulative_count_upstream_offset")
+    ).to_numpy()
+    cummulative_count_downstream = results.select(
+        pl.col("cummulative_count_downstream")
+    ).to_numpy()
+    expected_cummulative_count_upstream_offset = [0, 0, 0, 1, 5, 10, 17, 27, 30, 30, 30]
+    expected_cummulative_count_downstream = [0, 0, 0, 0, 1, 5, 10, 15, 20, 25, 30]
+    assert list(cummulative_count_upstream_offset) == list(expected_cummulative_count_upstream_offset)
+    assert list(cummulative_count_downstream) == list(expected_cummulative_count_downstream)
