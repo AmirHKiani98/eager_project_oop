@@ -259,7 +259,7 @@ class DataLoader:
                             location, date, time,
                             what_test="vehicle_on_corridor")
                         )
-                        removed_vehicles_on_minor_roads = self._remove_vehicle_on_minor_roads(
+                        removed_vehicles_on_minor_roads = self._remove_vehicle_coming_from_and_on_minor_roads(
                             vehicle_on_corridor,
                             location,
                             date,
@@ -522,7 +522,7 @@ class DataLoader:
         wlc_df.write_csv(file_address)
         return file_address
 
-    def _remove_vehicle_on_minor_roads(self, vehicle_on_corridor, location, date, time):
+    def _remove_vehicle_coming_from_and_on_minor_roads(self, vehicle_on_corridor, location, date, time):
         """
         Removes vehicles that are on minor roads from the DataFrame.
         """
@@ -545,8 +545,17 @@ class DataLoader:
                 reg.fit(lon.reshape(-1, 1), lat)
                 if reg.coef_[0] > 0.5:
                     removed_ids.append(name[0] if isinstance(name, (list, tuple)) else name)
+        groups = wlc_df.group_by("link_id").agg(
+            track_id=pl.col("track_id").unique().alias("track_id")
+        )
+        intersection = set.intersection(*[set(list_of_vehicle) for list_of_vehicle in groups["track_id"]])
+        
+        
 
         wlc_df = wlc_df.filter(~pl.col("track_id").is_in(removed_ids))
+        wlc_df = wlc_df.filter(
+            pl.col("track_id").is_in(intersection)
+        )
         wlc_df.write_csv(file_address)
         return file_address
 
@@ -664,7 +673,7 @@ class DataLoader:
     def _write_density_entry_exit_df(self, fully_processed_file_address, location, date, time):
         """
         The fully addressed file is the one that has been exploded, processed, and filtered
-        which refers to the file address _remove_vehicle_on_minor_roads returned.
+        which refers to the file address _remove_vehicle_coming_from_and_on_minor_roads returned.
         """
         file_address = (
             self.params.cache_dir + "/" + self._get_filename(location, date, time)
