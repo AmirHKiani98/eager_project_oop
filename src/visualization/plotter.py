@@ -1,12 +1,11 @@
-
+ 
 """
 Plotter library for visualizing the data.
 """
 import json
 import os
 import polars as pl
-import plotly.express as px
-import plotly.graph_objects as go
+import seaborn as sns
 class Plotter:
     """
     A class for visualizing data using various plotting libraries.
@@ -17,14 +16,26 @@ class Plotter:
             Generates a plot of the data. This is a placeholder method and should be
             implemented using a plotting library such as matplotlib or seaborn.
     """
-    def __init__(self, cache_dir: str):
+    def __init__(self, cache_dir: str, traffic_model: str = "CTM"):
         """
         Initializes the Plotter with the cache directory.
 
         Args:
             cache_dir (str): The directory where cached data is stored.
+            traffic_model (str): The traffic model to be used for visualization.
         """
         self.cache_dir = cache_dir
+        self.traffic_model = traffic_model
+        os.makedirs(self.cache_dir + f"/results/{self.traffic_model}", exist_ok=True)
+
+    def set_traffic_model_name(self, traffic_model: str):
+        """
+        Set the traffic model name.
+
+        Args:
+            traffic_model (str): The name of the traffic model.
+        """
+        self.traffic_model = traffic_model
 
     def get_parameters(self, file_name: str):
         """
@@ -32,7 +43,6 @@ class Plotter:
 
         Args:
             file_name (str): The name of the file to extract parameters from.
-
         Returns:
             dict: A dictionary containing the extracted parameters.
         """
@@ -45,15 +55,12 @@ class Plotter:
         else:
             raise FileNotFoundError(f"Parameters file not found: {path_to_params_file}")
         
-    def get_rmse(self, file_name: str):
+    def plot_rmse_point_queue_spatial_queue(self, file_name: str):
         """
         Find RMSE from the file name.
 
         Args:
             file_name (str): The name of the file to extract RMSE from.
-
-        Returns:
-            dict: A dictionary containing the extracted RMSE.
         """
         
         if not os.path.exists(file_name):
@@ -67,27 +74,74 @@ class Plotter:
             # pl.col('rmse') < 20
         )
         
+        folder_path = f"{self.cache_dir}/results/{self.traffic_model}/{self.get_base_name_without_extension(file_name)}"
+        os.makedirs(folder_path, exist_ok=True)
         
         rmse_data_min = rmse_data["rmse"].min()
         rmse_data_max = rmse_data["rmse"].max()
-        fig = go.Figure(data=go.Heatmap(
-            z=rmse_data["rmse"],
-            x=rmse_data["link_id"],
-            y=rmse_data["trajectory_time"],
-            colorscale="Reds",
-            zmin=rmse_data_min,
-            zmax=rmse_data_max
-        ))
-        fig.update_layout(
-            title=f"Flow Actual Heatmap",  # Dynamic title per link_id
-            xaxis_title="Link Index",
-            yaxis_title="Time",
-            font=dict(size=14)  # Adjust font size for better readability
-        )
-        if not os.path.exists(f"{self.cache_dir}/heatmaps"):
-            os.makedirs(f"{self.cache_dir}/heatmaps", exist_ok=True)
-        fig.write_image(f"{self.cache_dir}/heatmaps/heatmap_link_check.png")
+        import matplotlib.pyplot as plt
 
+        # Convert Polars DataFrame to Pandas DataFrame for seaborn compatibility
+        rmse_data_pd = rmse_data.to_pandas()
+
+        # Pivot the data for heatmap
+        heatmap_data = rmse_data_pd.pivot(index="trajectory_time", columns="link_id", values="rmse")
+
+        # Plot the heatmap using seaborn
+        plt.figure(figsize=(10, 8))
+        sns.heatmap(
+            heatmap_data,
+            cmap="Reds",
+            vmin=rmse_data_min,
+            vmax=rmse_data_max,
+            annot=False,
+            cbar_kws={'label': 'RMSE'}
+        )
+
+        plt.title("Flow Actual Heatmap")
+        plt.xlabel("Link Index")
+        plt.ylabel("Time")
+        plt.tight_layout()
+
+        # Save the heatmap
+        plt.savefig(f"{folder_path}/heatmap.png")
+        plt.close()  
+        fig.write_image(f"{fodler_path}/heatmap.png")
+
+    def plot_sns_heatmap_ctm(self, file_name: str):
+        """
+        Plotting the heatmap using seaborn.
+
+        Args:
+            file_name (str): The name of the file to plot.
+        """
+        if not os.path.exists(file_name):
+            raise FileNotFoundError(f"File not found: {file_name}")
+        
+        data = pl.read_json(file_name)
+        groups = pandas_df.group_by(["link_id"])
+        for name, group in groups:
+            link_id = name[0]
+            group = group.sort("trajectory_time")
+            group = group.set_index("trajectory_time")
+            group = group.to_pandas()
+            plt.figure(figsize=(8, 6))
+            sns.heatmap(group, annot=True, fmt=".1f", cmap="RdYlGn_r", cbar=False)
+            plt.title(f"Heatmap for Link ID: {link_id}")
+            plt.savefig(self.cache_dir + f"/results/{self.traffic_model}/heatmap_link_{link_id}_{self.get_base_name_without_extension(file_name)}.png")
+            plt.close()
+
+    def get_base_name_without_extension(self, file_name: str):
+        """
+        Get the base name of the file without extension.
+
+        Args:
+            file_name (str): The name of the file.
+
+        Returns:
+            str: The base name of the file without extension.
+        """
+        return os.path.splitext(os.path.basename(file_name))[0]
 
     def plot(self):
         """
@@ -97,5 +151,6 @@ class Plotter:
 
 if __name__ == "__main__":
     plotter = Plotter(cache_dir=".cache")
-    file_name = ".cache/PointQueue/d1_20181029_0800_0830_682a48de_b23da350a0e6de66dcad3331001e8398.json"
-    rmse = plotter.get_rmse(file_name)
+    file_name = ".cache/PointQueue/d1_20181029_0800_0830_682a48de_0a6d948338fc814bfffe653912617692.json"
+    rmse = plotter.get_parameters(file_name)
+    print(rmse)
