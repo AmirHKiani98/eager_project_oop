@@ -1,0 +1,12 @@
+{
+    "_is_initialized": "True",
+    "cache_dir": ".cache",
+    "num_lanes": "3",
+    "vehicle_length": "5.0 m",
+    "free_flow_speed": "30.0 km / h",
+    "wave_speed": "12.5 km / h",
+    "dt": "1.0 s",
+    "jam_density_link": "160.0 1 / km",
+    "q_max": "4000.0 1 / h",
+    "flow_capacity": "2500.0 s / h"
+}
