@@ -60,6 +60,7 @@ class TrafficModel:
             Abstract method that must be implemented by subclasses to predict traffic flow 
             based on the model's logic and input arguments.
     """
+    check = 0
     def __init__(self, dl: DataLoader, fp_location: str, fp_date: str, fp_time: str):
         """
         Initialize the TrafficModel with a GeoLoader instance, Parameters object,

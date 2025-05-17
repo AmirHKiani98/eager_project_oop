@@ -7,6 +7,9 @@ import os
 import polars as pl
 import seaborn as sns
 from matplotlib import pyplot as plt
+from matplotlib.animation import FuncAnimation
+import pandas as pd
+import numpy as np
 class Plotter:
     """
     A class for visualizing data using various plotting libraries.
@@ -208,13 +211,57 @@ class Plotter:
         Plotting the data
         """
         pass
+    
+    def animation(self, file_name: str):
+        """
+        Animation of the data
+        """
+        df = pd.read_csv(file_name)
+        fig, ax = plt.subplots()
+        scatter = ax.scatter([], [])
+        x_min, x_max = df["lon"].min(), df["lon"].max()
+        y_min, y_max = df["lat"].min(), df["lat"].max()
+        if x_min == x_max:
+            x_min -= 0.0001
+            x_max += 0.0001
+        if y_min == y_max:
+            y_min -= 0.0001
+            y_max += 0.0001
+
+        ax.set_xlim(x_min, x_max)
+        ax.set_ylim(y_min, y_max)
+        unique_times = df["trajectory_time"].unique()
+        # sort the times
+        unique_times.sort()
+        unique_times = unique_times.tolist()
+        print("Starting animation with ", len(unique_times), "frames.")
+        unique_times = unique_times[::10]
+        def update(frame_index):
+            print(f"Frame {frame_index + 1}/{len(unique_times)}")
+            current_time = unique_times[frame_index]
+            frame = df[df["trajectory_time"] == current_time]
+            x = frame["lon"]
+            y = frame["lat"]
+            scatter.set_offsets(np.c_[x, y])
+            ax.set_title(f"Time: {current_time}")
+            
+            return scatter,
+        ani = FuncAnimation(fig, update, frames=len(unique_times), blit=True)
+
+        ani.save("animation.gif", writer='imagemagick', fps=10)
+        
+
+        print("Animation saved as 'animation.gif'.")
+
 
 if __name__ == "__main__":
     plotter = Plotter(cache_dir=".cache")
-    file_name = ".cache/PointQueue/d1_20181029_0800_0830_682a48de_3a4a36a486cb5990adba742c60bc84ab.json"
+    data_file_name = "d1_20181029_0800_0830"
+    params_hash = "3a4a36a486cb5990adba742c60bc84ab"
+    geo_hash = "682a48de"
+    traffic_model_name = "PointQueue"
     try:
-        # plotter.plot_rmse_point_queue_spatial_queue(file_name)
-        plotter.plot_sns_heatmap_point_queue_spatial_queue(file_name)
+        plotter.animation(f".cache/{data_file_name}_vehicle_on_minor_roads_removed_{geo_hash}.csv")
         print("Heatmap generated and saved successfully.")
     except Exception as e:
         print(f"An error occurred: {e}")

@@ -53,7 +53,8 @@ class PointQueue(TrafficModel):
             "entry_count",
             "trajectory_time",
             "link_id",
-            "current_number_of_vehicles"
+            "current_number_of_vehicles",
+            "cummulative_count_upstream"
         ]
         for arg in required_args:
             if arg not in args:
@@ -102,6 +103,9 @@ class PointQueue(TrafficModel):
             receiving_flow
         )
         current_number_of_vehicles = args["current_number_of_vehicles"]
+        if sending_flow > 0:
+            sending_flow = sending_flow
+        new_occupancy = next_occupancy + inflow - sending_flow
         return {
             "outflow": sending_flow, # already applied filteration on sending flow so it became outflow
             "receiving_flow": receiving_flow,
@@ -109,7 +113,8 @@ class PointQueue(TrafficModel):
             "trajectory_time": trajectory_time,
             "link_id": link_id,
             "inflow": inflow,
-            "current_number_of_vehicles": current_number_of_vehicles
+            "current_number_of_vehicles": current_number_of_vehicles,
+            "new_occupancy": new_occupancy,
         }
 
 

@@ -1378,6 +1378,11 @@ class DataLoader:
             group = group.with_columns(
                 pl.col("on_cell").fill_null(0.0)
             )
+            # Round the group trajectory_time to 2 decimal places
+            group = group.with_columns(
+                pl.col("trajectory_time").cast(pl.Float64).round(2)
+            )
+
             group = group.sort(["trajectory_time"])
             times = group["trajectory_time"].to_numpy()
             occupancies = group["on_cell"].to_numpy()
@@ -1385,8 +1390,8 @@ class DataLoader:
                 target_time = current_time + dt_seconds
                 next_occupancy = (
                     group.filter(pl.col("trajectory_time") == target_time)["on_cell"].first()
-                )
-                
+                    if target_time in group["trajectory_time"] else 0
+                ) # nbbi: This part might be causing errors! Also, it's too slow!
 
                 ground_truth_occupancy.append({
                     "link_id": link_id,
@@ -1604,7 +1609,9 @@ class DataLoader:
                         "next_occupancy": sum(self.next_timestamp_occupancy_dict[link_id][trajectory_time]["next_occupancy"]),
                         "cummulative_count_upstream_offset": data["cummulative_count_upstream_offset"],
                         "cummulative_count_downstream": data["cummulative_count_downstream"],
+                        "cummulative_count_upstream": data["cummulative_count_upstream"],
                         "current_number_of_vehicles": data["current_number_of_vehicles"],
+                        "entry_count": data["entry_count"],
                         "dt": self.params.dt,
                         "trajectory_time": trajectory_time,
                         "tl_status": self.tl_status(trajectory_time, link_id),
