@@ -408,8 +408,9 @@ class DataLoader:
                     local_df = pl.concat([local_df, dataframe])
         unique_times = local_df["trajectory_time"].unique().sort()
         groups = local_df.group_by("track_id")
+        no_track_ids = groups.n_unique().height
         completed_df = pl.DataFrame({})
-        for name, group in tqdm(groups, total=len(unique_times), desc="Adding the timestamp that doesnt exist"):
+        for name, group in tqdm(groups, total=no_track_ids, desc="Adding the timestamp that doesnt exist"):
             max_time_in_group = group["trajectory_time"].max()
             min_time_in_group = group["trajectory_time"].min()
             group_times = group["trajectory_time"]
@@ -421,45 +422,47 @@ class DataLoader:
             missing_times = sorted(set(valid_global_times) - group_time_set)
             if not missing_times:
                 continue
-            print(missing_times)
+            missing_times = np.array(missing_times, dtype=float)
             latitudes = group["lat"]
             longitudes = group["lon"]
             acc_lat = group["lat_acc"]
             acc_lon = group["lon_acc"]
             speeds = group["speed"]
 
-            times_np = np.array(group_times)
-            track_id = group["track_id"].to_numpy()[0]
-            veh_type = group["veh_type"].to_numpy()[0]
-            traveled_d = group["traveled_d"].to_numpy()[0]
-            avg_speed = group["avg_speed"].to_numpy()[0]
-            lats_np = np.array(latitudes)
-            lons_np = np.array(longitudes)
-            speeds_np = np.array(speeds)
+            
+            track_id = str(group["track_id"][0])
+            veh_type = str(group["veh_type"][0])
+            traveled_d = str(group["traveled_d"][0])
+            avg_speed = str(group["avg_speed"][0])
+            times_np = np.array(group_times, dtype=float)
+            lats_np = np.array(latitudes, dtype=float)
+            lons_np = np.array(longitudes, dtype=float)
+            acc_lat_np = np.array(acc_lat, dtype=float)
+            acc_lon_np = np.array(acc_lon, dtype=float)
+            speeds_np = np.array(speeds, dtype=float)
             interp_lats = np.interp(missing_times, times_np, lats_np)
             interp_lons = np.interp(missing_times, times_np, lons_np)
             interp_speeds = np.interp(missing_times, times_np, speeds_np)
-            interp_lat_accs = np.interp(missing_times, times_np, acc_lat)
-            interp_lon_accs = np.interp(missing_times, times_np, acc_lon)
+            interp_lat_accs = np.interp(missing_times, times_np, acc_lat_np)
+            interp_lon_accs = np.interp(missing_times, times_np, acc_lon_np)
             interpolated_rows = [
                 {
-                    "lat": lat,
-                    "lon": lon,
-                    "speed": speed,
-                    "lon_acc": lon_acc,
-                    "lat_acc": lat_acc,
-                    "trajectory_time": time,
-                    "track_id": track_id,
-                    "veh_type": veh_type,
-                    "traveled_d": traveled_d,
-                    "avg_speed": avg_speed,
+                    "lat": str(lat),
+                    "lon": str(lon),
+                    "speed": str(speed),
+                    "lon_acc": str(lon_acc),
+                    "lat_acc": str(lat_acc),
+                    "trajectory_time": str(time),
+                    "track_id": str(track_id),
+                    "veh_type": str(veh_type),
+                    "traveled_d": str(traveled_d),
+                    "avg_speed": str(avg_speed),
                 }
                 for lat, lon, speed, lon_acc, lat_acc, time in zip(
                     interp_lats, interp_lons, interp_speeds,
                     interp_lon_accs, interp_lat_accs, missing_times
                 )
             ]
-
             completed_group = pl.concat([group, pl.DataFrame(interpolated_rows)])
             completed_df = pl.concat([completed_df, completed_group])
         return completed_df
