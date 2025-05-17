@@ -148,7 +148,45 @@ class Plotter:
         if not os.path.exists(folder_path):
             os.makedirs(folder_path)
         
+        data = data.with_columns(
+            ((pl.col("receiving_flow") - pl.col("sending_flow")) - pl.col("next_occupancy")).alias("error")
+        )
+        data = data.filter(
+            pl.col("error") > 0
+        )
+        print(data["sending_flow"].mean())
+        df_pd = data.to_pandas()
+        df_pd["link_id"] = df_pd["link_id"].astype(int)
+
+        # Pivot the table: rows = time, columns = links, values = error
+        heatmap_data = df_pd.pivot(index="trajectory_time", columns="link_id", values="error")
         
+        # Plot with Seaborn
+
+        plt.figure(figsize=(12, 8))
+        sns.heatmap(
+            heatmap_data,
+            cmap="Reds",
+            cbar=True,
+            cbar_kws={"label": "Error"},
+            linewidths=1
+        )
+        plt.title("Error Heatmap by Link and Trajectory Time")
+        plt.xlabel("Link ID")
+        plt.ylabel("Trajectory Time")
+        plt.tight_layout()
+        plt.savefig("error_heatmap.png")
+        
+        
+        # Set 't' as index
+        
+
+
+        # Plot
+        # plt.figure(figsize=(8,6))
+        # sns.heatmap(joined_group, annot=False, fmt=".1f", cmap="Reds", cbar=True)
+        # plt.savefig("heatmap.png")
+            
         
 
 
@@ -173,10 +211,10 @@ class Plotter:
 
 if __name__ == "__main__":
     plotter = Plotter(cache_dir=".cache")
-    file_name = ".cache/PointQueue/d1_20181029_0800_0830_682a48de_0a6d948338fc814bfffe653912617692.json"
+    file_name = ".cache/PointQueue/d1_20181029_0800_0830_682a48de_3a4a36a486cb5990adba742c60bc84ab.json"
     try:
-        plotter.plot_rmse_point_queue_spatial_queue(file_name)
-        plotter.plot_sns_heatmap_ctm(file_name)
+        # plotter.plot_rmse_point_queue_spatial_queue(file_name)
+        plotter.plot_sns_heatmap_point_queue_spatial_queue(file_name)
         print("Heatmap generated and saved successfully.")
     except Exception as e:
         print(f"An error occurred: {e}")
