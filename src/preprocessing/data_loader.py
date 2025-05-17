@@ -614,9 +614,13 @@ class DataLoader:
         complete_counts = pl.DataFrame({})
         groups = counts.group_by(["link_id", "cell_id"])
         num_groups = wlc_df.select(["link_id", "cell_id"]).unique().height
-        for _, group in tqdm(groups, total=num_groups, desc="Counting vehicles"):
+
+        for _, group in groups:
             link_id = group["link_id"].unique()[0]
             cell_id = group["cell_id"].unique()[0]
+            # Printing type of trajectory_time
+            
+
             group = fill_missing_timestamps(
                 group,
                 "trajectory_time",
@@ -624,10 +628,14 @@ class DataLoader:
                 min_time, # type: ignore
                 max_time # type: ignore
             )
+            # print("\n After", len(group.filter(
+            #     pl.col("vehicle_ids").list.len() > 2
+            # )))
             group = group.with_columns([
                 pl.lit(cell_id).alias("cell_id"),
                 pl.lit(link_id).alias("link_id")
             ])
+            
             group = group.with_columns(
                 pl.when(pl.col("link_id").is_null() & pl.col("cell_id").is_null())
                 .then(pl.col("link_id").forward_fill().backward_fill())
@@ -667,7 +675,7 @@ class DataLoader:
 
             group = group.drop(["prev_vehicles", "next_vehicles"])
             complete_counts = pl.concat([complete_counts, group])
-               
+        
         complete_counts = complete_counts.with_columns([
             pl.col("entries").list.len().alias("entry_count"),
             pl.col("exits").list.len().alias("exit_count"),
@@ -833,8 +841,8 @@ class DataLoader:
             .otherwise(1)
             .alias("traffic_light_status")
         ])
-        min_value = traffic_df["trajectory_time"].min()
-        max_value = traffic_df["trajectory_time"].max()
+        min_time = traffic_df["trajectory_time"].min()
+        max_time = traffic_df["trajectory_time"].max()
         completed_traffic_df = pl.DataFrame({})
         groups = traffic_df.group_by(["loc_link_id"])
         num_groups = traffic_df.select(["loc_link_id"]).unique().height
@@ -849,8 +857,8 @@ class DataLoader:
                 group,
                 "trajectory_time",
                 self.time_interval,
-                min_value, # type: ignore
-                max_value # type: ignore
+                min_time, # type: ignore
+                max_time # type: ignore
             )
             group = group.with_columns(
                 pl.col("traffic_light_status").fill_null(0)
@@ -1014,7 +1022,7 @@ class DataLoader:
             # We are only interested in the first and last cell of each link
             link_id, trajectory_time = name[0], name[1]
             trajectory_time = round(float(str(trajectory_time)), 2)
-                
+
             first_cell_entry = group["entry_count"].first()
             last_cell_exit = group["exit_count"].last()
             current_number_of_vehicles = group["vehicle_ids"].list.len().sum()
@@ -1029,8 +1037,8 @@ class DataLoader:
         
         cumulative_counts_df = pl.DataFrame(cumulative_counts_data)
         groups = cumulative_counts_df.group_by("link_id")
-        min_value = cumulative_counts_df["trajectory_time"].min()
-        max_value = cumulative_counts_df["trajectory_time"].max()
+        min_time = cumulative_counts_df["trajectory_time"].min()
+        max_time = cumulative_counts_df["trajectory_time"].max()
         cumulative_cumulative_counts_df = pl.DataFrame({})
         for link_id, group in tqdm(groups, total=group_length, desc="Extending the cumulative counts"):
             link_id = link_id[0] if isinstance(link_id, (list, tuple)) else link_id
@@ -1038,8 +1046,8 @@ class DataLoader:
                 group,
                 "trajectory_time",
                 self.time_interval,
-                min_value, # type: ignore
-                max_value # type: ignore
+                min_time, # type: ignore
+                max_time # type: ignore
             )
             group = group.with_columns(
                 pl.col("first_cell_entry").fill_null(0.0),
@@ -1357,7 +1365,8 @@ class DataLoader:
         groups = occupancy_df.group_by(["link_id", "cell_id"])
         ground_truth_occupancy = []
         dt_seconds = self.params.dt.to(Units.S).value
-        for name, group in tqdm(groups, desc="Finding next timestamp occupancy"):
+        num_groups = occupancy_df.select(["link_id", "cell_id"]).unique().height
+        for name, group in tqdm(groups, desc="Finding next timestamp occupancy", total=num_groups):
             link_id, cell_id = name[0], name[1]
             group = fill_missing_timestamps(
                 group,
@@ -1374,17 +1383,17 @@ class DataLoader:
             occupancies = group["on_cell"].to_numpy()
             for idx, current_time in enumerate(times):
                 target_time = current_time + dt_seconds
-                insert_pos = np.searchsorted(times, target_time)
-                if insert_pos == len(times):
-                    next_occupancy = 0  # no next occupancy exists
-                else:
-                    next_occupancy = occupancies[insert_pos]
+                next_occupancy = (
+                    group.filter(pl.col("trajectory_time") == target_time)["on_cell"].first()
+                )
+                
 
                 ground_truth_occupancy.append({
                     "link_id": link_id,
                     "trajectory_time": current_time,
                     "on_cell_now": occupancies[idx],
                     "on_cell_next": next_occupancy,
+                    "target_time": target_time,
                     "cell_id": cell_id
                 })
 
