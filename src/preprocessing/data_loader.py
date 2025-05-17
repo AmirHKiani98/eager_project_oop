@@ -615,6 +615,8 @@ class DataLoader:
         groups = counts.group_by(["link_id", "cell_id"])
         num_groups = wlc_df.select(["link_id", "cell_id"]).unique().height
         for _, group in tqdm(groups, total=num_groups, desc="Counting vehicles"):
+            link_id = group["link_id"].unique()[0]
+            cell_id = group["cell_id"].unique()[0]
             group = fill_missing_timestamps(
                 group,
                 "trajectory_time",
@@ -622,21 +624,28 @@ class DataLoader:
                 min_time, # type: ignore
                 max_time # type: ignore
             )
+            group = group.with_columns([
+                pl.lit(cell_id).alias("cell_id"),
+                pl.lit(link_id).alias("link_id")
+            ])
             group = group.with_columns(
                 pl.when(pl.col("link_id").is_null() & pl.col("cell_id").is_null())
                 .then(pl.col("link_id").forward_fill().backward_fill())
                 .otherwise(pl.col("link_id"))
                 .alias("link_id")
             )
+
             group = group.with_columns(
                 pl.when(pl.col("cell_id").is_null())
                 .then(pl.col("cell_id").forward_fill().backward_fill())
                 .otherwise(pl.col("cell_id"))
                 .alias("cell_id")
             )
+
             group = group.with_columns(
                 pl.col("vehicle_ids").fill_null([])  # sets default to empty list
             )
+
             group = group.with_columns([
                 pl.col("vehicle_ids").shift(1).alias("prev_vehicles"),
                 pl.col("vehicle_ids").shift(-1).alias("next_vehicles")
@@ -655,8 +664,10 @@ class DataLoader:
                               return_dtype=pl.List(pl.Int64))
                 .alias("exits")
             ])
+
             group = group.drop(["prev_vehicles", "next_vehicles"])
             complete_counts = pl.concat([complete_counts, group])
+               
         complete_counts = complete_counts.with_columns([
             pl.col("entries").list.len().alias("entry_count"),
             pl.col("exits").list.len().alias("exit_count"),
@@ -844,7 +855,6 @@ class DataLoader:
             group = group.with_columns(
                 pl.col("traffic_light_status").fill_null(0)
             )
-            logger.error("loc_link_id %s", link_id)
             group = group.with_columns(
                 pl.col("loc_link_id").fill_null(link_id)
             )
