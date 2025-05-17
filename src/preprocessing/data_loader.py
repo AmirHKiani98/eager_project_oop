@@ -259,7 +259,7 @@ class DataLoader:
                             location, date, time,
                             what_test="vehicle_on_corridor")
                         )
-                        removed_vehicles_on_minor_roads = self._remove_vehicle_coming_from_and_on_minor_roads(
+                        removed_vehicles_on_minor_roads = self._fully_process_vehicles(
                             vehicle_on_corridor,
                             location,
                             date,
@@ -406,7 +406,63 @@ class DataLoader:
                         trajectory
                     )
                     local_df = pl.concat([local_df, dataframe])
-        return local_df
+        unique_times = local_df["trajectory_time"].unique().sort()
+        groups = local_df.group_by("track_id")
+        completed_df = pl.DataFrame({})
+        for name, group in tqdm(groups, total=len(unique_times), desc="Adding the timestamp that doesnt exist"):
+            max_time_in_group = group["trajectory_time"].max()
+            min_time_in_group = group["trajectory_time"].min()
+            group_times = group["trajectory_time"]
+            group_time_set = set(group_times)
+            valid_global_times = [
+                t for t in unique_times 
+                if min_time_in_group <= t <= max_time_in_group
+            ]
+            missing_times = sorted(set(valid_global_times) - group_time_set)
+            if not missing_times:
+                continue
+            print(missing_times)
+            latitudes = group["lat"]
+            longitudes = group["lon"]
+            acc_lat = group["lat_acc"]
+            acc_lon = group["lon_acc"]
+            speeds = group["speed"]
+
+            times_np = np.array(group_times)
+            track_id = group["track_id"].to_numpy()[0]
+            veh_type = group["veh_type"].to_numpy()[0]
+            traveled_d = group["traveled_d"].to_numpy()[0]
+            avg_speed = group["avg_speed"].to_numpy()[0]
+            lats_np = np.array(latitudes)
+            lons_np = np.array(longitudes)
+            speeds_np = np.array(speeds)
+            interp_lats = np.interp(missing_times, times_np, lats_np)
+            interp_lons = np.interp(missing_times, times_np, lons_np)
+            interp_speeds = np.interp(missing_times, times_np, speeds_np)
+            interp_lat_accs = np.interp(missing_times, times_np, acc_lat)
+            interp_lon_accs = np.interp(missing_times, times_np, acc_lon)
+            interpolated_rows = [
+                {
+                    "lat": lat,
+                    "lon": lon,
+                    "speed": speed,
+                    "lon_acc": lon_acc,
+                    "lat_acc": lat_acc,
+                    "trajectory_time": time,
+                    "track_id": track_id,
+                    "veh_type": veh_type,
+                    "traveled_d": traveled_d,
+                    "avg_speed": avg_speed,
+                }
+                for lat, lon, speed, lon_acc, lat_acc, time in zip(
+                    interp_lats, interp_lons, interp_speeds,
+                    interp_lon_accs, interp_lat_accs, missing_times
+                )
+            ]
+
+            completed_group = pl.concat([group, pl.DataFrame(interpolated_rows)])
+            completed_df = pl.concat([completed_df, completed_group])
+        return completed_df
 
     def _explode_dataset(self, raw_data_location, location, date, time):
         file_address = (
@@ -522,13 +578,13 @@ class DataLoader:
         wlc_df.write_csv(file_address)
         return file_address
 
-    def _remove_vehicle_coming_from_and_on_minor_roads(self, vehicle_on_corridor, location, date, time):
+    def _fully_process_vehicles(self, vehicle_on_corridor, location, date, time):
         """
         Removes vehicles that are on minor roads from the DataFrame.
         """
         file_address = (
             self.params.cache_dir + "/" + self._get_filename(location, date, time) +
-            "_vehicle_on_minor_roads_removed_" + self.geo_loader.get_hash_str() + ".csv"
+            "_fully_process_vehicles_" + self.geo_loader.get_hash_str() + ".csv"
         )
         if os.path.isfile(file_address):
             return file_address
@@ -604,6 +660,7 @@ class DataLoader:
             Assumes the existence of a `fill_missing_timestamps` function and that
             `self.geo_loader.links` provides geometric information for normalization.
         """
+        # nbbi: Needs test.
         wlc_df = pl.read_csv(fully_processed_file_address)
         min_time = wlc_df["trajectory_time"].min()
         max_time = wlc_df["trajectory_time"].max()
@@ -615,7 +672,7 @@ class DataLoader:
         groups = counts.group_by(["link_id", "cell_id"])
         num_groups = wlc_df.select(["link_id", "cell_id"]).unique().height
 
-        for _, group in groups:
+        for _, group in tqdm(groups, total=num_groups, desc="Calculating density"):
             link_id = group["link_id"].unique()[0]
             cell_id = group["cell_id"].unique()[0]
             # Printing type of trajectory_time
@@ -628,9 +685,7 @@ class DataLoader:
                 min_time, # type: ignore
                 max_time # type: ignore
             )
-            # print("\n After", len(group.filter(
-            #     pl.col("vehicle_ids").list.len() > 2
-            # )))
+            
             group = group.with_columns([
                 pl.lit(cell_id).alias("cell_id"),
                 pl.lit(link_id).alias("link_id")
@@ -703,7 +758,7 @@ class DataLoader:
     def _write_density_entry_exit_df(self, fully_processed_file_address, location, date, time):
         """
         The fully addressed file is the one that has been exploded, processed, and filtered
-        which refers to the file address _remove_vehicle_coming_from_and_on_minor_roads returned.
+        which refers to the file address _fully_process_vehicles returned.
         """
         file_address = (
             self.params.cache_dir + "/" + self._get_filename(location, date, time)

@@ -261,7 +261,7 @@ if __name__ == "__main__":
     geo_hash = "682a48de"
     traffic_model_name = "PointQueue"
     try:
-        plotter.animation(f".cache/{data_file_name}_vehicle_on_minor_roads_removed_{geo_hash}.csv")
+        plotter.animation(f".cache/{data_file_name}_fully_process_vehicles_{geo_hash}.csv")
         print("Heatmap generated and saved successfully.")
     except Exception as e:
         print(f"An error occurred: {e}")
