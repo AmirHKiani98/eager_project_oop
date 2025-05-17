@@ -6,6 +6,7 @@ import json
 import os
 import polars as pl
 import seaborn as sns
+from matplotlib import pyplot as plt
 class Plotter:
     """
     A class for visualizing data using various plotting libraries.
@@ -68,7 +69,7 @@ class Plotter:
         
         data = pl.read_json(file_name)
         rmse_data = data.group_by(["link_id", "trajectory_time"]).agg(
-            (pl.col("new_occupancy") - pl.col("next_occupancy")).pow(1).mean().alias("rmse")
+            ((pl.col("receiving_flow")-pl.col("sending_flow")) - pl.col("next_occupancy")).pow(1).mean().alias("rmse")
         )
         rmse_data = rmse_data.filter(
             # pl.col('rmse') < 20
@@ -79,6 +80,8 @@ class Plotter:
         
         rmse_data_min = rmse_data["rmse"].min()
         rmse_data_max = rmse_data["rmse"].max()
+        if not isinstance(rmse_data_min, float) or not isinstance(rmse_data_max, float):
+            raise ValueError("RMSE data min and max should be float values.")
         import matplotlib.pyplot as plt
 
         # Convert Polars DataFrame to Pandas DataFrame for seaborn compatibility
@@ -106,7 +109,6 @@ class Plotter:
         # Save the heatmap
         plt.savefig(f"{folder_path}/heatmap.png")
         plt.close()  
-        fig.write_image(f"{fodler_path}/heatmap.png")
 
     def plot_sns_heatmap_ctm(self, file_name: str):
         """
@@ -119,17 +121,37 @@ class Plotter:
             raise FileNotFoundError(f"File not found: {file_name}")
         
         data = pl.read_json(file_name)
-        groups = pandas_df.group_by(["link_id"])
+        groups = data.group_by(["link_id"])
+        folder_path = f"{self.cache_dir}/results/{self.traffic_model}/{self.get_base_name_without_extension(file_name)}"
+        if not os.path.exists(folder_path):
+            os.makedirs(folder_path)
         for name, group in groups:
             link_id = name[0]
             group = group.sort("trajectory_time")
-            group = group.set_index("trajectory_time")
-            group = group.to_pandas()
+            group = group.to_pandas().set_index("trajectory_time")
+
             plt.figure(figsize=(8, 6))
             sns.heatmap(group, annot=True, fmt=".1f", cmap="RdYlGn_r", cbar=False)
             plt.title(f"Heatmap for Link ID: {link_id}")
-            plt.savefig(self.cache_dir + f"/results/{self.traffic_model}/heatmap_link_{link_id}_{self.get_base_name_without_extension(file_name)}.png")
+            plt.savefig(folder_path + f"/heatmap_link_{link_id}_{self.get_base_name_without_extension(file_name)}.png")
             plt.close()
+    
+    def plot_sns_heatmap_point_queue_spatial_queue(self, file_name: str):
+        """
+        Plotting the heatmap using seaborn.
+        Args:
+            file_name (str): The name of the file to plot.
+        """
+        data = pl.read_json(file_name)
+        
+        folder_path = f"{self.cache_dir}/results/{self.traffic_model}/{self.get_base_name_without_extension(file_name)}"
+        if not os.path.exists(folder_path):
+            os.makedirs(folder_path)
+        
+        
+        
+
+
 
     def get_base_name_without_extension(self, file_name: str):
         """
@@ -152,5 +174,9 @@ class Plotter:
 if __name__ == "__main__":
     plotter = Plotter(cache_dir=".cache")
     file_name = ".cache/PointQueue/d1_20181029_0800_0830_682a48de_0a6d948338fc814bfffe653912617692.json"
-    rmse = plotter.get_parameters(file_name)
-    print(rmse)
+    try:
+        plotter.plot_rmse_point_queue_spatial_queue(file_name)
+        plotter.plot_sns_heatmap_ctm(file_name)
+        print("Heatmap generated and saved successfully.")
+    except Exception as e:
+        print(f"An error occurred: {e}")
