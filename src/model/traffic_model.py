@@ -137,6 +137,7 @@ class TrafficModel:
         Returns:
             list: Aggregated results from all batches.
         """
+        self.dl.prepare(self.__class__.__name__, self.fp_location, self.fp_date, self.fp_time)
         args_list = self.dl.tasks
         if not args_list:
             raise ValueError("No tasks to process. Please provide a list of tasks.")
@@ -230,7 +231,7 @@ class TrafficModel:
             self.dl.params.q_max = params[3] * Units.PER_HR
             self.dl.params.set_initialized(True)
             self.dl.params.save_metadata()
-            self.dl.prepare(self.__class__.__name__, self.fp_location, self.fp_date, self.fp_time)
+            
             
             self.run_with_multiprocessing(num_processes, batch_size)
 

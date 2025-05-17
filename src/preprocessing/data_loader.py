@@ -550,11 +550,17 @@ class DataLoader:
         )
         intersection = set.intersection(*[set(list_of_vehicle) for list_of_vehicle in groups["track_id"]])
         
-        
+        # remove the vehicles that are in the first frame
+        min_time = wlc_df["trajectory_time"].min()
+        first_frame_veh = wlc_df.filter(pl.col("trajectory_time") == min_time)["track_id"].unique()
+
 
         wlc_df = wlc_df.filter(~pl.col("track_id").is_in(removed_ids))
         wlc_df = wlc_df.filter(
             pl.col("track_id").is_in(intersection)
+        )
+        wlc_df = wlc_df.filter(
+            ~pl.col("track_id").is_in(first_frame_veh)
         )
         wlc_df.write_csv(file_address)
         return file_address
@@ -657,7 +663,12 @@ class DataLoader:
             pl.col("vehicle_ids").list.len().alias("on_cell"),
         ])
         # # logger.debug columns in different color for better visibility
-
+        if "cell_id" not in complete_counts.columns:
+            raise ValueError("cell_id not in complete_counts columns of file address " + fully_processed_file_address)
+        if "link_id" not in complete_counts.columns:
+            raise ValueError("link_id not in complete_counts columns of file address " + fully_processed_file_address)
+        if "on_cell" not in complete_counts.columns:
+            raise ValueError("on_cell not in complete_counts columns of file address " + fully_processed_file_address)
         complete_counts = complete_counts.with_columns([
             pl.struct(["link_id", "cell_id", "on_cell"]).map_elements(
             lambda row: (
