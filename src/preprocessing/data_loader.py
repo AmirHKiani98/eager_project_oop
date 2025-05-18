@@ -1918,32 +1918,34 @@ class DataLoader:
         tasks = []
         for link_id, cell_dict in self.cumulative_counts_dict.items(): # type: ignore
             for trajectory_time, data in cell_dict.items():
-                tasks.append(
-                    {
-                        "link_id": link_id,
-                        "trajectory_time": trajectory_time,
-                        "upstream_value_freeflow_with_eps_x": self.cumulative_counts_dict[link_id][trajectory_time]["upstream_value_freeflow_with_eps_x"],
-                        "downstream_value_freeflow_with_eps_x": self.cumulative_counts_dict[link_id][trajectory_time]["downstream_value_freeflow_with_eps_x"],
-                        "upstream_value_freeflow_with_eps_t": self.cumulative_counts_dict[link_id][trajectory_time]["upstream_value_freeflow_with_eps_t"],
-                        "downstream_value_freeflow_with_eps_t": self.cumulative_counts_dict[link_id][trajectory_time]["downstream_value_freeflow_with_eps_t"],
-                        "upstream_value_freeflow": self.cumulative_counts_dict[link_id][trajectory_time]["upstream_value_freeflow"],
-                        "downstream_value_freeflow": self.cumulative_counts_dict[link_id][trajectory_time]["downstream_value_freeflow"],
+                for cell_id, cell in self.geo_loader.links[link_id].cells.items():
+                    tasks.append(
+                        {
+                            "link_id": link_id,
+                            "trajectory_time": trajectory_time,
+                            "upstream_value_freeflow_with_eps_x": self.cumulative_counts_dict[link_id][trajectory_time][cell_id]["upstream_value_freeflow_with_eps_x"],
+                            "downstream_value_freeflow_with_eps_x": self.cumulative_counts_dict[link_id][trajectory_time][cell_id]["downstream_value_freeflow_with_eps_x"],
+                            "upstream_value_freeflow_with_eps_t": self.cumulative_counts_dict[link_id][trajectory_time][cell_id]["upstream_value_freeflow_with_eps_t"],
+                            "downstream_value_freeflow_with_eps_t": self.cumulative_counts_dict[link_id][trajectory_time][cell_id]["downstream_value_freeflow_with_eps_t"],
+                            "upstream_value_freeflow": self.cumulative_counts_dict[link_id][trajectory_time][cell_id]["upstream_value_freeflow"],
+                            "downstream_value_freeflow": self.cumulative_counts_dict[link_id][trajectory_time][cell_id]["downstream_value_freeflow"],
 
-                        "upstream_value_wavespeed_with_eps_x": self.cumulative_counts_dict[link_id][trajectory_time]["upstream_value_wavespeed_with_eps_x"],
-                        "downstream_value_wavespeed_with_eps_x": self.cumulative_counts_dict[link_id][trajectory_time]["downstream_value_wavespeed_with_eps_x"],
-                        "upstream_value_wavespeed_with_eps_t": self.cumulative_counts_dict[link_id][trajectory_time]["upstream_value_wavespeed_with_eps_t"],
-                        "downstream_value_wavespeed_with_eps_t": self.cumulative_counts_dict[link_id][trajectory_time]["downstream_value_wavespeed_with_eps_t"],
-                        "upstream_value_wavespeed": self.cumulative_counts_dict[link_id][trajectory_time]["upstream_value_wavespeed"],
-                        "downstream_value_wavespeed": self.cumulative_counts_dict[link_id][trajectory_time]["downstream_value_wavespeed"],
-                        "cell_id": self.cumulative_counts_dict[link_id][trajectory_time]["cell_id"],
-                        "link_id": link_id,
-                        "trajectory_time": trajectory_time,
-                        "target_time": self.cumulative_counts_dict[link_id][trajectory_time]["target_time"],
-                        "x": self.cumulative_counts_dict[link_id][trajectory_time]["x"],
-                        "link_length": self.cumulative_counts_dict[link_id][trajectory_time]["link_length"],
-                        "dt": self.params.dt,
-                    }
-                )
+                            "upstream_value_wavespeed_with_eps_x": self.cumulative_counts_dict[link_id][trajectory_time][cell_id]["upstream_value_wavespeed_with_eps_x"],
+                            "downstream_value_wavespeed_with_eps_x": self.cumulative_counts_dict[link_id][trajectory_time][cell_id]["downstream_value_wavespeed_with_eps_x"],
+                            "upstream_value_wavespeed_with_eps_t": self.cumulative_counts_dict[link_id][trajectory_time][cell_id]["upstream_value_wavespeed_with_eps_t"],
+                            "downstream_value_wavespeed_with_eps_t": self.cumulative_counts_dict[link_id][trajectory_time][cell_id]["downstream_value_wavespeed_with_eps_t"],
+                            "upstream_value_wavespeed": self.cumulative_counts_dict[link_id][trajectory_time][cell_id]["upstream_value_wavespeed"],
+                            "downstream_value_wavespeed": self.cumulative_counts_dict[link_id][trajectory_time][cell_id]["downstream_value_wavespeed"],
+                            "cell_id": cell_id,
+                            "link_id": link_id,
+                            "trajectory_time": trajectory_time,
+                            "target_time": self.cumulative_counts_dict[link_id][trajectory_time][cell_id]["target_time"],
+                            "x": self.cumulative_counts_dict[link_id][trajectory_time][cell_id]["x"],
+                            "link_length": self.cumulative_counts_dict[link_id][trajectory_time][cell_id]["link_length"],
+                            "dt": self.params.dt,
+                            "next_occupancy": self.next_timestamp_occupancy_dict[link_id][trajectory_time]["next_occupancy"][cell_id-1],
+                        }
+                    )
         self.tasks = tasks
         with open(file_address, "w", encoding="utf-8") as f:
             copy_tasks = deepcopy(tasks)
