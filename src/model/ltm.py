@@ -81,7 +81,12 @@ class LTM(TrafficModel):
         for arg in required_args:
             if arg not in args:
                 raise ValueError(f"Missing required argument: {arg}")
-        eps = 0.01
+        x = args["x"]
+        if not isinstance(x, Units.Quantity):
+            raise TypeError("x must be a Quantity")
+        
+        eps_x = 0.01 * Units.M
+        eps_t = 0.01 * Units.S
         # LTM_count(time, segment_id, entry_flow, location, horizon)
         n1 = LTM.count_ltm(
             cumulative_upstream=args["upstream_value_freeflow"],
@@ -96,7 +101,7 @@ class LTM(TrafficModel):
         n2 = LTM.count_ltm(
             cumulative_upstream=args["upstream_value_freeflow_with_eps_x"],
             cumulative_downstream=args["downstream_value_freeflow_with_eps_x"],
-            x=args["x"] + eps,
+            x=args["x"] + eps_x,
             wave_speed=args["wave_speed"],
             dt=args["dt"],
             link_length=args["link_length"],
@@ -109,19 +114,19 @@ class LTM(TrafficModel):
             cumulative_downstream=args["downstream_value_freeflow_with_eps_t"],
             x=args["x"],
             wave_speed=args["wave_speed"],
-            dt=args["dt"] + eps,
+            dt=args["dt"] + eps_t,
             link_length=args["link_length"],
             jam_density=args["jam_density_link"]
         )
-        density = (n1 - n2)/eps
-        flow = -(n1 - n3)/eps
+        density = (n1 - n2)/eps_x
+        flow = -(n1 - n3)/eps_t
         return {
             "density": density,
             "flow": flow,
             "link_id": args["link_id"],
             "trajectory_time": args["trajectory_time"],
             "cell_id": args["cell_id"],
-            "new_occupancy": args["new_occupancy"],
-            "link_length": args["link_length"],
-            "x": args["x"]
+            "link_length": args["link_length"].to(Units.M),
+            "x": args["x"].to(Units.M),
+            "next_occupancy": args["next_occupancy"],
         }
