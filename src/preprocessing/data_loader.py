@@ -1967,6 +1967,12 @@ class DataLoader:
             json.dump(copy_tasks, f, indent=4)
         self.destruct()
         self.tasks = tasks
+
+    def prepare_pw_tasks(self, location, date, time):
+        """
+        Preparing pw tasks
+        """
+
     def prepare(self, class_name: str, fp_location: str, fp_date: str, fp_time: str):
         """
         Prepares the data for the specified class name.

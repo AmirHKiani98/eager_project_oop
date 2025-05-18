@@ -32,6 +32,7 @@ import numpy as np
 from tqdm import tqdm
 from src.preprocessing.data_loader import DataLoader
 from src.common_utility.units import Units
+from src.visualization.plotter import Plotter
 
 logging.basicConfig(
     level="DEBUG",
@@ -77,6 +78,10 @@ class TrafficModel:
         self.fp_location = fp_location
         self.fp_date = fp_date
         self.fp_time = fp_time
+        self.plotter = Plotter(
+            cache_dir=self.dl.params.cache_dir,
+            geo_loader=self.dl.geo_loader
+        )
 
 
     def get_cell_length(self, cell_id, link_id):
@@ -232,8 +237,12 @@ class TrafficModel:
             self.dl.params.q_max = params[3] * Units.PER_HR
             self.dl.params.set_initialized(True)
             self.dl.params.save_metadata()
-            
-            
+            self.plotter.plot(
+                data_file_name=self.dl.current_file_running["location"] + "_" + self.dl.current_file_running["date"] + "_" + self.dl.current_file_running["time"],
+                hash_geo=self.dl.geo_loader.get_hash_str(),
+                hash_parmas=self.dl.params.get_hash_str(),
+                traffic_model=self.__class__.__name__
+            )
             self.run_with_multiprocessing(num_processes, batch_size)
 
     def get_run_file_path(self):
