@@ -1919,7 +1919,6 @@ class DataLoader:
         for link_id, cell_dict in self.cumulative_counts_dict.items(): # type: ignore
             for trajectory_time, data in cell_dict.items():
                 for cell_id, cell in self.geo_loader.links[link_id].cells.items():
-                    print(self.cumulative_counts_dict[link_id][trajectory_time])
                     tasks.append(
                         {
                             "link_id": link_id,
@@ -1940,7 +1939,6 @@ class DataLoader:
                             "cell_id": cell_id,
                             "link_id": link_id,
                             "trajectory_time": trajectory_time,
-                            "target_time": self.cumulative_counts_dict[link_id][trajectory_time][cell_id]["target_time"],
                             "x": self.cumulative_counts_dict[link_id][trajectory_time][cell_id]["x"],
                             "link_length": self.cumulative_counts_dict[link_id][trajectory_time][cell_id]["link_length"],
                             "dt": self.params.dt,
