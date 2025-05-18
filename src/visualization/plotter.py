@@ -10,6 +10,8 @@ from matplotlib import pyplot as plt
 from matplotlib.animation import FuncAnimation
 import pandas as pd
 import numpy as np
+from shapely.geometry import Point as POINT
+from src.preprocessing.geo_loader import GeoLoader
 class Plotter:
     """
     A class for visualizing data using various plotting libraries.
@@ -20,7 +22,7 @@ class Plotter:
             Generates a plot of the data. This is a placeholder method and should be
             implemented using a plotting library such as matplotlib or seaborn.
     """
-    def __init__(self, cache_dir: str, traffic_model: str = "CTM"):
+    def __init__(self, cache_dir: str, geo_loader: GeoLoader, traffic_model: str = "CTM"):
         """
         Initializes the Plotter with the cache directory.
 
@@ -30,6 +32,7 @@ class Plotter:
         """
         self.cache_dir = cache_dir
         self.traffic_model = traffic_model
+        self.geo_loader = geo_loader
         os.makedirs(self.cache_dir + f"/results/{self.traffic_model}", exist_ok=True)
 
     def set_traffic_model_name(self, traffic_model: str):
@@ -72,7 +75,7 @@ class Plotter:
         
         data = pl.read_json(file_name)
         rmse_data = data.group_by(["link_id", "trajectory_time"]).agg(
-            ((pl.col("receiving_flow")-pl.col("sending_flow")) - pl.col("next_occupancy")).pow(1).mean().alias("rmse")
+            ((pl.col("receiving_flow")-pl.col("outflow")) - pl.col("next_occupancy")).pow(2).mean().alias("rmse")
         )
         rmse_data = rmse_data.filter(
             # pl.col('rmse') < 20
@@ -179,16 +182,6 @@ class Plotter:
         plt.ylabel("Trajectory Time")
         plt.tight_layout()
         plt.savefig("error_heatmap.png")
-        
-        
-        # Set 't' as index
-        
-
-
-        # Plot
-        # plt.figure(figsize=(8,6))
-        # sns.heatmap(joined_group, annot=False, fmt=".1f", cmap="Reds", cbar=True)
-        # plt.savefig("heatmap.png")
             
         
 
@@ -251,19 +244,31 @@ class Plotter:
         ani = FuncAnimation(fig, update, frames=len(unique_times), blit=True)
 
         ani.save("animation.gif", writer='imagemagick', fps=5)
-        
-
         print("Animation saved as 'animation.gif'.")
 
 
 if __name__ == "__main__":
-    plotter = Plotter(cache_dir=".cache")
+    intersection_locations = (
+        pl.read_csv(".cache/traffic_lights.csv")
+        .to_numpy()
+        .tolist()
+    )
+    intersection_locations = [
+        POINT(loc[1], loc[0])
+        for loc in intersection_locations
+    ]
+    model_geo_loader = GeoLoader(
+        locations=intersection_locations,
+        cell_length=20.0
+        )
     data_file_name = "d1_20181029_0800_0830"
-    params_hash = "3a4a36a486cb5990adba742c60bc84ab"
+    params_hash = "dcca17e9025816395dbe6a5a465c2450"
     geo_hash = "682a48de"
     traffic_model_name = "PointQueue"
+    plotter = Plotter(cache_dir=".cache", geo_loader=model_geo_loader, traffic_model=traffic_model_name)
     try:
-        plotter.animation(f".cache/{data_file_name}_fully_process_vehicles_{geo_hash}.csv")
-        print("Heatmap generated and saved successfully.")
+        # plotter.animation(f".cache/{data_file_name}_fully_process_vehicles_{geo_hash}.csv")
+        # print("Heatmap generated and saved successfully.")
+        plotter.plot_rmse_point_queue_spatial_queue(f".cache/{traffic_model_name}/{data_file_name}_{geo_hash}_{params_hash}.json")
     except Exception as e:
         print(f"An error occurred: {e}")

@@ -121,12 +121,12 @@ class LTM(TrafficModel):
         density = (n1 - n2)/eps_x
         flow = -(n1 - n3)/eps_t
         return {
-            "occupancy": (density * eps_x).to(1).value,
+            "new_occupancy": (density * eps_x).to(1).value,
             "flow": flow.to(Units.PER_SEC).value,
             "link_id": args["link_id"],
             "trajectory_time": args["trajectory_time"],
             "cell_id": args["cell_id"],
-            "link_length": args["link_length"].to(Units.M),
-            "x": args["x"].to(Units.M),
+            "link_length": args["link_length"].to(Units.M).value,
+            "x": args["x"].to(Units.M).value,
             "next_occupancy": args["next_occupancy"],
         }
