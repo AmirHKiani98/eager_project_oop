@@ -21,7 +21,7 @@ class LTM(TrafficModel):
     Class representing a LTM traffic model.
     """
     @staticmethod
-    def count_ltm(cumulative_upstream, cumulative_downstream, x, wave_speed, dt, link_length):
+    def count_ltm(cumulative_upstream, cumulative_downstream, x, wave_speed, dt, link_length, jam_density):
         """
         Count the number of vehicles in the LTM model.
         """
@@ -34,10 +34,21 @@ class LTM(TrafficModel):
             raise TypeError("dt must be a Quantity")
         if not isinstance(link_length, Units.Quantity):
             raise TypeError("link_length must be a Quantity")
-        
+
+        if not isinstance(jam_density, Units.Quantity):
+            raise TypeError("jam_density must be a Quantity")
+        target1 = cumulative_upstream
         congestion_intersect_x1 = x + wave_speed * dt
         if congestion_intersect_x1>= 0 and congestion_intersect_x1<= link_length:
             congestion_intersect_x = congestion_intersect_x1
+
+        else:
+            congestion_intersect_x = link_length
+        
+        target2 = jam_density * (congestion_intersect_x - x) + cumulative_downstream
+        return min(target1, target2)
+
+
         
 
     @staticmethod
@@ -63,14 +74,46 @@ class LTM(TrafficModel):
             "downstream_value_wavespeed",
             "cell_id",
             "link_length",
-            "x"
+            "x",
+            "wave_speed",
+            "jam_density_link"
         ]
         for arg in required_args:
             if arg not in args:
                 raise ValueError(f"Missing required argument: {arg}")
+        eps = 0.01
         # LTM_count(time, segment_id, entry_flow, location, horizon)
-        
-        
+        n1 = LTM.count_ltm(
+            cumulative_upstream=args["upstream_value_freeflow"],
+            cumulative_downstream=args["downstream_value_freeflow"],
+            x=args["x"],
+            wave_speed=args["wave_speed"],
+            dt=args["dt"],
+            link_length=args["link_length"],
+            jam_density=args["jam_density_link"]
+        )
+        # LTM_count(time, segment_id, entry_flow, location+eps, horizon)
+        n2 = LTM.count_ltm(
+            cumulative_upstream=args["upstream_value_freeflow_with_eps_x"],
+            cumulative_downstream=args["downstream_value_freeflow_with_eps_x"],
+            x=args["x"] + eps,
+            wave_speed=args["wave_speed"],
+            dt=args["dt"],
+            link_length=args["link_length"],
+            jam_density=args["jam_density_link"]
+        )
+
+        # LTM_count(time, segment_id, entry_flow, location, horizon+eps)
+        n3 = LTM.count_ltm(
+            cumulative_upstream=args["upstream_value_freeflow_with_eps_t"],
+            cumulative_downstream=args["downstream_value_freeflow_with_eps_t"],
+            x=args["x"],
+            wave_speed=args["wave_speed"],
+            dt=args["dt"] + eps,
+            link_length=args["link_length"],
+            jam_density=args["jam_density_link"]
+        )
+        density = 
         return {
             
         }

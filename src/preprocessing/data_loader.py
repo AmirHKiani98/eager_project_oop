@@ -1917,6 +1917,7 @@ class DataLoader:
                 self.tasks[index]["wave_speed"] = self.tasks[index]["wave_speed"] * Units.KM_PER_HR
                 self.tasks[index]["link_length"] = self.tasks[index]["link_length"] * Units.M
                 self.tasks[index]["x"] = self.tasks[index]["x"] * Units.M
+                self.tasks[index]["jam_density_link"] = self.tasks[index]["jam_density_link"] * Units.PER_KM
             return
         tasks = []
         for link_id, cell_dict in self.cumulative_counts_dict.items(): # type: ignore
@@ -1942,6 +1943,7 @@ class DataLoader:
                             "cell_id": cell_id,
                             "link_id": link_id,
                             "wave_speed": self.params.wave_speed,
+                            "jam_density_link": self.params.jam_density_link,
                             "trajectory_time": trajectory_time,
                             "x": self.cumulative_counts_dict[link_id][trajectory_time][cell_id]["x"] * Units.M,
                             "link_length": self.cumulative_counts_dict[link_id][trajectory_time][cell_id]["link_length"] * Units.M,
@@ -1957,6 +1959,8 @@ class DataLoader:
                 copy_tasks[index]["wave_speed"] = copy_tasks[index]["wave_speed"].to(Units.KM_PER_HR).value
                 copy_tasks[index]["link_length"] = copy_tasks[index]["link_length"].to(Units.M).value
                 copy_tasks[index]["x"] = copy_tasks[index]["x"].to(Units.M).value
+                copy_tasks[index]["jam_density_link"] = copy_tasks[index]["jam_density_link"].to(Units.PER_KM).value
+
             json.dump(copy_tasks, f, indent=4)
         self.destruct()
         self.tasks = tasks
