@@ -1368,8 +1368,13 @@ class DataLoader:
             "cell_id": cell_id,
             "link_id": link_id,
             "trajectory_time": time,
-            "target_time": (time_units + self.params.dt - (x / self.params.free_flow_speed)).to(Units.S).value,
             "x": x.to(Units.M).value,
+            "target_time_freeflow": target_time_freeflow.to(Units.S).value,
+            "target_time_freeflow_with_eps_x": target_time_freeflow_with_eps_x.to(Units.S).value,
+            "target_time_freeflow_with_eps_t": target_value_freeflow_with_eps_t.to(Units.S).value,
+            "target_time_wavespeed_with_eps_x": target_time_wavespeed_with_eps_x.to(Units.S).value,
+            "target_time_wavespeed_with_eps_t": target_time_wavespeed_with_eps_t.to(Units.S).value,
+            "target_time_wavespeed": target_time_wavespeed.to(Units.S).value,
             "link_length": link_length.to(Units.M).value
             
         }
@@ -1383,21 +1388,22 @@ class DataLoader:
                 cumulative_counts_dict[result["link_id"]] = {}
             if result["trajectory_time"] not in cumulative_counts_dict[result["link_id"]]:
                 cumulative_counts_dict[result["link_id"]][result["trajectory_time"]] = {}
-            cumulative_counts_dict[result["link_id"]][result["trajectory_time"]]["target_time"] = result["target_time"]
-            cumulative_counts_dict[result["link_id"]][result["trajectory_time"]]["x"] = result["x"]
-            cumulative_counts_dict[result["link_id"]][result["trajectory_time"]]["link_length"] = result["link_length"]
-            cumulative_counts_dict[result["link_id"]][result["trajectory_time"]]["upstream_value_freeflow_with_eps_x"] = result["upstream_value_freeflow_with_eps_x"]
-            cumulative_counts_dict[result["link_id"]][result["trajectory_time"]]["downstream_value_freeflow_with_eps_x"] = result["downstream_value_freeflow_with_eps_x"]
-            cumulative_counts_dict[result["link_id"]][result["trajectory_time"]]["upstream_value_freeflow_with_eps_t"] = result["upstream_value_freeflow_with_eps_t"]
-            cumulative_counts_dict[result["link_id"]][result["trajectory_time"]]["downstream_value_freeflow_with_eps_t"] = result["downstream_value_freeflow_with_eps_t"]
-            cumulative_counts_dict[result["link_id"]][result["trajectory_time"]]["upstream_value_freeflow"] = result["upstream_value_freeflow"]
-            cumulative_counts_dict[result["link_id"]][result["trajectory_time"]]["downstream_value_freeflow"] = result["downstream_value_freeflow"]
-            cumulative_counts_dict[result["link_id"]][result["trajectory_time"]]["upstream_value_wavespeed_with_eps_x"] = result["upstream_value_wavespeed_with_eps_x"]
-            cumulative_counts_dict[result["link_id"]][result["trajectory_time"]]["downstream_value_wavespeed_with_eps_x"] = result["downstream_value_wavespeed_with_eps_x"]
-            cumulative_counts_dict[result["link_id"]][result["trajectory_time"]]["upstream_value_wavespeed_with_eps_t"] = result["upstream_value_wavespeed_with_eps_t"]
-            cumulative_counts_dict[result["link_id"]][result["trajectory_time"]]["downstream_value_wavespeed_with_eps_t"] = result["downstream_value_wavespeed_with_eps_t"]
-            cumulative_counts_dict[result["link_id"]][result["trajectory_time"]]["upstream_value_wavespeed"] = result["upstream_value_wavespeed"]
-            cumulative_counts_dict[result["link_id"]][result["trajectory_time"]]["downstream_value_wavespeed"] = result["downstream_value_wavespeed"]
+            if result["cell_id"] not in cumulative_counts_dict[result["link_id"]][result["trajectory_time"]]:
+                cumulative_counts_dict[result["link_id"]][result["trajectory_time"]][result["cell_id"]] = {}
+            cumulative_counts_dict[result["link_id"]][result["trajectory_time"]][result["cell_id"]]["x"] = result["x"]
+            cumulative_counts_dict[result["link_id"]][result["trajectory_time"]][result["cell_id"]]["link_length"] = result["link_length"]
+            cumulative_counts_dict[result["link_id"]][result["trajectory_time"]][result["cell_id"]]["upstream_value_freeflow_with_eps_x"] = result["upstream_value_freeflow_with_eps_x"]
+            cumulative_counts_dict[result["link_id"]][result["trajectory_time"]][result["cell_id"]]["downstream_value_freeflow_with_eps_x"] = result["downstream_value_freeflow_with_eps_x"]
+            cumulative_counts_dict[result["link_id"]][result["trajectory_time"]][result["cell_id"]]["upstream_value_freeflow_with_eps_t"] = result["upstream_value_freeflow_with_eps_t"]
+            cumulative_counts_dict[result["link_id"]][result["trajectory_time"]][result["cell_id"]]["downstream_value_freeflow_with_eps_t"] = result["downstream_value_freeflow_with_eps_t"]
+            cumulative_counts_dict[result["link_id"]][result["trajectory_time"]][result["cell_id"]]["upstream_value_freeflow"] = result["upstream_value_freeflow"]
+            cumulative_counts_dict[result["link_id"]][result["trajectory_time"]][result["cell_id"]]["downstream_value_freeflow"] = result["downstream_value_freeflow"]
+            cumulative_counts_dict[result["link_id"]][result["trajectory_time"]][result["cell_id"]]["upstream_value_wavespeed_with_eps_x"] = result["upstream_value_wavespeed_with_eps_x"]
+            cumulative_counts_dict[result["link_id"]][result["trajectory_time"]][result["cell_id"]]["downstream_value_wavespeed_with_eps_x"] = result["downstream_value_wavespeed_with_eps_x"]
+            cumulative_counts_dict[result["link_id"]][result["trajectory_time"]][result["cell_id"]]["upstream_value_wavespeed_with_eps_t"] = result["upstream_value_wavespeed_with_eps_t"]
+            cumulative_counts_dict[result["link_id"]][result["trajectory_time"]][result["cell_id"]]["downstream_value_wavespeed_with_eps_t"] = result["downstream_value_wavespeed_with_eps_t"]
+            cumulative_counts_dict[result["link_id"]][result["trajectory_time"]][result["cell_id"]]["upstream_value_wavespeed"] = result["upstream_value_wavespeed"]
+            cumulative_counts_dict[result["link_id"]][result["trajectory_time"]][result["cell_id"]]["downstream_value_wavespeed"] = result["downstream_value_wavespeed"]
             
         return cumulative_counts_dict
 
@@ -1423,6 +1429,7 @@ class DataLoader:
             return convert_keys_to_float(cumulative_counts_dict)
         
         cummulative_counts_df = pl.read_csv(cumulative_counts_file)
+        cummulative_counts_df = cummulative_counts_df
         args = []
         self.temp_df = {}
         self.ltm_epsilon = epsilon
@@ -1455,11 +1462,11 @@ class DataLoader:
                 results = pool.map(self._get_cumulative_count_ltm_for_multiprocessing, batch)
                 cumulative_counts_result.extend(results)
         
-
-
+        
         cumulative_counts_dict = self._cumulative_count_ltm_list_to_dict(cumulative_counts_result)
         with open(output_file_address, "w", encoding="utf-8") as f:
             json.dump(cumulative_counts_dict, f, indent=4)
+        
         return cumulative_counts_dict
     
     def activate_cumulative_dict_queue(self, location, date, time):
@@ -1915,7 +1922,25 @@ class DataLoader:
                     {
                         "link_id": link_id,
                         "trajectory_time": trajectory_time,
-                        "data": self.cumulative_counts_dict[link_id][trajectory_time],
+                        "upstream_value_freeflow_with_eps_x": self.cumulative_counts_dict[link_id][trajectory_time]["upstream_value_freeflow_with_eps_x"],
+                        "downstream_value_freeflow_with_eps_x": self.cumulative_counts_dict[link_id][trajectory_time]["downstream_value_freeflow_with_eps_x"],
+                        "upstream_value_freeflow_with_eps_t": self.cumulative_counts_dict[link_id][trajectory_time]["upstream_value_freeflow_with_eps_t"],
+                        "downstream_value_freeflow_with_eps_t": self.cumulative_counts_dict[link_id][trajectory_time]["downstream_value_freeflow_with_eps_t"],
+                        "upstream_value_freeflow": self.cumulative_counts_dict[link_id][trajectory_time]["upstream_value_freeflow"],
+                        "downstream_value_freeflow": self.cumulative_counts_dict[link_id][trajectory_time]["downstream_value_freeflow"],
+
+                        "upstream_value_wavespeed_with_eps_x": self.cumulative_counts_dict[link_id][trajectory_time]["upstream_value_wavespeed_with_eps_x"],
+                        "downstream_value_wavespeed_with_eps_x": self.cumulative_counts_dict[link_id][trajectory_time]["downstream_value_wavespeed_with_eps_x"],
+                        "upstream_value_wavespeed_with_eps_t": self.cumulative_counts_dict[link_id][trajectory_time]["upstream_value_wavespeed_with_eps_t"],
+                        "downstream_value_wavespeed_with_eps_t": self.cumulative_counts_dict[link_id][trajectory_time]["downstream_value_wavespeed_with_eps_t"],
+                        "upstream_value_wavespeed": self.cumulative_counts_dict[link_id][trajectory_time]["upstream_value_wavespeed"],
+                        "downstream_value_wavespeed": self.cumulative_counts_dict[link_id][trajectory_time]["downstream_value_wavespeed"],
+                        "cell_id": self.cumulative_counts_dict[link_id][trajectory_time]["cell_id"],
+                        "link_id": link_id,
+                        "trajectory_time": trajectory_time,
+                        "target_time": self.cumulative_counts_dict[link_id][trajectory_time]["target_time"],
+                        "x": self.cumulative_counts_dict[link_id][trajectory_time]["x"],
+                        "link_length": self.cumulative_counts_dict[link_id][trajectory_time]["link_length"],
                         "dt": self.params.dt,
                     }
                 )
