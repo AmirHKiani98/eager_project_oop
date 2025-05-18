@@ -217,6 +217,7 @@ class Plotter:
         Animation of the data
         """
         df = pd.read_csv(file_name)
+        df = df[df["track_id"] == 70]
         fig, ax = plt.subplots()
         scatter = ax.scatter([], [])
         x_min, x_max = df["lon"].min(), df["lon"].max()
@@ -233,13 +234,14 @@ class Plotter:
         unique_times = df["trajectory_time"].unique()
         # sort the times
         unique_times.sort()
+        unique_times = unique_times[(unique_times>40) & (unique_times<60)]
         unique_times = unique_times.tolist()
         print("Starting animation with ", len(unique_times), "frames.")
-        unique_times = unique_times[::10]
+        unique_times = unique_times[::1]
         def update(frame_index):
-            print(f"Frame {frame_index + 1}/{len(unique_times)}")
             current_time = unique_times[frame_index]
             frame = df[df["trajectory_time"] == current_time]
+            print(frame["link_id"].values[0], frame["cell_id"].values[0], frame["lon"].values[0], frame["lat"].values[0], current_time)  
             x = frame["lon"]
             y = frame["lat"]
             scatter.set_offsets(np.c_[x, y])
@@ -248,7 +250,7 @@ class Plotter:
             return scatter,
         ani = FuncAnimation(fig, update, frames=len(unique_times), blit=True)
 
-        ani.save("animation.gif", writer='imagemagick', fps=10)
+        ani.save("animation.gif", writer='imagemagick', fps=5)
         
 
         print("Animation saved as 'animation.gif'.")

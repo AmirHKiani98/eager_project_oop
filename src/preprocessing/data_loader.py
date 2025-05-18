@@ -362,7 +362,7 @@ class DataLoader:
             elif field_index == 4:
                 data["lat_acc"].append(item)
             elif field_index == 5:
-                data["trajectory_time"].append(item)
+                data["trajectory_time"].append(str(round(float(item), 2)))
                 data["track_id"].append(track_id)
                 data["veh_type"].append(veh_type)
                 data["traveled_d"].append(traveled_d)
