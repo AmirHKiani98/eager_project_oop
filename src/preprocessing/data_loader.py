@@ -1923,6 +1923,9 @@ class DataLoader:
         for link_id, cell_dict in self.cumulative_counts_dict.items(): # type: ignore
             for trajectory_time, data in cell_dict.items():
                 for cell_id, cell in self.geo_loader.links[link_id].cells.items():
+                    if cell_id - 1 >= len(self.next_timestamp_occupancy_dict[link_id][trajectory_time]["next_occupancy"]):
+                        continue
+
                     tasks.append(
                         {
                             "link_id": link_id,

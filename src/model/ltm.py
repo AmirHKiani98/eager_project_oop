@@ -113,7 +113,15 @@ class LTM(TrafficModel):
             link_length=args["link_length"],
             jam_density=args["jam_density_link"]
         )
-        density = 
+        density = (n1 - n2)/eps
+        flow = -(n1 - n3)/eps
         return {
-            
+            "density": density,
+            "flow": flow,
+            "link_id": args["link_id"],
+            "trajectory_time": args["trajectory_time"],
+            "cell_id": args["cell_id"],
+            "new_occupancy": args["new_occupancy"],
+            "link_length": args["link_length"],
+            "x": args["x"]
         }
