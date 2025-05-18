@@ -93,7 +93,7 @@ def test_density_exit_entered(sample_fully_modified_dataframe_path, simple_geo_l
     dl.time_interval = 0.04
     # Call the function with the sample DataFrame
 
-    result = dl.get_density_entry_exist_df(sample_fully_modified_dataframe_path)
+    result = dl.get_density_entry_exit_df(sample_fully_modified_dataframe_path)
     cell_length = simple_geo_loader.cell_length
     # Check density at time 0, link 5, cell 2
     density_row = result.filter(

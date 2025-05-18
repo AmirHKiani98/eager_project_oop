@@ -1074,8 +1074,8 @@ class DataLoader:
             link_id, trajectory_time = name[0], name[1]
             trajectory_time = round(float(str(trajectory_time)), 2)
 
-            first_cell_entry = group["entry_count"].first()
-            last_cell_exit = group["exit_count"].last()
+            first_cell_entry = group["entry_count"].sum()
+            last_cell_exit = group["exit_count"].sum()
             current_number_of_vehicles = group["on_cell"].sum()
             cumulative_counts_data.append({
                 "link_id": link_id,
@@ -1196,7 +1196,7 @@ class DataLoader:
                 
             return convert_keys_to_float(first_cell_inflow_dict)
 
-        df = pl.read_parquet(file_address).filter(
+        df = pl.read_csv(file_address).filter(
             pl.col("cell_id") == 1
         )
         df = df.sort(["link_id", "trajectory_time"])
@@ -1205,6 +1205,7 @@ class DataLoader:
         num_groups = df.select(["link_id"]).unique().height
 
         for link_id, group in tqdm(groups, total=num_groups, desc="Finding first cell inflow"):
+            
             link_id = link_id[0] if isinstance(link_id, (list, tuple)) else link_id
             link_first_cell_inflow_dict = {
                 round(t, 2): group.filter(
@@ -1406,7 +1407,7 @@ class DataLoader:
                 "for processing occupancy"
             )
 
-        occupancy_df = pl.read_parquet(occupancy_df)
+        occupancy_df = pl.read_csv(occupancy_df)
         # For each timestamp (not timestep), get the occupancy of the next timestep(not timestamp)
         # Timestep is self.params.dt
         # Find the closest timestamp to the next timestep in the same link.
@@ -1603,9 +1604,7 @@ class DataLoader:
                         "cell_capacities": deepcopy(cell_capacities[link_id]),
                         "next_occupancy": occupancy_list["next_occupancy"],
                         "max_flows": deepcopy(max_flows[link_id]),
-                        "first_cell_inflow": self.first_cell_inflow_dict[link_id][
-                            trajectory_time
-                        ],
+                        "first_cell_inflow": self.first_cell_inflow_dict[link_id].get(trajectory_time, 0), # nbbi: This part might be causing errors!
                         "link_id": link_id,
                         "is_tl": self.is_tl(link_id),
                         "tl_status": self.tl_status(trajectory_time, link_id),
