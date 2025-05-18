@@ -100,8 +100,11 @@ class DataLoader:
         self.cell_entries_dict = {}
         self.first_cell_inflow_dict = {}
         self.next_timestamp_occupancy_dict = {}
+        self.cumulative_counts_dict = {}
         self.cell_exits_dict = {}
         self.tasks = {}
+        self.ltm_epsilon = None
+        self.temp_df = None
         self.df = pl.DataFrame({})
         self._validate_inputs()
         self._download_all_files()
@@ -680,13 +683,7 @@ class DataLoader:
             # Printing type of trajectory_time
             
 
-            # group = fill_missing_timestamps(
-            #     group,
-            #     "trajectory_time",
-            #     self.time_interval,
-            #     min_time, # type: ignore
-            #     max_time # type: ignore
-            # )
+            
             # Get previous list of vehicles
             group = group.with_columns([
                 pl.col("vehicle_ids").shift(1).alias("prev_vehicles"),
@@ -1284,8 +1281,127 @@ class DataLoader:
             json.dump(cumulative_counts_dict, f, indent=4)
         
         return cumulative_counts_dict
+    def _get_cumulative_count_ltm_for_multiprocessing(self, args):
+        """
+        For multiprocessing LTM.
 
-    def get_cumulative_count_ltm(self, location, date, time):
+        Required arguments: x, time, link_id, cell_id, link_length
+        """
+        # Requires: x, time, link_id, cell_id, link_length
+        for arg in ["x", "time", "link_id", "cell_id", "link_length"]:
+            if arg not in args:
+                raise ValueError(f"Missing argument: {arg}")
+        x = args["x"]
+        time = args["time"]
+        link_id = args["link_id"]
+        cell_id = args["cell_id"]
+        link_length = args["link_length"]
+        
+        if self.ltm_epsilon is None:
+            raise ValueError("LTM epsilon is not set.")
+        if self.temp_df is None:
+            raise ValueError("Temp DataFrame is not set.")
+        time_units = time * Units.S
+        x = x * Units.M
+        epsilon_x = self.ltm_epsilon * Units.M
+        epsilon_t = self.ltm_epsilon * Units.S
+        link_length = link_length * Units.M
+        # freeflow with epsilon location
+        target_time_freeflow_with_eps_x = time_units + self.params.dt - ((x+epsilon_x)/self.params.free_flow_speed)
+        upstream_value_freeflow_with_eps_x, downstream_value_freeflow_with_eps_x = self.get_cummulative_counts(
+            self.temp_df[link_id],
+            target_time_freeflow_with_eps_x
+        )
+        # freeflow with epsilon horizon
+        target_value_freeflow_with_eps_t = time_units + (self.params.dt + epsilon_t) - (x / self.params.free_flow_speed)
+        upstream_value_freeflow_with_eps_t, downstream_value_freeflow_with_eps_t = self.get_cummulative_counts(
+            self.temp_df[link_id],
+            target_value_freeflow_with_eps_t
+        )
+
+        target_time_freeflow = (time_units + self.params.dt - (x / self.params.free_flow_speed))
+        upstream_value_freeflow, downstream_value_freeflow = self.get_cummulative_counts(
+            self.temp_df[link_id],
+            target_time_freeflow
+        )
+
+        # freeflow without epsilon
+        target_time_freeflow = (time_units + self.params.dt - (x / self.params.free_flow_speed))
+        upstream_value_freeflow, downstream_value_freeflow = self.get_cummulative_counts(
+            self.temp_df[link_id],
+            target_time_freeflow
+        )
+        
+
+        # wave with epsilon location
+        target_time_wavespeed_with_eps_x = (self.params.wave_speed * self.params.dt + (x+epsilon_x) - link_length) / self.params.wave_speed
+        upstream_value_wavespeed_with_eps_x, downstream_value_wavespeed_with_eps_x = self.get_cummulative_counts(
+            self.temp_df[link_id],
+            target_time_wavespeed_with_eps_x
+        )
+        # wave with epsilon horizon
+        target_time_wavespeed_with_eps_t = (self.params.wave_speed * (self.params.dt + epsilon_t) + (x) - link_length) / self.params.wave_speed
+        upstream_value_wavespeed_with_eps_t, downstream_value_wavespeed_with_eps_t = self.get_cummulative_counts(
+            self.temp_df[link_id],
+            target_time_wavespeed_with_eps_t
+        )
+        # wave without epsilon
+        target_time_wavespeed = (self.params.wave_speed * self.params.dt + (x) - link_length) / self.params.wave_speed
+        upstream_value_wavespeed, downstream_value_wavespeed = self.get_cummulative_counts(
+            self.temp_df[link_id],
+            target_time_wavespeed
+        )
+        return {
+            "upstream_value_freeflow_with_eps_x": upstream_value_freeflow_with_eps_x,
+            "downstream_value_freeflow_with_eps_x": downstream_value_freeflow_with_eps_x,
+            "upstream_value_freeflow_with_eps_t": upstream_value_freeflow_with_eps_t,
+            "downstream_value_freeflow_with_eps_t": downstream_value_freeflow_with_eps_t,
+            "upstream_value_freeflow": upstream_value_freeflow,
+            "downstream_value_freeflow": downstream_value_freeflow,
+
+            "upstream_value_wavespeed_with_eps_x": upstream_value_wavespeed_with_eps_x,
+            "downstream_value_wavespeed_with_eps_x": downstream_value_wavespeed_with_eps_x,
+            "upstream_value_wavespeed_with_eps_t": upstream_value_wavespeed_with_eps_t,
+            "downstream_value_wavespeed_with_eps_t": downstream_value_wavespeed_with_eps_t,
+            "upstream_value_wavespeed": upstream_value_wavespeed,
+            "downstream_value_wavespeed": downstream_value_wavespeed,
+            "cell_id": cell_id,
+            "link_id": link_id,
+            "trajectory_time": time,
+            "target_time": (time_units + self.params.dt - (x / self.params.free_flow_speed)).to(Units.S).value,
+            "x": x.to(Units.M).value,
+            "link_length": link_length.to(Units.M).value
+            
+        }
+    
+    def _cumulative_count_ltm_list_to_dict(self, cumulative_counts_result_list):
+        
+
+        cumulative_counts_dict = {}
+        for result in cumulative_counts_result_list:
+            if result["link_id"] not in cumulative_counts_dict:
+                cumulative_counts_dict[result["link_id"]] = {}
+            if result["trajectory_time"] not in cumulative_counts_dict[result["link_id"]]:
+                cumulative_counts_dict[result["link_id"]][result["trajectory_time"]] = {}
+            cumulative_counts_dict[result["link_id"]][result["trajectory_time"]]["target_time"] = result["target_time"]
+            cumulative_counts_dict[result["link_id"]][result["trajectory_time"]]["x"] = result["x"]
+            cumulative_counts_dict[result["link_id"]][result["trajectory_time"]]["link_length"] = result["link_length"]
+            cumulative_counts_dict[result["link_id"]][result["trajectory_time"]]["upstream_value_freeflow_with_eps_x"] = result["upstream_value_freeflow_with_eps_x"]
+            cumulative_counts_dict[result["link_id"]][result["trajectory_time"]]["downstream_value_freeflow_with_eps_x"] = result["downstream_value_freeflow_with_eps_x"]
+            cumulative_counts_dict[result["link_id"]][result["trajectory_time"]]["upstream_value_freeflow_with_eps_t"] = result["upstream_value_freeflow_with_eps_t"]
+            cumulative_counts_dict[result["link_id"]][result["trajectory_time"]]["downstream_value_freeflow_with_eps_t"] = result["downstream_value_freeflow_with_eps_t"]
+            cumulative_counts_dict[result["link_id"]][result["trajectory_time"]]["upstream_value_freeflow"] = result["upstream_value_freeflow"]
+            cumulative_counts_dict[result["link_id"]][result["trajectory_time"]]["downstream_value_freeflow"] = result["downstream_value_freeflow"]
+            cumulative_counts_dict[result["link_id"]][result["trajectory_time"]]["upstream_value_wavespeed_with_eps_x"] = result["upstream_value_wavespeed_with_eps_x"]
+            cumulative_counts_dict[result["link_id"]][result["trajectory_time"]]["downstream_value_wavespeed_with_eps_x"] = result["downstream_value_wavespeed_with_eps_x"]
+            cumulative_counts_dict[result["link_id"]][result["trajectory_time"]]["upstream_value_wavespeed_with_eps_t"] = result["upstream_value_wavespeed_with_eps_t"]
+            cumulative_counts_dict[result["link_id"]][result["trajectory_time"]]["downstream_value_wavespeed_with_eps_t"] = result["downstream_value_wavespeed_with_eps_t"]
+            cumulative_counts_dict[result["link_id"]][result["trajectory_time"]]["upstream_value_wavespeed"] = result["upstream_value_wavespeed"]
+            cumulative_counts_dict[result["link_id"]][result["trajectory_time"]]["downstream_value_wavespeed"] = result["downstream_value_wavespeed"]
+            
+        return cumulative_counts_dict
+
+    def get_cumulative_count_ltm(self, location, date, time, epsilon = 0.01):
         """
         Returns the cumulative counts for the specified location, date, and time.
         """
@@ -1298,52 +1414,50 @@ class DataLoader:
         output_file_address = (
             self.params.cache_dir + "/" +
             self._get_filename(location, date, time) +
-            "_cumulative_count_ltm_" + self.params.get_hash_str(["dt", "free_flow_speed", "wave_speed"]) + "_" +
+            f"_cumulative_count_ltm_epsilon_{epsilon}" + self.params.get_hash_str(["dt", "free_flow_speed", "wave_speed"]) + "_" +
             self.geo_loader.get_hash_str() + ".json"
         )
         if os.path.isfile(output_file_address):
             with open(output_file_address, "r", encoding="utf-8") as f:
                 cumulative_counts_dict = json.load(f)
-                
             return convert_keys_to_float(cumulative_counts_dict)
         
-        cumulative_counts_df = pl.read_csv(cumulative_counts_file)
-        cumulative_counts_df_for_sending_flow = self.get_cummulative_counts_based_on_t(
-            cumulative_counts_df,
-            link_based_t={
-                    link.link_id: self.params.dt - (link.get_length() / self.params.free_flow_speed)
-                    for link_id, link in self.geo_loader.links.items()
-                }
-            )
+        cummulative_counts_df = pl.read_csv(cumulative_counts_file)
+        args = []
+        self.temp_df = {}
+        self.ltm_epsilon = epsilon
+        for link_id, link in tqdm(self.geo_loader.links.items(), desc="Calculating cumulative counts for LTM", total=len(self.geo_loader.links)):
+            link_df = cummulative_counts_df.filter(
+                pl.col("link_id") == link_id
+            ).sort(["trajectory_time"])
+            self.temp_df[link_id] = link_df
+            trajectory_time = link_df["trajectory_time"].unique().to_numpy()
+            for raw_time in tqdm(trajectory_time, total=len(trajectory_time), desc=f"Calculating cumulative counts for LTM for link {link_id}"):
+                x = 0
+                for cell_id, cell in link.cells.items():
+                    x += cell.get_length().to(Units.M).value
+                    args.append({
+                        "x": x,
+                        "time": raw_time,
+                        "link_id": link_id,
+                        "cell_id": cell_id,
+                        "link_length": link.get_length().to(Units.M).value
+                    })
+        # Multiprocessing with batch
+        batch_size = 10000
+        cumulative_counts_result = []
+        with Pool(processes=int(cpu_count() / 2)) as pool:
+            for batch in tqdm(
+                chunked(args, batch_size),
+                total=(len(args) // batch_size) + 1,
+                desc="Finding cumulative counts for LTM"
+            ):
+                results = pool.map(self._get_cumulative_count_ltm_for_multiprocessing, batch)
+                cumulative_counts_result.extend(results)
         
-        cumulative_counts_df_for_receiving_flow = self.get_cummulative_counts_based_on_t(
-            cumulative_counts_df,
-            link_based_t={
-                    link.link_id: self.params.dt - (link.get_length() / self.params.wave_speed)
-                    for link_id, link in self.geo_loader.links.items()
-                }
-            )
-        cumulative_counts_dict = {}
-        for row in cumulative_counts_df_for_sending_flow.iter_rows(named=True):
-            if row["link_id"] not in cumulative_counts_dict:
-                cumulative_counts_dict[row["link_id"]] = {}
-            if row["trajectory_time"] not in cumulative_counts_dict[row["link_id"]]:
-                cumulative_counts_dict[row["link_id"]][row["trajectory_time"]] = {}
-            cumulative_counts_dict[row["link_id"]][row["trajectory_time"]]["target_time"] = row["target_time"]
-            cumulative_counts_dict[row["link_id"]][row["trajectory_time"]]["cummulative_count_upstream_offset"] = row["cummulative_count_upstream_offset"]
-            cumulative_counts_dict[row["link_id"]][row["trajectory_time"]]["cummulative_count_downstream"] = row["cummulative_count_downstream"]
-            cumulative_counts_dict[row["link_id"]][row["trajectory_time"]]["cummulative_count_upstream"] = row["cummulative_count_upstream"]
-            cumulative_counts_dict[row["link_id"]][row["trajectory_time"]]["entry_count"] = row["entry_count"]
-            cumulative_counts_dict[row["link_id"]][row["trajectory_time"]]["current_number_of_vehicles"] = row["current_number_of_vehicles"]
 
 
-        for row in cumulative_counts_df_for_receiving_flow.iter_rows(named=True):
-            if row["link_id"] not in cumulative_counts_dict:
-                cumulative_counts_dict[row["link_id"]] = {}
-            if row["trajectory_time"] not in cumulative_counts_dict[row["link_id"]]:
-                cumulative_counts_dict[row["link_id"]][row["trajectory_time"]] = {}
-            cumulative_counts_dict[row["link_id"]][row["trajectory_time"]]["cummulative_count_downstream_offset"] = row["cummulative_count_downstream_offset"]
-        
+        cumulative_counts_dict = self._cumulative_count_ltm_list_to_dict(cumulative_counts_result)
         with open(output_file_address, "w", encoding="utf-8") as f:
             json.dump(cumulative_counts_dict, f, indent=4)
         return cumulative_counts_dict
@@ -1474,7 +1588,37 @@ class DataLoader:
         with open(file_address, "w", encoding="utf-8") as f:
             json.dump(occcupancy_ground_truths, f, indent=4)
         return occcupancy_ground_truths
+    def get_cummulative_counts(self,
+                               link_df: pl.DataFrame,
+                               target_time: Units.Quantity,
+                               ):
+        """
+        For Point Queue and Spatial Queue.
+        """
+        # nbbi: Needs test
+        if not isinstance(target_time, Units.Quantity):
+            raise ValueError(f"target_time should be a Units.Quantity object. Got {type(target_time)}")
+        target_time_value = target_time.to(Units.S).value
+        link_df_unique_links = link_df.select("link_id").unique()
+        if len(link_df_unique_links) != 1:
+            raise ValueError(f"Link ID should be unique. Got {link_df_unique_links}")
+        
+        all_trajectory_times = link_df["trajectory_time"].to_numpy()
+        closest_index = np.searchsorted(all_trajectory_times, target_time_value)
+        if closest_index == len(all_trajectory_times) - 1:
+            cummulative_count_upstream = 0.0
+            cummulative_count_downstream = 0.0
+        else:
+            cummulative_count_upstream = link_df.filter(
+                pl.col("trajectory_time") == all_trajectory_times[closest_index]
+            )["cumulative_link_entry"].first()
+            cummulative_count_downstream = link_df.filter(
+                pl.col("trajectory_time") == all_trajectory_times[closest_index]
+            )["cumulative_link_exit"].first()
+        
+        return cummulative_count_upstream, cummulative_count_downstream
 
+        
     def get_cummulative_counts_based_on_t(self, cumulative_counts_df: pl.DataFrame, t: Optional[Units.Quantity] = None, link_based_t: Optional[dict] = None) -> pl.DataFrame:
         """
         For Point Queue and Spatial Queue.
@@ -1503,6 +1647,7 @@ class DataLoader:
             group = group.with_columns(group["trajectory_time"].cast(pl.Float64).round(2))
             link_id = link_id[0] if isinstance(link_id, (list, tuple)) else link_id
             group = group.sort(["trajectory_time"])
+            all_trajectory_times = group["trajectory_time"].to_numpy()
             for row in group.iter_rows(named=True):
                 trajectory_time = round(row["trajectory_time"], 2)
                 
@@ -1521,17 +1666,19 @@ class DataLoader:
                         raise ValueError("At least one of t or link_based_t should be provided.")
                     target_time = (trajectory_time * Units.S) + t
                 target_time = round(target_time.to(Units.S).value, 2)
+
                 if not isinstance(target_time, float):
                     target_time = float(target_time)
-                if target_time not in group["trajectory_time"]:
+                closest_index = np.searchsorted(all_trajectory_times, target_time)
+                if closest_index == len(all_trajectory_times) - 1:
                     cummulative_count_upstream_offset = 0.0
                     cummulative_count_downstream_offset = 0.0
                 else:
                     cummulative_count_upstream_offset = group.filter(
-                        pl.col("trajectory_time") == target_time
+                        pl.col("trajectory_time") == all_trajectory_times[closest_index]
                     )["cumulative_link_entry"].first()
                     cummulative_count_downstream_offset = group.filter(
-                        pl.col("trajectory_time") == target_time
+                        pl.col("trajectory_time") == all_trajectory_times[closest_index]
                     )["cumulative_link_exit"].first()
                 
                 cumulative_downstream = row["cumulative_link_exit"]
@@ -1542,6 +1689,7 @@ class DataLoader:
                 final_cummulative_counts["cummulative_count_upstream_offset"].append(
                     cummulative_count_upstream_offset
                 )
+
                 final_cummulative_counts["cummulative_count_downstream_offset"].append(
                     cummulative_count_downstream_offset
                 )
@@ -1650,7 +1798,7 @@ class DataLoader:
                 self.tasks[index]["q_max_down"] = self.tasks[index]["q_max_down"] * Units.PER_HR
             return
         tasks = []
-        for link_id, cell_dict in self.cumulative_counts_dict.items():
+        for link_id, cell_dict in self.cumulative_counts_dict.items(): # type: ignore
             for trajectory_time, data in cell_dict.items():
                 tasks.append(
                     {
@@ -1707,7 +1855,7 @@ class DataLoader:
                 self.tasks[index]["link_length"] = self.tasks[index]["link_length"] * Units.M
             return
         tasks = []
-        for link_id, cell_dict in self.cumulative_counts_dict.items():
+        for link_id, cell_dict in self.cumulative_counts_dict.items(): # type: ignore
             for trajectory_time, data in cell_dict.items():
                 tasks.append(
                     {
@@ -1765,7 +1913,7 @@ class DataLoader:
                 self.tasks[index]["link_length"] = self.tasks[index]["link_length"] * Units.M
             return
         tasks = []
-        for link_id, cell_dict in self.cumulative_counts_dict.items():
+        for link_id, cell_dict in self.cumulative_counts_dict.items(): # type: ignore
             for trajectory_time, data in cell_dict.items():
                 tasks.append(
                     {
@@ -1818,6 +1966,13 @@ class DataLoader:
                 fp_date,
                 fp_time
             )
+        elif class_name == "LTM":
+            self.prepare_ltm_tasks(
+                fp_location,
+                fp_date,
+                fp_time
+            )
+
         else:
             raise ValueError(f"Unknown class name: {class_name}")
 

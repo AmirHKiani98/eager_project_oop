@@ -11,6 +11,7 @@ import polars as pl
 from src.model.ctm import CTM
 from src.model.point_queue import PointQueue
 from src.model.spatial_queue import SpatialQueue
+from src.model.ltm import LTM
 from src.model.params import Parameters
 from src.preprocessing.data_loader import DataLoader
 from src.preprocessing.geo_loader import GeoLoader
@@ -154,6 +155,22 @@ def main():
         else:
             dl.prepare("SpatialQueue", args.fp_location, args.fp_date, args.fp_time)
             model.run_calibration(num_processes=num_processes, batch_size=batch_size)
+    elif args.model == "ltm":
+        model = LTM(
+            dl=dl,
+            fp_location=args.fp_location,
+            fp_date=args.fp_date,
+            fp_time=args.fp_time,
+        )
+        num_processes = cpu_count()
+        if not args.calibration:
+            model.run_with_multiprocessing(num_processes=num_processes, batch_size=batch_size)
+        else:
+            dl.prepare("LTM", args.fp_location, args.fp_date, args.fp_time)
+            model.run_calibration(num_processes=num_processes, batch_size=batch_size)
+
+    else:
+        raise ValueError(f"Model {args.model} not supported")
 
 if __name__ == "__main__":
     main()
