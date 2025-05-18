@@ -1414,7 +1414,7 @@ class DataLoader:
         output_file_address = (
             self.params.cache_dir + "/" +
             self._get_filename(location, date, time) +
-            f"_cumulative_count_ltm_epsilon_{epsilon}" + self.params.get_hash_str(["dt", "free_flow_speed", "wave_speed"]) + "_" +
+            f"_cumulative_count_ltm_epsilon_{epsilon}_" + self.params.get_hash_str(["dt", "free_flow_speed", "wave_speed"]) + "_" +
             self.geo_loader.get_hash_str() + ".json"
         )
         if os.path.isfile(output_file_address):
@@ -1426,13 +1426,13 @@ class DataLoader:
         args = []
         self.temp_df = {}
         self.ltm_epsilon = epsilon
-        for link_id, link in tqdm(self.geo_loader.links.items(), desc="Calculating cumulative counts for LTM", total=len(self.geo_loader.links)):
+        for link_id, link in tqdm(self.geo_loader.links.items(), desc="Preparing args for", total=len(self.geo_loader.links)):
             link_df = cummulative_counts_df.filter(
                 pl.col("link_id") == link_id
             ).sort(["trajectory_time"])
             self.temp_df[link_id] = link_df
             trajectory_time = link_df["trajectory_time"].unique().to_numpy()
-            for raw_time in tqdm(trajectory_time, total=len(trajectory_time), desc=f"Calculating cumulative counts for LTM for link {link_id}"):
+            for raw_time in tqdm(trajectory_time, total=len(trajectory_time), desc=f"Preparing args for for link {link_id}"):
                 x = 0
                 for cell_id, cell in link.cells.items():
                     x += cell.get_length().to(Units.M).value
@@ -1907,34 +1907,26 @@ class DataLoader:
             self.tasks = json.load(open(file_address, "r", encoding="utf-8"))
             for index in range(len(self.tasks)):
                 self.tasks[index]["dt"] = self.tasks[index]["dt"] * Units.S
-                self.tasks[index]["q_max_up"] = self.tasks[index]["q_max_up"] * Units.PER_HR
-                self.tasks[index]["q_max_down"] = self.tasks[index]["q_max_down"] * Units.PER_HR
-                self.tasks[index]["k_j"] = self.tasks[index]["k_j"] * Units.PER_KM
-                self.tasks[index]["link_length"] = self.tasks[index]["link_length"] * Units.M
             return
         tasks = []
         for link_id, cell_dict in self.cumulative_counts_dict.items(): # type: ignore
             for trajectory_time, data in cell_dict.items():
                 tasks.append(
                     {
-                        "q_max_up": self.params.q_max,
-                        "q_max_down": self.params.q_max,
-                        "next_occupancy": sum(self.next_timestamp_occupancy_dict[link_id][trajectory_time]["next_occupancy"]),
-                        "cummulative_count_upstream_offset_for_sending_flow": data["cummulative_count_upstream_offset"],
-                        "cummulative_count_downstream_receiving_flow": data["cummulative_count_downstream_offset"],
-                        "cummulative_count_upstream": data["cummulative_count_upstream"],
-                        "cummulative_count_downstream": data["cummulative_count_downstream"],
-                        "current_number_of_vehicles": data["current_number_of_vehicles"],
-                        "dt": self.params.dt,
-                        "trajectory_time": trajectory_time,
-                        "tl_status": self.tl_status(trajectory_time, link_id),
                         "link_id": link_id,
-                        "k_j": self.params.jam_density_link,
-                        "link_length": self.geo_loader.links[link_id].get_length(),
-                        "entry_count": data["entry_count"],
+                        "trajectory_time": trajectory_time,
+                        "data": self.cumulative_counts_dict[link_id][trajectory_time],
+                        "dt": self.params.dt,
                     }
                 )
-
+        self.tasks = tasks
+        with open(file_address, "w", encoding="utf-8") as f:
+            copy_tasks = deepcopy(tasks)
+            for index in range(len(copy_tasks)):
+                copy_tasks[index]["dt"] = copy_tasks[index]["dt"].to(Units.S).value
+            json.dump(copy_tasks, f, indent=4)
+        self.destruct()
+        self.tasks = tasks
     def prepare(self, class_name: str, fp_location: str, fp_date: str, fp_time: str):
         """
         Prepares the data for the specified class name.
