@@ -8,10 +8,13 @@ import polars as pl
 import seaborn as sns
 from matplotlib import pyplot as plt
 from matplotlib.animation import FuncAnimation
+import matplotlib
 import pandas as pd
 import numpy as np
 from shapely.geometry import Point as POINT
 from src.preprocessing.geo_loader import GeoLoader
+from src.common_utility.units import Units
+matplotlib.set_loglevel("warning")
 class Plotter:
     """
     A class for visualizing data using various plotting libraries.
@@ -22,7 +25,7 @@ class Plotter:
             Generates a plot of the data. This is a placeholder method and should be
             implemented using a plotting library such as matplotlib or seaborn.
     """
-    def __init__(self, cache_dir: str, geo_loader: GeoLoader, traffic_model: str = "CTM"):
+    def __init__(self, cache_dir: str, geo_loader: GeoLoader):
         """
         Initializes the Plotter with the cache directory.
 
@@ -31,18 +34,12 @@ class Plotter:
             traffic_model (str): The traffic model to be used for visualization.
         """
         self.cache_dir = cache_dir
-        self.traffic_model = traffic_model
         self.geo_loader = geo_loader
-        os.makedirs(self.cache_dir + f"/results/{self.traffic_model}", exist_ok=True)
-
-    def set_traffic_model_name(self, traffic_model: str):
-        """
-        Set the traffic model name.
-
-        Args:
-            traffic_model (str): The name of the traffic model.
-        """
-        self.traffic_model = traffic_model
+        self.link_lengths = {
+            link_id: link.get_length().to(Units.M).value
+            for link_id, link in self.geo_loader.links.items()
+        }
+        
 
     def get_parameters(self, file_name: str):
         """
@@ -62,26 +59,42 @@ class Plotter:
         else:
             raise FileNotFoundError(f"Parameters file not found: {path_to_params_file}")
         
-    def plot_rmse_point_queue_spatial_queue(self, file_name: str):
+    def plot_error_point_queue_spatial_queue(self,
+                                             data_file_name: str,
+            hash_parmas: str,
+            hash_geo: str,
+            traffic_model: str):
         """
         Find RMSE from the file name.
 
         Args:
-            file_name (str): The name of the file to extract RMSE from.
+            data_file_name (str): The name of the file to extract parameters from.
+            hash_parmas (str): The hash of the parameters.
+            hash_geo (str): The hash of the geo.
+            traffic_model (str): The name of the traffic model.
         """
         
-        if not os.path.exists(file_name):
-            raise FileNotFoundError(f"File not found: {file_name}")\
         
-        data = pl.read_json(file_name)
+        
+        file_name = f"{self.cache_dir}/{traffic_model}/{data_file_name}_{hash_geo}_{hash_parmas}.json"
+        if not os.path.exists(file_name):
+            raise FileNotFoundError(f"File not found: {file_name}")
+        data = pl.read_json(
+            file_name
+        )
+        
+        data = data.with_columns(
+            pl.col("link_id").cast(pl.Int64).replace(self.link_lengths).alias("link_length")
+        )
         rmse_data = data.group_by(["link_id", "trajectory_time"]).agg(
-            ((pl.col("receiving_flow")-pl.col("outflow")) - pl.col("next_occupancy")).pow(2).mean().alias("rmse")
+            (((pl.col("receiving_flow") - pl.col("outflow")) - pl.col("next_occupancy")) /
+             (pl.col("link_length"))).pow(2).mean().alias("rmse")
         )
         rmse_data = rmse_data.filter(
             # pl.col('rmse') < 20
         )
         
-        folder_path = f"{self.cache_dir}/results/{self.traffic_model}/{self.get_base_name_without_extension(file_name)}"
+        folder_path = f"{self.cache_dir}/results/{traffic_model}/{self.get_base_name_without_extension(file_name)}"
         os.makedirs(folder_path, exist_ok=True)
         
         rmse_data_min = rmse_data["rmse"].min()
@@ -92,7 +105,7 @@ class Plotter:
 
         # Convert Polars DataFrame to Pandas DataFrame for seaborn compatibility
         rmse_data_pd = rmse_data.to_pandas()
-
+        rmse_data_pd["link_id"] = rmse_data_pd["link_id"].astype(int)
         # Pivot the data for heatmap
         heatmap_data = rmse_data_pd.pivot(index="trajectory_time", columns="link_id", values="rmse")
 
@@ -128,9 +141,9 @@ class Plotter:
         
         data = pl.read_json(file_name)
         groups = data.group_by(["link_id"])
-        folder_path = f"{self.cache_dir}/results/{self.traffic_model}/{self.get_base_name_without_extension(file_name)}"
-        if not os.path.exists(folder_path):
-            os.makedirs(folder_path)
+        figure_path = f"{self.cache_dir}/results/{self.get_base_name_without_extension(file_name)}/{traffic_model}.png"
+        if not os.path.exists(os.path.dirname(figure_path)):
+            os.makedirs(os.path.dirname(figure_path))
         for name, group in groups:
             link_id = name[0]
             group = group.sort("trajectory_time")
@@ -139,20 +152,30 @@ class Plotter:
             plt.figure(figsize=(8, 6))
             sns.heatmap(group, annot=True, fmt=".1f", cmap="RdYlGn_r", cbar=False)
             plt.title(f"Heatmap for Link ID: {link_id}")
-            plt.savefig(folder_path + f"/heatmap_link_{link_id}_{self.get_base_name_without_extension(file_name)}.png")
+            plt.savefig(figure_path)
             plt.close()
     
-    def plot_sns_heatmap_point_queue_spatial_queue(self, file_name: str):
+    def plot_sns_heatmap_point_queue_spatial_queue(self,
+                                                   data_file_name: str,
+                                                   hash_parmas: str,
+                                                   hash_geo: str,
+                                                   traffic_model: str):
         """
         Plotting the heatmap using seaborn.
         Args:
-            file_name (str): The name of the file to plot.
+            data_file_name (str): The name of the file to plot.
+            hash_parmas (str): The hash of the parameters.
+            hash_geo (str): The hash of the geo.
+            traffic_model (str): The name of the traffic model.
         """
-        data = pl.read_json(file_name)
+        file_name = f"{self.cache_dir}/{traffic_model}/{data_file_name}_{hash_geo}_{hash_parmas}.json"
+        data = pl.read_json(
+            file_name
+        )
         
-        folder_path = f"{self.cache_dir}/results/{self.traffic_model}/{self.get_base_name_without_extension(file_name)}"
-        if not os.path.exists(folder_path):
-            os.makedirs(folder_path)
+        figure_path = f"{self.cache_dir}/results/{self.get_base_name_without_extension(file_name)}/{traffic_model}.png"
+        if not os.path.exists(os.path.dirname(figure_path)):
+            os.makedirs(os.path.dirname(figure_path))
         
         data = data.with_columns(
             ((pl.col("receiving_flow") - pl.col("sending_flow")) - pl.col("next_occupancy")).alias("error")
@@ -181,7 +204,7 @@ class Plotter:
         plt.xlabel("Link ID")
         plt.ylabel("Trajectory Time")
         plt.tight_layout()
-        plt.savefig("error_heatmap.png")
+        plt.savefig(figure_path)
             
         
 
@@ -265,10 +288,12 @@ if __name__ == "__main__":
     params_hash = "dcca17e9025816395dbe6a5a465c2450"
     geo_hash = "682a48de"
     traffic_model_name = "PointQueue"
-    plotter = Plotter(cache_dir=".cache", geo_loader=model_geo_loader, traffic_model=traffic_model_name)
-    try:
-        # plotter.animation(f".cache/{data_file_name}_fully_process_vehicles_{geo_hash}.csv")
-        # print("Heatmap generated and saved successfully.")
-        plotter.plot_rmse_point_queue_spatial_queue(f".cache/{traffic_model_name}/{data_file_name}_{geo_hash}_{params_hash}.json")
-    except Exception as e:
-        print(f"An error occurred: {e}")
+    plotter = Plotter(cache_dir=".cache", geo_loader=model_geo_loader)
+    # plotter.animation(f".cache/{data_file_name}_fully_process_vehicles_{geo_hash}.csv")
+    # print("Heatmap generated and saved successfully.")
+    plotter.plot_error_point_queue_spatial_queue(
+        data_file_name=data_file_name,
+        hash_parmas=params_hash,
+        hash_geo=geo_hash,
+        traffic_model=traffic_model_name
+    )
