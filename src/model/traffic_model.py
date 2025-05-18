@@ -237,13 +237,14 @@ class TrafficModel:
             self.dl.params.q_max = params[3] * Units.PER_HR
             self.dl.params.set_initialized(True)
             self.dl.params.save_metadata()
+            
+            self.run_with_multiprocessing(num_processes, batch_size)
             self.plotter.plot(
                 data_file_name=self.dl.current_file_running["location"] + "_" + self.dl.current_file_running["date"] + "_" + self.dl.current_file_running["time"],
                 hash_geo=self.dl.geo_loader.get_hash_str(),
                 hash_parmas=self.dl.params.get_hash_str(),
                 traffic_model=self.__class__.__name__
             )
-            self.run_with_multiprocessing(num_processes, batch_size)
 
     def get_run_file_path(self):
         """
