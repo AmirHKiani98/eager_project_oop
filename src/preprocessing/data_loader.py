@@ -624,7 +624,7 @@ class DataLoader:
         wlc_df.write_csv(file_address)
         return file_address
 
-    def get_density_entry_exist_df(self, fully_processed_file_address):
+    def get_density_entry_exit_df(self, wlc_df):
         # nbbi: Needs test.
         """
         Computes vehicle entry, exit, and density statistics for each cell and time interval
@@ -646,116 +646,109 @@ class DataLoader:
             trajectory data.
 
         Returns:
-            pl.DataFrame: A Polars DataFrame with the following columns:
-            - link_id: Identifier for the road link.
-            - cell_id: Identifier for the cell within the link.
-            - trajectory_time: Timestamp of the observation.
-            - vehicle_ids: List of vehicle IDs present in the cell at the given time.
-            - entries: List of vehicle IDs that entered the cell at this time.
-            - exits: List of vehicle IDs that exited the cell at this time.
-            - entry_count: Number of vehicles that entered the cell at this time.
-            - exit_count: Number of vehicles that exited the cell at this time.
-            - on_cell: Number of vehicles present in the cell at this time.
-            - normalized_on_cell: Density of vehicles in the cell, normalized by cell geometry.
-
+            pl.DataFrame: A DataFrame containing the following columns:
+                - link_id: The ID of the link.
+                - cell_id: The ID of the cell.
+                - trajectory_time: The time interval.
+                - vehicle_ids: List of vehicle IDs present in the cell at the time.
+                - entry_count: Number of vehicles entering the cell.
+                - exit_count: Number of vehicles exiting the cell.
+                - on_cell: Number of vehicles present in the cell.
+                - density: Normalized density of vehicles in the cell.
+                
         Note:
             Requires `self.time_interval` and `self.geo_loader` to be defined in the class.
             Assumes the existence of a `fill_missing_timestamps` function and that
             `self.geo_loader.links` provides geometric information for normalization.
         """
         # nbbi: Needs test.
-        wlc_df = pl.read_csv(fully_processed_file_address)
         min_time = wlc_df["trajectory_time"].min()
         max_time = wlc_df["trajectory_time"].max()
         counts = wlc_df.group_by(["link_id", "cell_id", "trajectory_time"]).agg([
             pl.col("track_id").alias("vehicle_ids")
         ])
         counts = counts.sort(["link_id", "cell_id", "trajectory_time"])
+        
         complete_counts = pl.DataFrame({})
         groups = counts.group_by(["link_id", "cell_id"])
         num_groups = wlc_df.select(["link_id", "cell_id"]).unique().height
-
+        # for _, group in tqdm(groups, total=num_groups, desc="Calculating density"):
+            
         for _, group in tqdm(groups, total=num_groups, desc="Calculating density"):
             link_id = group["link_id"].unique()[0]
             cell_id = group["cell_id"].unique()[0]
             # Printing type of trajectory_time
             
 
-            group = fill_missing_timestamps(
-                group,
-                "trajectory_time",
-                self.time_interval,
-                min_time, # type: ignore
-                max_time # type: ignore
-            )
-            
-            group = group.with_columns([
-                pl.lit(cell_id).alias("cell_id"),
-                pl.lit(link_id).alias("link_id")
-            ])
-            
-            group = group.with_columns(
-                pl.when(pl.col("link_id").is_null() & pl.col("cell_id").is_null())
-                .then(pl.col("link_id").forward_fill().backward_fill())
-                .otherwise(pl.col("link_id"))
-                .alias("link_id")
-            )
-
-            group = group.with_columns(
-                pl.when(pl.col("cell_id").is_null())
-                .then(pl.col("cell_id").forward_fill().backward_fill())
-                .otherwise(pl.col("cell_id"))
-                .alias("cell_id")
-            )
-
-            group = group.with_columns(
-                pl.col("vehicle_ids").fill_null([])  # sets default to empty list
-            )
-
+            # group = fill_missing_timestamps(
+            #     group,
+            #     "trajectory_time",
+            #     self.time_interval,
+            #     min_time, # type: ignore
+            #     max_time # type: ignore
+            # )
+            # Get previous list of vehicles
             group = group.with_columns([
                 pl.col("vehicle_ids").shift(1).alias("prev_vehicles"),
                 pl.col("vehicle_ids").shift(-1).alias("next_vehicles")
             ])
-
+            # Fill null with []
             group = group.with_columns([
-                # Vehicles that appeared now but weren’t there before = entries
+                
+                pl.col("prev_vehicles").fill_null([]),  # sets default to empty list
+                pl.col("next_vehicles").fill_null([])  # sets default to empty list
+            ])
+            
+            # Make the prev and next vehicles set instead of list
+            group = group.with_columns([
                 pl.struct(["vehicle_ids", "prev_vehicles"])
-                .map_elements(lambda s: list(set(s["vehicle_ids"]) - set(s["prev_vehicles"] or [])),
-                                return_dtype=pl.List(pl.Int64))
+                .map_elements(lambda s: list(set(s["vehicle_ids"]) - set(s["prev_vehicles"])),
+                              return_dtype=pl.List(pl.Int64))
                 .alias("entries"),
 
-                # Vehicles that were there but not anymore = exits
                 pl.struct(["vehicle_ids", "next_vehicles"])
-                .map_elements(lambda s: list(set(s["vehicle_ids"]) - set(s["next_vehicles"] or [])),
+                .map_elements(lambda s: list(set(s["vehicle_ids"]) - set(s["next_vehicles"])),
                               return_dtype=pl.List(pl.Int64))
                 .alias("exits")
             ])
+            group = group.with_columns([
+                pl.col("entries").list.len().alias("entry_count"),
+                pl.col("exits").list.len().alias("exit_count"),
+                pl.col("vehicle_ids").list.len().alias("on_cell"),
+            ])
 
-            group = group.drop(["prev_vehicles", "next_vehicles"])
+            group = group.select([
+                pl.col("link_id"),
+                pl.col("cell_id"),
+                pl.col("trajectory_time"),
+                pl.col("entry_count"),
+                pl.col("exit_count"),
+                pl.col("on_cell"),
+            ])
+            filled_group = fill_missing_timestamps(
+                group,
+                "trajectory_time",
+                self.time_interval,
+                min_time,
+                max_time
+            )
+            group = group.with_columns([
+                pl.col("link_id").fill_null(link_id),
+                pl.col("cell_id").fill_null(cell_id),
+                pl.col("on_cell").fill_null(0),
+                pl.col("entry_count").fill_null(0),
+                pl.col("exit_count").fill_null(0),
+            ])
+
+
+            group = group.with_columns([
+                (
+                    pl.col("on_cell") / 
+                    self.geo_loader.links[link_id].get_cell_length(cell_id).value
+                ).alias("density")
+            ])
+            
             complete_counts = pl.concat([complete_counts, group])
-        
-        complete_counts = complete_counts.with_columns([
-            pl.col("entries").list.len().alias("entry_count"),
-            pl.col("exits").list.len().alias("exit_count"),
-            pl.col("vehicle_ids").list.len().alias("on_cell"),
-        ])
-        # # logger.debug columns in different color for better visibility
-        if "cell_id" not in complete_counts.columns:
-            raise ValueError("cell_id not in complete_counts columns of file address " + fully_processed_file_address)
-        if "link_id" not in complete_counts.columns:
-            raise ValueError("link_id not in complete_counts columns of file address " + fully_processed_file_address)
-        if "on_cell" not in complete_counts.columns:
-            raise ValueError("on_cell not in complete_counts columns of file address " + fully_processed_file_address)
-        complete_counts = complete_counts.with_columns([
-            pl.struct(["link_id", "cell_id", "on_cell"]).map_elements(
-            lambda row: (
-                row["on_cell"] / self.geo_loader.links[row["link_id"]]
-                .get_cell_length(row["cell_id"]).value
-                # .value because get_cell_length returns a Quantity
-            ),
-            return_dtype=pl.Float64
-            ).alias("density")
-        ])
         return complete_counts
 
     def _write_density_entry_exit_df(self, fully_processed_file_address, location, date, time):
@@ -765,14 +758,14 @@ class DataLoader:
         """
         file_address = (
             self.params.cache_dir + "/" + self._get_filename(location, date, time)
-            + "_density_entry_exit_" + self.geo_loader.get_hash_str() + ".parquet"
+            + "_density_entry_exit_" + self.geo_loader.get_hash_str() + ".csv"
         )
 
         if os.path.isfile(file_address):
             return file_address
-
-        complete_counts = self.get_density_entry_exist_df(fully_processed_file_address)
-        complete_counts.write_parquet(file_address)
+        wlc_df = pl.read_csv(fully_processed_file_address)
+        complete_counts = self.get_density_entry_exit_df(wlc_df)
+        complete_counts.write_csv(file_address)
         # logger.debug(f"Density DataFrame saved to {file_address}")
         return file_address
 
@@ -994,14 +987,14 @@ class DataLoader:
         output_file_address = (
             self.params.cache_dir + "/" + self._get_filename(location, date, time) +
             f"_{coi}_" + self.geo_loader.get_hash_str() +  "_" +
-            self.params.get_hash_str(["dt"]) + ".parquet"
+            self.params.get_hash_str(["dt"]) + ".csv"
         )
         if os.path.isfile(output_file_address):
             with open(output_file_address, "rb") as f:
                 data = json.load(f)
             return data["cell_vector_occupancy_or_density_dict"], data["entries_dict"], data["exits_dict"]
 
-        df = pl.read_parquet(file_address)
+        df = pl.read_csv(file_address)
         result = (
             df.sort(["link_id", "trajectory_time", "cell_id"])
             .group_by(["link_id", "trajectory_time"])
@@ -1068,7 +1061,7 @@ class DataLoader:
                 "for processing cumulative count"
             )
 
-        occupancy_exit_entry_df = pl.read_parquet(occupanct_exit_entry_df)
+        occupancy_exit_entry_df = pl.read_csv(occupanct_exit_entry_df)
         groups = occupancy_exit_entry_df.group_by(
             ["link_id", "trajectory_time"]
         )
@@ -1083,7 +1076,7 @@ class DataLoader:
 
             first_cell_entry = group["entry_count"].first()
             last_cell_exit = group["exit_count"].last()
-            current_number_of_vehicles = group["vehicle_ids"].list.len().sum()
+            current_number_of_vehicles = group["on_cell"].sum()
             cumulative_counts_data.append({
                 "link_id": link_id,
                 "trajectory_time": trajectory_time,

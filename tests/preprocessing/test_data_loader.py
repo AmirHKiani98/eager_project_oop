@@ -162,3 +162,11 @@ def test_cumulative_df(base_dir):
     expected_cummulative_count_downstream = [0, 0, 0, 0, 1, 5, 10, 15, 20, 25, 30]
     assert list(cummulative_count_upstream_offset) == list(expected_cummulative_count_upstream_offset)
     assert list(cummulative_count_downstream) == list(expected_cummulative_count_downstream)
+
+def test_density_entry_exit():
+    """
+    Test the density_entry_exit function.
+    """
+
+    dl = DataLoader.__new__(DataLoader)
+    

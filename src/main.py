@@ -97,12 +97,12 @@ def main():
     intersection_locations = (
         pl.read_csv(args.fp_geo)
         .to_numpy()
-        .tolist()   # It's format is [lat, lon]
+        .tolist()
     )
     intersection_locations = [
         POINT(loc[1], loc[0])
         for loc in intersection_locations
-    ]  # It's format is [lat, lon]
+    ]
     model_geo_loader = GeoLoader(
         locations=intersection_locations,
         cell_length=20.0
