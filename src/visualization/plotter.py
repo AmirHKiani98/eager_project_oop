@@ -94,6 +94,7 @@ class Plotter:
         file_name = f"{self.cache_dir}/{traffic_model}/{data_file_name}_{hash_geo}_{hash_parmas}.json"
         if not os.path.exists(file_name):
             raise FileNotFoundError(f"File not found: {file_name}")
+        print(file_name)
         data = pl.read_json(
             file_name
         )
