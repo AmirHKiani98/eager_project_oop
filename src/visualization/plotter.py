@@ -422,7 +422,8 @@ class Plotter:
              data_file_name: str,
             hash_parmas: str,
             hash_geo: str,
-            traffic_model: str):
+            traffic_model: str,
+            params: Optional[tuple] = None):
         """
         Plotting the data
         """
@@ -431,21 +432,24 @@ class Plotter:
                 data_file_name=data_file_name,
                 hash_parmas=hash_parmas,
                 hash_geo=hash_geo,
-                traffic_model=traffic_model
+                traffic_model=traffic_model,
+                params=params
             )
         elif traffic_model == "CTM":
             self.plot_error_ctm(
                 data_file_name=data_file_name,
                 hash_parmas=hash_parmas,
                 hash_geo=hash_geo,
-                traffic_model=traffic_model
+                traffic_model=traffic_model,
+                params=params
             )
         elif traffic_model == "PointQueue" or traffic_model == "SpatialQueue":
             self.plot_error_point_queue_spatial_queue(
                 data_file_name=data_file_name,
                 hash_parmas=hash_parmas,
                 hash_geo=hash_geo,
-                traffic_model=traffic_model
+                traffic_model=traffic_model,
+                params=params
             )
         else:
             raise ValueError(f"Traffic model {traffic_model} not supported")
@@ -497,7 +501,7 @@ class Plotter:
         """
         all_errors_path = f"{self.cache_dir}/all_errors.json"
         with open(all_errors_path, "w") as f:
-            json.dump(self.errors, f)
+            json.dump(self.errors, f, indent=4)
 
     def load_errors(self):
         """

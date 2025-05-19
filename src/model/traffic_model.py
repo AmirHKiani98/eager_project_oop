@@ -243,7 +243,8 @@ class TrafficModel:
                 data_file_name=self.dl.current_file_running["location"] + "_" + self.dl.current_file_running["date"] + "_" + self.dl.current_file_running["time"],
                 hash_geo=self.dl.geo_loader.get_hash_str(),
                 hash_parmas=self.dl.params.get_hash_str(),
-                traffic_model=self.__class__.__name__
+                traffic_model=self.__class__.__name__,
+                params=tuple(params)
             )
 
     def get_run_file_path(self):
