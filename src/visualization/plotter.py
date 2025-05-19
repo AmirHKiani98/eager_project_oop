@@ -109,7 +109,9 @@ class Plotter:
         if params is not None:
             if traffic_model not in self.errors:
                 self.errors[traffic_model] = {}
-            self.errors[traffic_model][hash_parmas] = average_error
+            
+            str_key = str(params)
+            self.errors[traffic_model][str_key] = average_error
             self.save_errors()
         rmse_data = rmse_data.filter(
             # pl.col('rmse') < 20
@@ -233,7 +235,9 @@ class Plotter:
             if params is not None:
                 if traffic_model not in self.errors:
                     self.errors[traffic_model] = {}
-                self.errors[traffic_model][params] = average_error/n
+                
+                str_key = str(params)
+                self.errors[traffic_model][str_key] = average_error/n
                 self.save_errors()
             plt.title(f"Heatmap for Link ID: {link_id}")
             plt.savefig(figure_path + f"Link_{link_id}.png")
@@ -367,7 +371,8 @@ class Plotter:
         if params is not None:
             if traffic_model not in self.errors:
                 self.errors[traffic_model] = {}
-            self.errors[traffic_model][params] = average_error
+            str_key = str(params)
+            self.errors[traffic_model][str_key] = average_error
             self.save_errors()
         groups = error_info.group_by(["link_id"])
         figure_path = f"{self.cache_dir}/results/{self.get_base_name_without_extension(file_name)}/{traffic_model}/"
