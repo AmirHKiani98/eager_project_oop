@@ -12,6 +12,7 @@ from src.model.ctm import CTM
 from src.model.point_queue import PointQueue
 from src.model.spatial_queue import SpatialQueue
 from src.model.ltm import LTM
+from src.model.pw import PW
 from src.model.params import Parameters
 from src.preprocessing.data_loader import DataLoader
 from src.preprocessing.geo_loader import GeoLoader
@@ -93,6 +94,7 @@ def main():
         action="store_true",
         help="Run calibration for the model"
     )
+    
     args = parser.parse_args()
     # Example usage
     intersection_locations = (
@@ -168,7 +170,19 @@ def main():
         else:
             dl.prepare("LTM", args.fp_location, args.fp_date, args.fp_time)
             model.run_calibration(num_processes=num_processes, batch_size=batch_size)
-        
+    elif args.model == "pw":
+        model = PW(
+            dl=dl,
+            fp_location=args.fp_location,
+            fp_date=args.fp_date,
+            fp_time=args.fp_time,
+        )
+        num_processes = cpu_count()
+        if not args.calibration:
+            model.run_with_multiprocessing(num_processes=num_processes, batch_size=batch_size)
+        else:
+            dl.prepare("PW", args.fp_location, args.fp_date, args.fp_time)
+            model.run_calibration(num_processes=num_processes, batch_size=batch_size)
     else:
         raise ValueError(f"Model {args.model} not supported")
 

@@ -984,12 +984,14 @@ class DataLoader:
         output_file_address = (
             self.params.cache_dir + "/" + self._get_filename(location, date, time) +
             f"_{coi}_" + self.geo_loader.get_hash_str() +  "_" +
-            self.params.get_hash_str(["dt"]) + ".csv"
+            self.params.get_hash_str(["dt"]) + ".json"
         )
         if os.path.isfile(output_file_address):
             with open(output_file_address, "rb") as f:
                 data = json.load(f)
-            return data["cell_vector_occupancy_or_density_dict"], data["entries_dict"], data["exits_dict"]
+            return (convert_keys_to_float(data["cell_vector_occupancy_or_density_dict"]),
+            convert_keys_to_float(data["entries_dict"]),
+            convert_keys_to_float(data["exits_dict"]))
 
         df = pl.read_csv(file_address)
         result = (
@@ -1029,7 +1031,7 @@ class DataLoader:
                 "cell_vector_occupancy_or_density_dict": cell_vector_occupancy_or_density_dict,
                 "entries_dict": entries_dict,
                 "exits_dict": exits_dict
-            }, f)
+            }, f, indent=4)
         # logger.debug(f"Occupancy or density DataFrame saved to {output_file_address}")
         return cell_vector_occupancy_or_density_dict, entries_dict, exits_dict
 
@@ -1967,12 +1969,137 @@ class DataLoader:
             json.dump(copy_tasks, f, indent=4)
         self.destruct()
         self.tasks = tasks
+    
+    def get_average_speeds_per_cell(self, location, date, time):
+        """
+        Returns a dictionary with dict[link_id][trajectory_time] = list(average speed)
+        """
+        # nbbi: Needs test
+        file_address = (
+            self.params.cache_dir + "/" +
+            f"{self._get_filename(location, date, time)}_average_speeds_per_cell_" +
+            f"{self.geo_loader.get_hash_str()}.json"
+        )
+        if os.path.isfile(file_address):
+            with open(file_address, "r", encoding="utf-8") as f:
+                average_speeds_per_cell = json.load(f)
+            return convert_keys_to_float(average_speeds_per_cell)
+        
+        wlc_df = self.files_dict.get(
+            (location, date, time), None
+        )
+        if wlc_df is None:
+            raise ValueError(
+                f"File not found for {location}, {date}, {time}, "
+                "for processing average speeds"
+            )
+        wlc_df = pl.read_csv(wlc_df)
+        wlc_df = wlc_df.with_columns(
+            pl.col("trajectory_time").cast(pl.Float64).round(2)
+        )
+        wlc_df = wlc_df.sort(["link_id", "trajectory_time", "cell_id"])
+        average_speeds_df = wlc_df.group_by(["link_id", "trajectory_time", "cell_id"]).agg(
+            pl.col("speed").mean().alias("average_speed")
+        )
+
+        groups = average_speeds_df.group_by(["link_id", "trajectory_time"])
+        len_group = average_speeds_df.select(["link_id", "trajectory_time"]).unique().height
+        average_speeds = {}
+        for name, group in tqdm(groups, desc="Finding average speeds", total=len_group):
+            list_of_average_speeds = {}
+            link_id, trajectory_time = name[0], name[1]
+            for row in group.iter_rows(named=True):
+                list_of_average_speeds[row["cell_id"]] = row["average_speed"]
+            # Sort based on cell_id
+            list_of_average_speeds = dict(sorted(list_of_average_speeds.items(), key=lambda x: x[0]))
+            list_of_average_speeds = list(list_of_average_speeds.values())
+            if link_id not in average_speeds:
+                average_speeds[link_id] = {}
+            average_speeds[link_id][trajectory_time] = list_of_average_speeds
+        with open(file_address, "w", encoding="utf-8") as f:
+            json.dump(average_speeds, f, indent=4)
+        return average_speeds
+        
+        
 
     def prepare_pw_tasks(self, location, date, time):
         """
         Preparing pw tasks
         """
-
+        self.activate_occupancy_density_entry_exit_dict(location, date, time, "density")
+        average_speeds = self.get_average_speeds_per_cell(location, date, time)
+        self.activate_tl_status_dict(location, date, time)
+        self.activate_next_timestamp_occupancy(location, date, time)
+        
+        
+        file_address = (
+            self.params.cache_dir + "/" +
+            f"{self._get_filename(location, date, time)}_prepared_pw_tasks_"
+            f"{self.geo_loader.get_hash_str()}_{self.params.get_hash_str(['cache_dir', 'free_flow_speed', 'dt', 'jam_density_link'])}.json"
+        )
+        self.current_file_running = {
+            "location": location,
+            "date": date,
+            "time": time
+        }
+        if not isinstance(self.cell_vector_occupancy_or_density_dict, dict):
+            raise ValueError(f"self.cell_vector_occupancy_or_density_dict should be a dictionary. Got {type(self.cell_vector_occupancy_or_density_dict)}")
+        if os.path.isfile(file_address):
+            self.tasks = json.load(open(file_address, "r", encoding="utf-8"))
+            for index in range(len(self.tasks)):
+                self.tasks[index]["dt"] = self.tasks[index]["dt"] * Units.S
+                self.tasks[index]["jam_density_link"] = self.tasks[index]["jam_density_link"] * Units.PER_KM
+                self.tasks[index]["cell_lengths"] = [length * Units.M for length in self.tasks[index]["cell_lengths"]]
+                self.tasks[index]["densities"] = [density * Units.PER_M for density in self.tasks[index]["densities"]]
+                self.tasks[index]["speeds"] = [speed * Units.KM_PER_HR for speed in self.tasks[index]["speeds"]]
+                self.tasks[index]["free_flow_speed"] = self.tasks[index]["free_flow_speed"] * Units.KM_PER_HR
+            return
+        
+        self.tasks = []
+        
+        for link_id in tqdm(self.cell_vector_occupancy_or_density_dict.keys(), desc="Preparing pw tasks"):
+            if not isinstance(self.cell_vector_occupancy_or_density_dict[link_id], dict):
+                raise ValueError(f"self.cell_vector_occupancy_or_density_dict[{link_id}] should be a dictionary. Got {type(self.cell_vector_occupancy_or_density_dict[link_id])}")
+            for trajectory_time in self.cell_vector_occupancy_or_density_dict[link_id].keys():
+                
+                density = self.cell_vector_occupancy_or_density_dict[link_id][trajectory_time]
+                density_unit = [den * Units.PER_M for den in density]
+                                
+                cell_length = [self.geo_loader.links[link_id].cells[i+1].get_length() for i in range(len(density))]
+                speeds = average_speeds[link_id][trajectory_time]
+                speeds_unit = [speed * Units.KM_PER_HR for speed in speeds]
+                if len(density_unit) != len(cell_length):
+                    raise ValueError(f"Density and cell length should be the same length. Got {len(density_unit)} and {len(cell_length)}")
+                if len(density_unit) != len(speeds_unit):
+                    raise ValueError(f"Density and speeds should be the same length. Got {len(density_unit)} and {len(speeds_unit)}")
+                next_occupancy = self.next_timestamp_occupancy_dict[link_id][trajectory_time]["next_occupancy"]
+                tl_status = self.tl_status(trajectory_time, link_id)
+                self.tasks.append(
+                    {
+                        "link_id": link_id,
+                        "trajectory_time": trajectory_time,
+                        "densities": density_unit,
+                        "cell_lengths": cell_length, # It's a list!
+                        "speeds": speeds_unit,
+                        "dt": self.params.dt,
+                        "jam_density_link": self.params.jam_density_link,
+                        "tl_status": tl_status,
+                        "free_flow_speed": self.params.free_flow_speed,
+                        "next_occupancy": next_occupancy,
+                    }
+                )
+        with open(file_address, "w", encoding="utf-8") as f:
+            copy_tasks = deepcopy(self.tasks)
+            for index in range(len(copy_tasks)):
+                copy_tasks[index]["dt"] = copy_tasks[index]["dt"].to(Units.S).value
+                copy_tasks[index]["jam_density_link"] = copy_tasks[index]["jam_density_link"].to(Units.PER_KM).value
+                copy_tasks[index]["cell_lengths"] = [length.to(Units.M).value for length in copy_tasks[index]["cell_lengths"]]
+                copy_tasks[index]["densities"] = [density.to(Units.PER_M).value for density in copy_tasks[index]["densities"]]
+                copy_tasks[index]["speeds"] = [speed.to(Units.KM_PER_HR).value for speed in copy_tasks[index]["speeds"]]
+                copy_tasks[index]["free_flow_speed"] = copy_tasks[index]["free_flow_speed"].to(Units.KM_PER_HR).value
+            json.dump(copy_tasks, f, indent=4)
+        self.destruct()
+        
     def prepare(self, class_name: str, fp_location: str, fp_date: str, fp_time: str):
         """
         Prepares the data for the specified class name.
@@ -2006,6 +2133,12 @@ class DataLoader:
             )
         elif class_name == "LTM":
             self.prepare_ltm_tasks(
+                fp_location,
+                fp_date,
+                fp_time
+            )
+        elif class_name == "PW":
+            self.prepare_pw_tasks(
                 fp_location,
                 fp_date,
                 fp_time

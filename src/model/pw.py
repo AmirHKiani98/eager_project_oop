@@ -1,5 +1,5 @@
 """
-PW 
+PW. Slightly different than what Maz wrote. 
 """
 
 from copy import deepcopy
@@ -22,9 +22,13 @@ class PW(TrafficModel):
             "dt", # Units
             "free_flow_speed", # Units
             "jam_density_link", # Units
-            "tl_status", 
+            "tl_status",
+            "next_occupancy", # list[unitless]
 
         ]
+        for arg in required_arguments:
+            if arg not in args:
+                raise ValueError(f"Missing required argument: {arg}")
         densities = args["densities"]
         speeds = args["speeds"]
         num_cells = len(args["densities"])
@@ -32,19 +36,21 @@ class PW(TrafficModel):
         jam_density_link = args["jam_density_link"]
         tl_status = args["tl_status"]
 
-        epss = 0.1 # a small value
+        epss = 0.1 * Units.PER_M # a small value
         new_densities = deepcopy(densities)
         new_speeds = deepcopy(speeds)
+        next_occupancy = args["next_occupancy"]
         new_outflows = [0] * num_cells
-        cell_length = args["cell_lengths"]
+        cell_lengths = args["cell_lengths"]
+
         dt = args["dt"]
 
         c = 10.14 # density drop
         critical_density = 150 * Units.PER_KM
         tau = 1
         c0 = free_flow_speed/(tau**2)
-        inflow = 0
-        outflow = 0
+        inflow = 0 * Units.PER_HR
+        outflow = 0 * Units.PER_HR
 
         for i in range(num_cells):  # iterate over all cells
         
@@ -53,32 +59,35 @@ class PW(TrafficModel):
                 eq_speed = free_flow_speed
             else:
                 eq_speed = c * (jam_density_link/densities[i] - 1)
-
+                eq_speed = eq_speed * Units.KM_PER_HR
+            
+            term = (dt.to(Units.HR).value * (eq_speed.to(Units.KM_PER_HR) - speeds[i].to(Units.KM_PER_HR))/tau).to(Units.KM_PER_HR)
             if i == 0:  # first cell
-                new_densities[i] = densities[i] - (dt / cell_length) * (densities[i] * speeds[i] - inflow)
-
-                new_speeds[i] = speeds[i] + dt * (eq_speed - speeds[i])/tau - (dt / cell_length) * c0**2 * (densities[i+1]-densities[i])/(densities[i]+ epss)
+                
+                new_densities[i] = densities[i] - (dt / cell_lengths[i]) * (densities[i] * speeds[i] - inflow)
+                # Mazi kam aghl. Mazi kam aghl! dt * (eq_speed - speeds[i])/tau + speeds[1] both terms here should have the same units
+                if len(densities) < i+2:
+                    new_speeds[i] = 0
+                else:
+                    new_speeds[i] = speeds[i] + term - (dt / cell_lengths[i]) * c0**2 * (densities[i+1]-densities[i])/(densities[i]+ epss)
 
             if i == num_cells - 1:  # last cell
 
 
                 # check the status of the traffic light
                 if tl_status == 1: # green light
-                    new_speeds[i] = speeds[i] - (dt / cell_length) * speeds[i] * (speeds[i] - speeds[i-1]) + dt * (eq_speed - speeds[i])/tau
+                    new_speeds[i] = speeds[i] - (dt / cell_lengths[i]) * speeds[i] * (speeds[i] - speeds[i-1]) + term
                 else:    # red light
                     new_speeds[i] = 0
 
-                else:
-                new_speeds[i] = speeds[i] - (dt / cell_length) * speeds[i] * (speeds[i] - speeds[i-1]) + dt * (eq_speed - speeds[i])/tau
-
-                new_densities[i] = densities[i] - (dt / cell_length) * (densities[i] * speeds[i] - densities[i-1] * speeds[i-1])
+                new_densities[i] = densities[i] - (dt / cell_lengths[i]) * (densities[i] * speeds[i] - densities[i-1] * speeds[i-1])
 
 
             else:       # for all other cells: find density and speed using PW discrete model
                     # [i] = outflow # Maz
-                new_densities[i] = densities[i] - (dt / cell_length) * (densities[i] * speeds[i] - densities[i-1] * speeds[i-1])
+                new_densities[i] = densities[i] - (dt / cell_lengths[i]) * (densities[i] * speeds[i] - densities[i-1] * speeds[i-1])
 
-                new_speeds[i] = speeds[i] - (dt / cell_length) * speeds[i] * (speeds[i] - speeds[i-1]) + dt * (eq_speed - speeds[i])/tau - (dt / cell_length) * c0**2 * (densities[i+1]-densities[i])/(densities[i]+ epss)
+                new_speeds[i] = speeds[i] - (dt / cell_lengths[i]) * speeds[i] * (speeds[i] - speeds[i-1]) + term - (dt / cell_lengths[i]) * c0**2 * (densities[i+1]-densities[i])/(densities[i]+ epss)
 
             new_outflows[i] = new_speeds[i] * new_densities[i] # find outflow q = kv
 
@@ -86,13 +95,22 @@ class PW(TrafficModel):
             density = new_densities[i]
             speed = new_speeds[i]
             outflow = new_outflows[i]
-            if not isinstance(density, Units):
+            if not isinstance(density, Units.Quantity):
                 raise ValueError(f"Density {density} is not of type Units")
-        
-            if not isinstance(speed, Units):
-                raise ValueError(f"Speed {speed} is not of type Units")
+            
+            if not isinstance(speed, Units.Quantity):
+                speed = speed * Units.KM_PER_HR
 
-            if not isinstance(outflow, Units):
+            if not isinstance(outflow, Units.Quantity):
                 raise ValueError(f"Outflow {outflow} is not of type Units")
-
-        return new_densities, new_outflows , new_speeds
+            density = density.to(Units.PER_KM)
+            speed = speed.to(Units.KM_PER_HR)
+            outflow = outflow.to(Units.PER_HR)
+            
+        return {
+            "new_densities": new_densities,
+            "new_outflows": new_outflows,
+            "new_speeds": new_speeds,
+            "new_occupancies": next_occupancy,
+            "cell_lengths": [length.to(Units.M).value for length in cell_lengths],
+        }

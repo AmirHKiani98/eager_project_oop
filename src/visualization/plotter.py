@@ -386,6 +386,7 @@ class Plotter:
         """
         return os.path.splitext(os.path.basename(file_name))[0]
 
+
     def plot(self,
              data_file_name: str,
             hash_parmas: str,
