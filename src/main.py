@@ -4,6 +4,7 @@ This is the main entry point for the application.
 """
 import argparse
 import logging
+import os
 from multiprocessing import cpu_count
 from shapely.geometry import Point as POINT
 import polars as pl
@@ -118,6 +119,9 @@ def main():
         geo_loader=model_geo_loader
     )
     batch_size = args.batch_size
+    if len(args.model.split(",")) > 1:
+        for model_name in args.model.split(","):
+            os.system(f"python -m src.main --model {model_name} --fp-location {args.fp_location} --fp-date {args.fp_date} --fp-time {args.fp_time} --batch-size {batch_size} --calibration")
     if args.model == "ctm":
         model = CTM(
             dl=dl,

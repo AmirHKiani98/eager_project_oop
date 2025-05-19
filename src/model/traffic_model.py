@@ -210,10 +210,10 @@ class TrafficModel:
         Returns:
             void
         """
-        free_flow_speeds = np.linspace(10, 50, 10)
-        jam_densities = np.linspace(50, 160, 10)
-        wave_speeds = np.linspace(5, 20, 5)
-        q_max = np.linspace(500, 4000, 5)
+        free_flow_speeds = np.linspace(8, 50, 3)
+        jam_densities = np.linspace(40, 160, 3)
+        wave_speeds = np.linspace(5, 20, 3)
+        q_max = np.linspace(100, 4000, 3)
         combinations = list(itertools.product(
             free_flow_speeds,
             jam_densities,
