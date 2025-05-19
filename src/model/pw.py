@@ -31,6 +31,7 @@ class PW(TrafficModel):
                 raise ValueError(f"Missing required argument: {arg}")
         densities = args["densities"]
         speeds = args["speeds"]
+        
         num_cells = len(args["densities"])
         free_flow_speed = args["free_flow_speed"]
         jam_density_link = args["jam_density_link"]
@@ -53,7 +54,7 @@ class PW(TrafficModel):
         outflow = 0 * Units.PER_HR
 
         for i in range(num_cells):  # iterate over all cells
-        
+            
             # find the equilibrium speed
             if 0<= densities[i] <= critical_density:
                 eq_speed = free_flow_speed
@@ -90,11 +91,18 @@ class PW(TrafficModel):
                 new_speeds[i] = speeds[i] - (dt / cell_lengths[i]) * speeds[i] * (speeds[i] - speeds[i-1]) + term - (dt / cell_lengths[i]) * c0**2 * (densities[i+1]-densities[i])/(densities[i]+ epss)
 
             new_outflows[i] = new_speeds[i] * new_densities[i] # find outflow q = kv
-
+        density_value = []
+        speed_value = []
+        
+        if len(new_densities) != len(cell_lengths):
+            raise ValueError("Length of items:", len(new_densities), len(new_speeds), len(cell_lengths), num_cells)
+        if len(new_densities) != len(next_occupancy):
+            raise ValueError("Length of items:", len(new_densities), len(new_speeds), len(cell_lengths), num_cells)
+        if len(new_densities) != len(new_speeds):
+            raise ValueError("Length of items:", len(new_densities), len(new_speeds), len(cell_lengths), num_cells)
         for i in range(num_cells):
             density = new_densities[i]
             speed = new_speeds[i]
-            outflow = new_outflows[i]
             if not isinstance(density, Units.Quantity):
                 raise ValueError(f"Density {density} is not of type Units")
             
@@ -103,14 +111,14 @@ class PW(TrafficModel):
 
             if not isinstance(outflow, Units.Quantity):
                 raise ValueError(f"Outflow {outflow} is not of type Units")
-            density = density.to(Units.PER_KM)
-            speed = speed.to(Units.KM_PER_HR)
-            outflow = outflow.to(Units.PER_HR)
-            
+            density = density.to(Units.PER_M).value
+            speed = speed.to(Units.KM_PER_HR).value
+            density_value.append(density)
+            speed_value.append(speed)
         return {
-            "new_densities": new_densities,
-            "new_outflows": new_outflows,
-            "new_speeds": new_speeds,
-            "new_occupancies": next_occupancy,
+            "new_densities": density_value,
+            "new_speeds": speed_value,
+            "next_densities": next_occupancy,
             "cell_lengths": [length.to(Units.M).value for length in cell_lengths],
+            "link_id": args["link_id"],
         }

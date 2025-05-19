@@ -729,7 +729,7 @@ class DataLoader:
                 min_time,
                 max_time
             )
-            group = group.with_columns([
+            filled_group = filled_group.with_columns([
                 pl.col("link_id").fill_null(link_id),
                 pl.col("cell_id").fill_null(cell_id),
                 pl.col("on_cell").fill_null(0),
@@ -738,14 +738,14 @@ class DataLoader:
             ])
 
 
-            group = group.with_columns([
+            filled_group = filled_group.with_columns([
                 (
                     pl.col("on_cell") / 
                     self.geo_loader.links[link_id].get_cell_length(cell_id).value
                 ).alias("density")
             ])
             
-            complete_counts = pl.concat([complete_counts, group])
+            complete_counts = pl.concat([complete_counts, filled_group])
         return complete_counts
 
     def _write_density_entry_exit_df(self, fully_processed_file_address, location, date, time):
@@ -1998,28 +1998,56 @@ class DataLoader:
         wlc_df = wlc_df.with_columns(
             pl.col("trajectory_time").cast(pl.Float64).round(2)
         )
-        wlc_df = wlc_df.sort(["link_id", "trajectory_time", "cell_id"])
-        average_speeds_df = wlc_df.group_by(["link_id", "trajectory_time", "cell_id"]).agg(
-            pl.col("speed").mean().alias("average_speed")
-        )
-
-        groups = average_speeds_df.group_by(["link_id", "trajectory_time"])
-        len_group = average_speeds_df.select(["link_id", "trajectory_time"]).unique().height
+        groups = wlc_df.group_by(["link_id", "cell_id"])
+        groups_length = wlc_df.select(["link_id", "cell_id"]).unique().height
         average_speeds = {}
-        for name, group in tqdm(groups, desc="Finding average speeds", total=len_group):
-            list_of_average_speeds = {}
+        min_time = wlc_df["trajectory_time"].min()
+        max_time = wlc_df["trajectory_time"].max()
+        completed_df = pl.DataFrame({})
+        for name, group in tqdm(groups, desc="Finding average speeds", total=groups_length):
+            group = group.sort(["trajectory_time"])
+            link_id, cell_id = name[0], name[1]
+            filled_group = fill_missing_timestamps(
+                group,
+                "trajectory_time",
+                self.time_interval,
+                min_time, # type: ignore
+                max_time # type: ignore
+            )
+            filled_group = filled_group.with_columns([
+                pl.col("speed").cast(pl.Float64).forward_fill().backward_fill(),
+                pl.col("link_id").fill_null(link_id),
+                pl.col("cell_id").fill_null(cell_id),
+                pl.col("trajectory_time").cast(pl.Float64).round(2)
+            ])
+            completed_df = pl.concat([completed_df, filled_group])
+        
+        groups = completed_df.group_by(["link_id", "trajectory_time"])
+        groups_length = completed_df.select(["link_id", "trajectory_time"]).unique().height
+        all_average_speeds = {}
+        for name, group in tqdm(groups, desc="Finding average speeds", total=groups_length):
             link_id, trajectory_time = name[0], name[1]
+            summation_speed = {cell_id: 0 for cell_id in self.geo_loader.links[link_id].cells.keys()}
+            count = {cell_id: 0 for cell_id in self.geo_loader.links[link_id].cells.keys()}
+            average_speed = {cell_id: 0.0 for cell_id in self.geo_loader.links[link_id].cells.keys()}
             for row in group.iter_rows(named=True):
-                list_of_average_speeds[row["cell_id"]] = row["average_speed"]
-            # Sort based on cell_id
-            list_of_average_speeds = dict(sorted(list_of_average_speeds.items(), key=lambda x: x[0]))
-            list_of_average_speeds = list(list_of_average_speeds.values())
-            if link_id not in average_speeds:
-                average_speeds[link_id] = {}
-            average_speeds[link_id][trajectory_time] = list_of_average_speeds
+                cell_id = row["cell_id"]
+                speed = row["speed"]
+                summation_speed[cell_id] += speed
+                count[cell_id] += 1
+            
+            for cell_id in self.geo_loader.links[link_id].cells.keys():
+                if count[cell_id] != 0:
+                    average_speed[cell_id] = summation_speed[cell_id] / count[cell_id]
+                else:
+                    average_speed[cell_id] = 0.0
+            if link_id not in all_average_speeds:
+                all_average_speeds[link_id] = {}
+            all_average_speeds[link_id][trajectory_time] = list(dict(sorted(average_speed.items(), key= lambda x: x[0])).values())
+
         with open(file_address, "w", encoding="utf-8") as f:
-            json.dump(average_speeds, f, indent=4)
-        return average_speeds
+            json.dump(all_average_speeds, f, indent=4)
+        return all_average_speeds
         
         
 
@@ -2059,6 +2087,8 @@ class DataLoader:
         self.tasks = []
         
         for link_id in tqdm(self.cell_vector_occupancy_or_density_dict.keys(), desc="Preparing pw tasks"):
+            if link_id == 5:
+                continue
             if not isinstance(self.cell_vector_occupancy_or_density_dict[link_id], dict):
                 raise ValueError(f"self.cell_vector_occupancy_or_density_dict[{link_id}] should be a dictionary. Got {type(self.cell_vector_occupancy_or_density_dict[link_id])}")
             for trajectory_time in self.cell_vector_occupancy_or_density_dict[link_id].keys():

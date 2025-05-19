@@ -423,6 +423,37 @@ class Plotter:
         """
         return os.path.splitext(os.path.basename(file_name))[0]
 
+    def plot_error_pw(
+            self,
+            data_file_name: str,
+            hash_parmas: str,
+            hash_geo: str,
+            traffic_model: str,
+            params: Optional[tuple] = None
+    ):
+        """
+        data_file_name (str): The name of the file to plot.
+        hash_parmas (str): The hash of the parameters.
+        hash_geo (str): The hash of the geo.
+        traffic_model (str): The name of the traffic model.
+        """
+        file_name = f"{self.cache_dir}/{traffic_model}/{data_file_name}_{hash_geo}_{hash_parmas}.json"
+        if not os.path.exists(file_name):
+            raise FileNotFoundError(f"File not found: {file_name}")
+        data = pl.read_json(
+            file_name
+        )
+        data = data.filter(
+            pl.col("link_id") != 5
+        )
+        data = data.with_columns(
+            pl.struct(["new_densities", "next_densities"])
+            .map_elements(lambda row: ((np.array(row["new_densities"]) - np.array(row["next_densities"])) / len(row["new_densities"]))**2)
+            .alias("squared_error")
+        )
+        print(data.select(["squared_error"]).head(10))
+        exit()
+        
 
     def plot(self,
              data_file_name: str,
@@ -451,6 +482,14 @@ class Plotter:
             )
         elif traffic_model == "PointQueue" or traffic_model == "SpatialQueue":
             self.plot_error_point_queue_spatial_queue(
+                data_file_name=data_file_name,
+                hash_parmas=hash_parmas,
+                hash_geo=hash_geo,
+                traffic_model=traffic_model,
+                params=params
+            )
+        elif traffic_model == "PW":
+            self.plot_error_pw(
                 data_file_name=data_file_name,
                 hash_parmas=hash_parmas,
                 hash_geo=hash_geo,
