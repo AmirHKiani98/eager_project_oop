@@ -4,6 +4,7 @@ This is the main entry point for the application.
 """
 import argparse
 import logging
+import os
 from multiprocessing import cpu_count
 from shapely.geometry import Point as POINT
 import polars as pl
@@ -11,6 +12,8 @@ import polars as pl
 from src.model.ctm import CTM
 from src.model.point_queue import PointQueue
 from src.model.spatial_queue import SpatialQueue
+from src.model.ltm import LTM
+from src.model.pw import PW
 from src.model.params import Parameters
 from src.preprocessing.data_loader import DataLoader
 from src.preprocessing.geo_loader import GeoLoader
@@ -63,6 +66,11 @@ def main():
         default="ctm"
     )
     parser.add_argument(
+        "--batch-size",
+        type=int,
+        default=50000
+    )
+    parser.add_argument(
         "--fp-location",
         type=str,
         default="d1"
@@ -87,17 +95,18 @@ def main():
         action="store_true",
         help="Run calibration for the model"
     )
+    
     args = parser.parse_args()
     # Example usage
     intersection_locations = (
         pl.read_csv(args.fp_geo)
         .to_numpy()
-        .tolist()   # It's format is [lat, lon]
+        .tolist()
     )
     intersection_locations = [
         POINT(loc[1], loc[0])
         for loc in intersection_locations
-    ]  # It's format is [lat, lon]
+    ]
     model_geo_loader = GeoLoader(
         locations=intersection_locations,
         cell_length=20.0
@@ -109,7 +118,10 @@ def main():
         fp_time=args.fp_time,
         geo_loader=model_geo_loader
     )
-
+    batch_size = args.batch_size
+    if len(args.model.split(",")) > 1:
+        for model_name in args.model.split(","):
+            os.system(f"python -m src.main --model {model_name} --fp-location {args.fp_location} --fp-date {args.fp_date} --fp-time {args.fp_time} --batch-size {batch_size} --calibration")
     if args.model == "ctm":
         model = CTM(
             dl=dl,
@@ -118,7 +130,6 @@ def main():
             fp_time=args.fp_time,
         )
         num_processes = cpu_count()
-        batch_size = 50000
         if not args.calibration:
             model.run_with_multiprocessing(num_processes=num_processes, batch_size=batch_size)
         else:
@@ -132,7 +143,6 @@ def main():
             fp_time=args.fp_time,
         )
         num_processes = cpu_count()
-        batch_size = 50000
         if not args.calibration:
             model.run_with_multiprocessing(num_processes=num_processes, batch_size=batch_size)
         else:
@@ -146,12 +156,39 @@ def main():
             fp_time=args.fp_time,
         )
         num_processes = cpu_count()
-        batch_size = 50000
         if not args.calibration:
             model.run_with_multiprocessing(num_processes=num_processes, batch_size=batch_size)
         else:
             dl.prepare("SpatialQueue", args.fp_location, args.fp_date, args.fp_time)
             model.run_calibration(num_processes=num_processes, batch_size=batch_size)
+    elif args.model == "ltm":
+        model = LTM(
+            dl=dl,
+            fp_location=args.fp_location,
+            fp_date=args.fp_date,
+            fp_time=args.fp_time,
+        )
+        num_processes = cpu_count()
+        if not args.calibration:
+            model.run_with_multiprocessing(num_processes=num_processes, batch_size=batch_size)
+        else:
+            dl.prepare("LTM", args.fp_location, args.fp_date, args.fp_time)
+            model.run_calibration(num_processes=num_processes, batch_size=batch_size)
+    elif args.model == "pw":
+        model = PW(
+            dl=dl,
+            fp_location=args.fp_location,
+            fp_date=args.fp_date,
+            fp_time=args.fp_time,
+        )
+        num_processes = cpu_count()
+        if not args.calibration:
+            model.run_with_multiprocessing(num_processes=num_processes, batch_size=batch_size)
+        else:
+            dl.prepare("PW", args.fp_location, args.fp_date, args.fp_time)
+            model.run_calibration(num_processes=num_processes, batch_size=batch_size)
+    else:
+        raise ValueError(f"Model {args.model} not supported")
 
 if __name__ == "__main__":
     main()

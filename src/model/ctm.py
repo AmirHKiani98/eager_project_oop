@@ -23,8 +23,8 @@ class CTM(TrafficModel):
     """
     Class representing the Cell Transmission Model (CTM) for traffic flow simulation.
     """
-
-    def compute_flow(self, **kwargs):
+    @staticmethod
+    def compute_flow(kwargs):
         """
         Computes the inflow into a cell based on the previous cell's occupancy 
         and the current cell's occupancy. The inflow is limited by the maximum 
@@ -67,8 +67,8 @@ class CTM(TrafficModel):
             flow = 0
         return flow
 
-
-    def predict(self, **kwargs):
+    @staticmethod
+    def predict(kwargs):
         """
         Predict the traffic flow using the Cell Transmission Model (CTM).
 
@@ -115,12 +115,13 @@ class CTM(TrafficModel):
             if i == 0:
                 inflow = first_cell_inflow
             else:
-                inflow = self.compute_flow(
-                    prev_cell_occupancy=cell_occupancies[i-1],
-                    current_cell_occupancy=cell_occupancies[i],
-                    cell_capacity=cell_capacity,
-                    flow_capacity=flow_capacity,
-                    alpha=alpha
+                inflow = CTM.compute_flow({
+                        "prev_cell_occupancy":cell_occupancies[i-1],
+                        "current_cell_occupancy":cell_occupancies[i],
+                        "cell_capacity":cell_capacity,
+                        "flow_capacity":flow_capacity,
+                        "alpha":alpha
+                    }
                 )
 
             if i == len(cell_occupancies) - 1:
@@ -132,12 +133,13 @@ class CTM(TrafficModel):
                         max_flow = max_flow.to(1).value
                     outflow = min(max_flow, cell_occupancies[i])
             else:
-                outflow = self.compute_flow(
-                    prev_cell_occupancy=cell_occupancies[i],
-                    current_cell_occupancy=cell_occupancies[i+1],
-                    cell_capacity=cell_capacity,
-                    flow_capacity=flow_capacity,
-                    alpha=alpha
+                outflow = CTM.compute_flow({
+                        "prev_cell_occupancy":cell_occupancies[i],
+                        "current_cell_occupancy":cell_occupancies[i+1],
+                        "cell_capacity":cell_capacity,
+                        "flow_capacity":flow_capacity,
+                        "alpha":alpha
+                    }
                 )
             if isinstance(inflow, Units.Quantity):
                 inflow = int(inflow.to(1).value)
@@ -146,14 +148,14 @@ class CTM(TrafficModel):
 
             new_outflow[i] = outflow
             new_occupancy[i] = cell_occupancies[i] + inflow - outflow
-            print(f"Cell {i}: inflow={inflow}, outflow={outflow}, occupancy={new_occupancy[i]}")
             # In the last cell, if the outflow is greater than the occupancy, set it to 0
             if new_occupancy[i] < 0:
                 new_occupancy[i] = 0
 
         return new_occupancy, new_outflow
 
-    def run(self, args):
+    @staticmethod
+    def run(args):
         """
         Run the traffic model with the provided arguments.
 
@@ -186,16 +188,16 @@ class CTM(TrafficModel):
             tl_status = False
         if not isinstance(tl_status, bool):
             raise TypeError("tl_status must be a boolean")
-        new_occupancy, new_outflow = self.predict(
-            cell_occupancies=occupancy_list,
-            first_cell_inflow=first_cell_inflow,
-            is_tl=is_tl,
-            tl_status=tl_status,
-            cell_capacities=cell_capacities,
-            flow_capacity=flow_capacity,
-            max_flows=max_flows,
-            alpha=alpha
-        )
+        new_occupancy, new_outflow = CTM.predict({
+            "cell_occupancies": occupancy_list,
+            "first_cell_inflow": first_cell_inflow,
+            "is_tl": is_tl,
+            "tl_status": tl_status,
+            "cell_capacities": cell_capacities,
+            "flow_capacity": flow_capacity,
+            "max_flows": max_flows,
+            "alpha": alpha
+        })
 
         return {
             "occupancy_list": occupancy_list,

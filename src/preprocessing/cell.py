@@ -12,6 +12,7 @@ Dependencies:
 """
 from typing import Optional
 from shapely.geometry import Point as POINT
+from src.model.params import Parameters
 from src.preprocessing.spatial_line import SpatialLine
 from src.preprocessing.link import Link
 class Cell(SpatialLine):
@@ -65,3 +66,16 @@ class Cell(SpatialLine):
             self._to == other._to and
             self.length_meters == other.length_meters
         )
+    
+    def get_capacity(self, params: Parameters):
+        """
+        Returns the capacity of the cell.
+
+        Args:
+            params (Parameters): The parameters object containing simulation parameters.
+
+        Returns:
+            float: The capacity of the cell.
+        """
+        return params.get_spatial_line_capacity(self.length_meters)
+    

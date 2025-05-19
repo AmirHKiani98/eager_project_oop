@@ -3,12 +3,8 @@ This is a test module for the CTM model.
 """
 import logging
 from rich.logging import RichHandler
-from shapely.geometry import Point as POINT
 from src.model.ctm import CTM
 from src.common_utility.units import Units
-from src.preprocessing.data_loader import DataLoader
-from src.preprocessing.geo_loader import GeoLoader
-from src.model.params import Parameters
 
 logging.basicConfig(
     level="DEBUG",

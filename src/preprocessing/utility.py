@@ -44,7 +44,8 @@ def fill_missing_timestamps(
             column, with original data joined where available and missing rows filled
             with nulls.
     """
-
+    min_value = float(0.0)
+    max_value = float(800.0)
     column_values = np.arange(min_value, max_value + 0.001, interval)
     column_df = pl.DataFrame(
         {column_name: column_values}

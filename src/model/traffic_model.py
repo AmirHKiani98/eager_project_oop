@@ -32,6 +32,7 @@ import numpy as np
 from tqdm import tqdm
 from src.preprocessing.data_loader import DataLoader
 from src.common_utility.units import Units
+from src.visualization.plotter import Plotter
 
 logging.basicConfig(
     level="DEBUG",
@@ -60,6 +61,7 @@ class TrafficModel:
             Abstract method that must be implemented by subclasses to predict traffic flow 
             based on the model's logic and input arguments.
     """
+    check = 0
     def __init__(self, dl: DataLoader, fp_location: str, fp_date: str, fp_time: str):
         """
         Initialize the TrafficModel with a GeoLoader instance, Parameters object,
@@ -76,6 +78,10 @@ class TrafficModel:
         self.fp_location = fp_location
         self.fp_date = fp_date
         self.fp_time = fp_time
+        self.plotter = Plotter(
+            cache_dir=self.dl.params.cache_dir,
+            geo_loader=self.dl.geo_loader
+        )
 
 
     def get_cell_length(self, cell_id, link_id):
@@ -91,30 +97,6 @@ class TrafficModel:
         """
         return self.dl.geo_loader.get_cell_length(cell_id, link_id)
 
-    def is_tl(self, link_id):
-        """
-        Check if a link has a traffic light.
-
-        Args:
-            link_id (int): The ID of the link.
-
-        Returns:
-            bool: True if the link has a traffic light, False otherwise.
-        """
-        return self.dl.is_tl(link_id)
-
-    def tl_status(self, time, link_id):
-        """
-        Get the status of a traffic light.
-
-        Args:
-            time (int): The current time.
-            link_id (int): The ID of the link.
-
-        Returns:
-            int: Status of the traffic light (1 for green, 0 for red).
-        """
-        return self.dl.tl_status(time, link_id)
 
     def compute_outflow(
         self,
@@ -161,6 +143,7 @@ class TrafficModel:
         Returns:
             list: Aggregated results from all batches.
         """
+        self.dl.prepare(self.__class__.__name__, self.fp_location, self.fp_date, self.fp_time)
         args_list = self.dl.tasks
         if not args_list:
             raise ValueError("No tasks to process. Please provide a list of tasks.")
@@ -184,7 +167,7 @@ class TrafficModel:
                 desc="Processing traffic model"
             ):
                 results = pool.map(
-                    self.run,
+                    type(self).run,
                     batch
                 )
                 all_results.extend(results)
@@ -199,8 +182,9 @@ class TrafficModel:
         """
         raise NotImplementedError("Subclasses must implement this method.")
 
+    @staticmethod
     @abstractmethod
-    def run(self, args):
+    def run(args):
         """
         Abstract method to run the traffic model.
         """
@@ -226,10 +210,10 @@ class TrafficModel:
         Returns:
             void
         """
-        free_flow_speeds = np.linspace(30, 50, 5)
-        jam_densities = np.linspace(120, 160, 5)
-        wave_speeds = np.linspace(10, 20, 5)
-        q_max = np.linspace(1000, 4000, 5)
+        free_flow_speeds = np.linspace(8, 50, 3)
+        jam_densities = np.linspace(40, 160, 3)
+        wave_speeds = np.linspace(5, 20, 3)
+        q_max = np.linspace(100, 4000, 3)
         combinations = list(itertools.product(
             free_flow_speeds,
             jam_densities,
@@ -237,15 +221,7 @@ class TrafficModel:
             q_max
         ))
         combinations_array = np.array(combinations)
-        for params in combinations_array:
-            logger.info(
-                "Running calibration with params: free_flow_speed: %s, jam_density: %s, "
-                "wave_speed: %s, q_max: %s",
-                params[0] * Units.KM_PER_HR,
-                params[1] * Units.PER_KM,
-                params[2] * Units.KM_PER_HR,
-                params[3] * Units.PER_HR
-            )
+        for params in tqdm(combinations_array, desc="Calibrating traffic model"):
             self.dl.params.set_initialized(False)
             self.dl.params.free_flow_speed = params[0] * Units.KM_PER_HR
             self.dl.params.jam_density_link = params[1] * Units.PER_KM
@@ -253,9 +229,15 @@ class TrafficModel:
             self.dl.params.q_max = params[3] * Units.PER_HR
             self.dl.params.set_initialized(True)
             self.dl.params.save_metadata()
-            self.dl.prepare(self.__class__.__name__, self.fp_location, self.fp_date, self.fp_time)
             
             self.run_with_multiprocessing(num_processes, batch_size)
+            self.plotter.plot(
+                data_file_name=self.dl.current_file_running["location"] + "_" + self.dl.current_file_running["date"] + "_" + self.dl.current_file_running["time"],
+                hash_geo=self.dl.geo_loader.get_hash_str(),
+                hash_parmas=self.dl.params.get_hash_str(),
+                traffic_model=self.__class__.__name__,
+                params=tuple(params)
+            )
 
     def get_run_file_path(self):
         """

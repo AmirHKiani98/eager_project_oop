@@ -1,21 +1,72 @@
-# Author: Amirhossein Kiani/kiani014@umn.edu
-// Data: May05th, 2024
-# Preprocessing Module
+# Eager Project OOP
+This repository implements an object-oriented approach to data processing and analysis. The codebase is modularized for clarity and maintainability, with each major functionality separated into its own module. The main modules include preprocessing, common utilities, modeling, and visualization. Each module is documented with its own README file, providing detailed usage instructions and examples.
 
-This module provides utilities and classes for preprocessing traffic data, handling spatial relationships, and preparing data for traffic flow simulation and analysis.
+The project is designed for extensibility, allowing users to easily add new features or modify existing ones. To get started, review the documentation in each module and follow the provided examples for integrating the modules into your workflow.
 
-## File Descriptions
+This project is organized into several modules, each with its own README file for detailed documentation. Below are the links to the respective README files:
 
-- **`cell.py`**: Defines the `Cell` class representing a road segment unit in the traffic network, including geometry and length-related methods.
+- [Preprocessing Module](./src/preprocessing/README.md)  
+- [Common Utility Module](./src/common_utility/README.md)  
+- [Model Module](./src/model/README.md)  
+- [Visualization Module](./src/visualization/README.md)  
 
-- **`data_loader.py`**: Contains the `DataLoader` class which manages the entire traffic data preparation pipeline, including downloading raw data, exploding vehicle trajectories, mapping points to spatial features, and computing per-cell statistics like density, entry, and exit counts.
+Refer to each module's README for specific details and usage instructions.  
 
-- **`geo_loader.py`**: Defines the `GeoLoader` class for managing spatial data. It includes methods for spatial indexing, assigning links and cells to geographic coordinates, and computing proximity metrics.
+The system uses drone-collected vehicle trajectory data from the [EPFL pNEUMA dataset](https://open-traffic.epfl.ch) and supports efficient preprocessing, parameter calibration, and multiprocessing-based simulation runs.
 
-- **`intersection.py`**: Defines the `Intersection` class to represent intersections in the network and compute traffic light influence using geometric rules.
+---
 
-- **`link.py`**: Implements the `Link` class that models road links consisting of multiple cells. Includes methods to calculate distances, manage constituent cells, and extract geometric properties.
+## 📁 Entry Point: `src/main.py`
 
-- **`spatial_line.py`**: Contains geometric helper classes like `SpatialLine` used to represent linear road geometries and compute midpoints and distances.
+This script is the primary interface for users. It handles:
 
-- **`utility.py`**: Utility functions such as timestamp normalization, time-based grouping, and trajectory data interpolation for preprocessing.
+- Argument parsing
+- Loading traffic light geolocation data
+- Initializing the data pipeline (`GeoLoader` + `DataLoader`)
+- Choosing and executing the appropriate traffic model
+- Running simulations and calibrations with multiprocessing
+
+---
+
+## 🚀 Quick Start
+
+### ✅ Install Dependencies
+
+```bash
+pip install -r requirements.txt
+```
+
+Make sure `polars`, `shapely`, and `tqdm` are installed. Also ensure your dataset is pre-downloaded or reachable via the DataLoader.
+
+## Example Run
+### Run the Cell Transmission Model:
+```bash
+python -m src.main \
+  --model ctm \
+  --fp-location d1 \
+  --fp-date 20181029 \
+  --fp-time 0800_0830 \
+  --fp-geo .cache/traffic_lights.csv
+```
+### Run Payne-Whitham model with calibration enabled:
+```bash
+python -m src.main \
+  --model pw \
+  --calibration
+```
+
+### Run all models in sequence:
+```bash
+python -m src.main \
+  --model ctm,pq,sq,ltm,pw
+```
+
+| Argument        | Type   | Default                     | Description                                                    |
+| --------------- | ------ | --------------------------- | -------------------------------------------------------------- |
+| `--model`       | `str`  | `ctm`                       | One of: `ctm`, `pq`, `sq`, `ltm`, `pw` or comma-separated list |
+| `--batch-size`  | `int`  | `50000`                     | Batch size for multiprocessing                                 |
+| `--fp-location` | `str`  | `d1`                        | Dataset location (EPFL folder name)                            |
+| `--fp-date`     | `str`  | `20181029`                  | Date string in `YYYYMMDD` format                               |
+| `--fp-time`     | `str`  | `0800_0830`                 | Time interval string                                           |
+| `--fp-geo`      | `str`  | `.cache/traffic_lights.csv` | Path to traffic light geolocation CSV                          |
+| `--calibration` | `flag` | `False`                     | If set, enables parameter calibration for the model            |
