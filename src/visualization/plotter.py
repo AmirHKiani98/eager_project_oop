@@ -149,7 +149,7 @@ class Plotter:
 
         plt.title("Flow Actual Heatmap")
         plt.xlabel("Link Index")
-        plt.ylabel("Time")
+        plt.ylabel("Time (s)")
         plt.tight_layout()
 
         # Save the heatmap
@@ -406,8 +406,8 @@ class Plotter:
                 cbar_kws={'label': 'Error'}
             )
             plt.title(f"Heatmap for Link ID: {link_id}")
-            plt.xlabel("X")
-            plt.ylabel("Time")
+            plt.xlabel("X (m)")
+            plt.ylabel("Time (s)")
             plt.tight_layout()
             plt.savefig(figure_path + f"Link_{link_id}.png")
             plt.close()
@@ -456,7 +456,7 @@ class Plotter:
         )
         data = data.with_columns(
             pl.struct(["new_densities", "next_densities"])
-            .map_elements(lambda row: ((np.array(row["new_densities"]) - np.array(row["next_densities"])))**2)
+            .map_elements(lambda row: ((np.array(row["new_densities"]) - np.array(row["next_densities"])) / len(row["new_densities"]))**2)
             .alias("squared_error")
         )
         group = data.group_by(["link_id"])
@@ -503,7 +503,7 @@ class Plotter:
                 self.save_errors()
             plt.title(f"Heatmap for Link ID: {link_id}")
             plt.xlabel("Cell ID")
-            plt.ylabel("Time")
+            plt.ylabel("Time (s)")
             plt.tight_layout()
             plt.savefig(figure_path + f"Link_{link_id}.png")
             plt.close()
