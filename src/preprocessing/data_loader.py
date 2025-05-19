@@ -210,7 +210,6 @@ class DataLoader:
                         progress_bar.update(len(chunk))
             progress_bar.close()
 
-            logger.info("Downloaded to: %s", self.get_cached_filepath(location, date, time))
             return self.get_cached_filepath(location, date, time)
         else:
             raise RuntimeError(f"Failed to download file: {response.status_code} - {response.text}")
@@ -1047,7 +1046,6 @@ class DataLoader:
         )
         
         if os.path.isfile(file_address):
-            logger.info("Cumulative counts file already exists: %s", file_address)
             return file_address
 
         occupanct_exit_entry_df = self.density_exit_entry_files_dict.get(
@@ -1127,7 +1125,6 @@ class DataLoader:
             pl.col("trajectory_time").round(2)
         ])
         cumulative_cumulative_counts_df.write_csv(file_address)
-        logger.info(f"Cumulative counts DataFrame saved to {file_address}")
         return file_address
 
     def activate_tl_status_dict(self, location, date, time):
@@ -2141,9 +2138,6 @@ class DataLoader:
             fp_date (str): The date of the file.
             fp_time (str): The time of the file.
         """
-        logger.info(
-            f"Preparing tasks for {class_name}"
-        )
         if class_name == "CTM":
             self.prepare_ctm_tasks(
                 fp_location,

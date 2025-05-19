@@ -221,15 +221,7 @@ class TrafficModel:
             q_max
         ))
         combinations_array = np.array(combinations)
-        for params in combinations_array:
-            logger.info(
-                "Running calibration with params: free_flow_speed: %s, jam_density: %s, "
-                "wave_speed: %s, q_max: %s",
-                params[0] * Units.KM_PER_HR,
-                params[1] * Units.PER_KM,
-                params[2] * Units.KM_PER_HR,
-                params[3] * Units.PER_HR
-            )
+        for params in tqdm(combinations_array, desc="Calibrating traffic model"):
             self.dl.params.set_initialized(False)
             self.dl.params.free_flow_speed = params[0] * Units.KM_PER_HR
             self.dl.params.jam_density_link = params[1] * Units.PER_KM
