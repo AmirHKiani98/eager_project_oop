@@ -221,7 +221,7 @@ class Plotter:
                     rmse_data["squared_error"].append(squared_error[i])
                     average_error += squared_error[i]
                     n += 1
-                    rmse_data["cell_id"].append(i)
+                    rmse_data["cell_id"].append(i+1)
             rmse_data = pd.DataFrame(rmse_data)
             heatmap_data = rmse_data.pivot(index="trajectory_time", columns="cell_id", values="squared_error")
             plt.figure(figsize=(8, 6))
@@ -451,8 +451,61 @@ class Plotter:
             .map_elements(lambda row: ((np.array(row["new_densities"]) - np.array(row["next_densities"])) / len(row["new_densities"]))**2)
             .alias("squared_error")
         )
-        print(data.select(["squared_error"]).head(10))
-        exit()
+        group = data.group_by(["link_id"])
+        figure_path = f"{self.cache_dir}/results/{self.get_base_name_without_extension(file_name)}/{traffic_model}/"
+        if not os.path.exists(figure_path):
+            os.makedirs(figure_path)
+        min_errors = data["squared_error"].to_pandas().explode().astype(float).min()
+        max_errors = data["squared_error"].to_pandas().explode().astype(float).max()
+        average_error = 0
+        n = 0
+        for name, group in group:
+            link_id = int(name[0]) # type: ignore
+            group = group.sort("trajectory_time")
+            rmse_data = {
+                "trajectory_time": [],
+                "cell_id": [],
+                "squared_error": []
+            }
+            for row in tqdm(group.iter_rows(named=True), desc=f"Processing link {link_id} for pw", total=len(group)):
+                for i in range(len(row["squared_error"])):
+                    rmse_data["trajectory_time"].append(row["trajectory_time"])
+                    rmse_data["cell_id"].append(i+1)
+                    rmse_data["squared_error"].append(row["squared_error"][i])
+                    average_error += row["squared_error"][i]
+                    n += 1
+            
+            rmse_data = pd.DataFrame(rmse_data)
+            heatmap_data = rmse_data.pivot(index="trajectory_time", columns="cell_id", values="squared_error")
+            plt.figure(figsize=(8, 6))
+            sns.heatmap(
+                heatmap_data,
+                cmap="Reds",
+                vmin=min_errors,
+                vmax=max_errors,
+                annot=False,
+                cbar_kws={'label': 'Error'}
+            )
+            if params is not None:
+                if traffic_model not in self.errors:
+                    self.errors[traffic_model] = {}
+                
+                str_key = str(params)
+                self.errors[traffic_model][str_key] = average_error/n
+                self.save_errors()
+            plt.title(f"Heatmap for Link ID: {link_id}")
+            plt.xlabel("Cell ID")
+            plt.ylabel("Time")
+            plt.tight_layout()
+            plt.savefig(figure_path + f"Link_{link_id}.png")
+            plt.close()
+        if params is not None:
+            if traffic_model not in self.errors:
+                self.errors[traffic_model] = {}
+            str_key = str(params)
+            self.errors[traffic_model][str_key] = average_error/n
+            self.save_errors()
+        
         
 
     def plot(self,

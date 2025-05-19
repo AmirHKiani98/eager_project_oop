@@ -24,6 +24,7 @@ class PW(TrafficModel):
             "jam_density_link", # Units
             "tl_status",
             "next_occupancy", # list[unitless]
+            "trajectory_time"
 
         ]
         for arg in required_arguments:
@@ -115,10 +116,12 @@ class PW(TrafficModel):
             speed = speed.to(Units.KM_PER_HR).value
             density_value.append(density)
             speed_value.append(speed)
+        trajectory_time = args["trajectory_time"]
         return {
             "new_densities": density_value,
             "new_speeds": speed_value,
             "next_densities": next_occupancy,
             "cell_lengths": [length.to(Units.M).value for length in cell_lengths],
             "link_id": args["link_id"],
+            "trajectory_time": trajectory_time,
         }
