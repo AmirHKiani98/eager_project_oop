@@ -4,6 +4,7 @@ Plotter library for visualizing the data.
 """
 import json
 import os
+from typing import Optional
 import polars as pl
 import seaborn as sns
 from matplotlib import pyplot as plt
@@ -45,6 +46,13 @@ class Plotter:
                 cell_id: cell.get_length().to(Units.M).value for cell_id, cell in link.cells.items()
             } for link_id, link in self.geo_loader.links.items()
         }
+
+        self.errors = {}
+        all_errors_path = f"{self.cache_dir}/all_errors.json"
+        if os.path.exists(all_errors_path):
+            with open(all_errors_path, "r") as f:
+                self.errors = json.load(f)
+        
         
 
     def get_parameters(self, file_name: str):
@@ -69,7 +77,8 @@ class Plotter:
                                              data_file_name: str,
             hash_parmas: str,
             hash_geo: str,
-            traffic_model: str):
+            traffic_model: str,
+            params: Optional[tuple] = None):
         """
         Find RMSE from the file name.
 
@@ -96,6 +105,12 @@ class Plotter:
             (((pl.col("receiving_flow") - pl.col("outflow")) - pl.col("next_occupancy")) /
              (pl.col("link_length"))).pow(2).mean().alias("rmse")
         )
+        average_error = rmse_data["rmse"].mean()
+        if params is not None:
+            if traffic_model not in self.errors:
+                self.errors[traffic_model] = {}
+            self.errors[traffic_model][hash_parmas] = average_error
+            self.save_errors()
         rmse_data = rmse_data.filter(
             # pl.col('rmse') < 20
         )
@@ -148,7 +163,7 @@ class Plotter:
                        data_file_name: str,
             hash_parmas: str,
             hash_geo: str,
-            traffic_model: str):
+            traffic_model: str, params: Optional[tuple] = None):
         """
         Plots the error in CTM.
         Args:
@@ -157,6 +172,8 @@ class Plotter:
             hash_geo (str): The hash of the geo.
             traffic_model (str): The name of the traffic model.
         """
+        average_error = 0
+        n = 0
         file_name = f"{self.cache_dir}/{traffic_model}/{data_file_name}_{hash_geo}_{hash_parmas}.json"
         if not os.path.exists(file_name):
             raise FileNotFoundError(f"File not found: {file_name}")
@@ -199,6 +216,8 @@ class Plotter:
                 for i in range(len(squared_error)):
                     rmse_data["trajectory_time"].append(trajectory_time)
                     rmse_data["squared_error"].append(squared_error[i])
+                    average_error += squared_error[i]
+                    n += 1
                     rmse_data["cell_id"].append(i)
             rmse_data = pd.DataFrame(rmse_data)
             heatmap_data = rmse_data.pivot(index="trajectory_time", columns="cell_id", values="squared_error")
@@ -211,6 +230,11 @@ class Plotter:
                 annot=False,
                 cbar_kws={'label': 'Error'}
             )
+            if params is not None:
+                if traffic_model not in self.errors:
+                    self.errors[traffic_model] = {}
+                self.errors[traffic_model][params] = average_error/n
+                self.save_errors()
             plt.title(f"Heatmap for Link ID: {link_id}")
             plt.savefig(figure_path + f"Link_{link_id}.png")
             plt.close()
@@ -278,7 +302,7 @@ class Plotter:
         data = data.filter(
             pl.col("error") > 0
         )
-        print(data["sending_flow"].mean())
+        
         df_pd = data.to_pandas()
         df_pd["link_id"] = df_pd["link_id"].astype(int)
 
@@ -306,7 +330,8 @@ class Plotter:
                        data_file_name,
                        hash_parmas: str,
                        hash_geo: str,
-                       traffic_model: str):
+                       traffic_model: str,
+                       params: Optional[tuple] = None):
         """
         Plotting the error in LTM.
         Args:
@@ -338,6 +363,12 @@ class Plotter:
         error_info = data.select(
             ["link_id", "trajectory_time", "squared_error", "x"]
         )
+        average_error = data["squared_error"].mean()
+        if params is not None:
+            if traffic_model not in self.errors:
+                self.errors[traffic_model] = {}
+            self.errors[traffic_model][params] = average_error
+            self.save_errors()
         groups = error_info.group_by(["link_id"])
         figure_path = f"{self.cache_dir}/results/{self.get_base_name_without_extension(file_name)}/{traffic_model}/"
         if not os.path.exists(figure_path):
@@ -460,6 +491,21 @@ class Plotter:
         ani.save("animation.gif", writer='imagemagick', fps=5)
         print("Animation saved as 'animation.gif'.")
 
+    def save_errors(self):
+        """
+        Save the errors.
+        """
+        all_errors_path = f"{self.cache_dir}/all_errors.json"
+        with open(all_errors_path, "w") as f:
+            json.dump(self.errors, f)
+
+    def load_errors(self):
+        """
+        Load the errors from a JSON file.
+        """
+        all_errors_path = f"{self.cache_dir}/all_errors.json"
+        with open(all_errors_path, "r") as f:
+            self.errors = json.load(f)
 
 if __name__ == "__main__":
     intersection_locations = (

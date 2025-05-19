@@ -1880,6 +1880,7 @@ class DataLoader:
                         "tl_status": self.tl_status(trajectory_time, link_id),
                         "link_id": link_id,
                         "k_j": self.params.jam_density_link,
+                        "entry_count": data["entry_count"],
                         "link_length": self.geo_loader.links[link_id].get_length(),
                     }
                 )
