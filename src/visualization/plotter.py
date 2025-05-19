@@ -98,7 +98,9 @@ class Plotter:
         data = pl.read_json(
             file_name
         )
-        
+        data = data.filter(
+            pl.col("link_id") != 5
+        )
         data = data.with_columns(
             pl.col("link_id").cast(pl.Int64).replace(self.link_lengths).alias("link_length")
         )
@@ -182,6 +184,9 @@ class Plotter:
             raise FileNotFoundError(f"File not found: {file_name}")
         data = pl.read_json(
             file_name
+        )
+        data = data.filter(
+            pl.col("link_id") != 5
         )
         data = data.with_columns(
             pl.col("link_id")
@@ -351,6 +356,9 @@ class Plotter:
         data = pl.read_json(
             file_name
         )
+        data = data.filter(
+            pl.col("link_id") != 5
+        )
         data = data.with_columns(
             pl.struct(["link_id", "cell_id"])
             .map_elements(lambda row: self.cell_length[int(row["link_id"])][int(row["cell_id"])], return_dtype=pl.Float64)
@@ -448,7 +456,7 @@ class Plotter:
         )
         data = data.with_columns(
             pl.struct(["new_densities", "next_densities"])
-            .map_elements(lambda row: ((np.array(row["new_densities"]) - np.array(row["next_densities"])) / len(row["new_densities"]))**2)
+            .map_elements(lambda row: ((np.array(row["new_densities"]) - np.array(row["next_densities"])))**2)
             .alias("squared_error")
         )
         group = data.group_by(["link_id"])
