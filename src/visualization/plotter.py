@@ -115,10 +115,9 @@ class Plotter:
             
             str_key = str(params)
             self.errors[traffic_model][str_key] = average_error
+            print("Saved error for params: ", str_key, " with value: ", average_error)
             self.save_errors()
-        rmse_data = rmse_data.filter(
-            # pl.col('rmse') < 20
-        )
+        
         
         figure_path = f"{self.cache_dir}/results/{self.get_base_name_without_extension(file_name)}/{traffic_model}/error.png"
         if not os.path.exists(os.path.dirname(figure_path)):
