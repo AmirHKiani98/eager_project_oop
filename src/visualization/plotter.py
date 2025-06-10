@@ -88,13 +88,11 @@ class Plotter:
             hash_geo (str): The hash of the geo.
             traffic_model (str): The name of the traffic model.
         """
-        
-        
-        
+
         file_name = f"{self.cache_dir}/{traffic_model}/{data_file_name}_{hash_geo}_{hash_parmas}.json"
         if not os.path.exists(file_name):
             raise FileNotFoundError(f"File not found: {file_name}")
-        print(file_name)
+        
         data = pl.read_json(
             file_name
         )
@@ -105,8 +103,8 @@ class Plotter:
             pl.col("link_id").cast(pl.Int64).replace(self.link_lengths).alias("link_length")
         )
         rmse_data = data.group_by(["link_id", "trajectory_time"]).agg(
-            (((pl.col("receiving_flow") - pl.col("outflow")) - pl.col("next_occupancy")) /
-             (pl.col("link_length"))).pow(2).mean().alias("rmse")
+            (((pl.col("receiving_flow") - pl.col("outflow")) - (pl.col("next_occupancy")) / pl.col("link_length"))
+             ).pow(2).mean().alias("rmse")
         )
         average_error = rmse_data["rmse"].mean()
         if params is not None:
@@ -146,7 +144,7 @@ class Plotter:
             cbar_kws={'label': 'Error'}
         )
 
-        plt.title("Flow Actual Heatmap")
+        plt.title("Density Error Heatmap")
         plt.xlabel("Link Index")
         plt.ylabel("Time (s)")
         plt.tight_layout()
@@ -154,6 +152,116 @@ class Plotter:
         # Save the heatmap
         plt.savefig(figure_path)
         plt.close()  
+    
+    def plot_point_queue_spatial_queue(self,
+            data_file_name: str,
+            hash_parmas: str,
+            hash_geo: str,
+            traffic_model: str,
+    ):
+        """
+        Plotting the actual and predicted values for PointQueue and SpatialQueue models.
+        Args:
+            data_file_name (str): The name of the file to plot.
+            hash_parmas (str): The hash of the parameters.
+            hash_geo (str): The hash of the geo.
+            traffic_model (str): The name of the traffic model.
+            params (tuple, optional): Parameters to save with the error. Defaults to None.
+        """
+        file_name = f"{self.cache_dir}/{traffic_model}/{data_file_name}_{hash_geo}_{hash_parmas}.json"
+        if not os.path.exists(file_name):
+            raise FileNotFoundError(f"File not found: {file_name}")
+        
+        data = pl.read_json(file_name)
+        data = data.filter((pl.col("link_id") != 5))
+        data = data.with_columns(
+            pl.col("link_id").cast(pl.Int64).replace(self.link_lengths).alias("link_length"),
+            pl.col("link_id").cast(pl.Int64)
+        )
+
+        actual_figure_path = f"{self.cache_dir}/results/{self.get_base_name_without_extension(file_name)}/{traffic_model}/actual_density.png"
+        predicted_figure_path = f"{self.cache_dir}/results/{self.get_base_name_without_extension(file_name)}/{traffic_model}/predicted_density.png"
+        density_error = f"{self.cache_dir}/results/{self.get_base_name_without_extension(file_name)}/{traffic_model}/error_density.png"
+        
+        if not os.path.exists(os.path.dirname(actual_figure_path)):
+            os.makedirs(os.path.dirname(actual_figure_path))
+        data = data.with_columns([
+            ((pl.col("next_occupancy") - pl.col("new_occupancy")).pow(2).pow(0.5)/pl.col("link_length")).alias("error_density"),
+            (pl.col("next_occupancy") / pl.col("link_length")).alias("actual_density"),
+            (pl.col("new_occupancy") / pl.col("link_length")).alias("predicted_density")
+        ])
+
+        data = data.sort("trajectory_time")
+        data_pd = data.to_pandas()
+        heatmap_data_actual = data_pd.pivot(index="trajectory_time", columns="link_id", values="actual_density")
+        _min = data_pd["actual_density"].min()
+        _max = data_pd["actual_density"].max()
+        
+        plt.figure(figsize=(10, 8))
+        sns.heatmap(
+            heatmap_data_actual,
+            cmap="Reds",
+            vmin=_min,
+            vmax=_max,
+            annot=False,
+            cbar_kws={'label': 'Actual'}
+        )
+
+        plt.title("Actual Density Heatmap")
+        plt.xlabel("Link Index")
+        plt.ylabel("Time (s)")
+        plt.tight_layout()
+
+        # Save the heatmap
+        plt.savefig(actual_figure_path)
+        plt.close()
+        
+        
+        heatmap_data_predicted = data_pd.pivot(index="trajectory_time", columns="link_id", values="predicted_density")
+        _min = data_pd["predicted_density"].min()
+        _max = data_pd["predicted_density"].max()
+        plt.figure(figsize=(10, 8))
+        sns.heatmap(
+            heatmap_data_predicted,
+            cmap="Reds",
+            vmin=_min,
+            vmax=_max,
+            annot=False,
+            cbar_kws={'label': 'Predicted'}
+        )
+
+        plt.title("Predicted Density Heatmap")
+        plt.xlabel("Link Index")
+        plt.ylabel("Time (s)")
+        plt.tight_layout()
+
+        # Save the heatmap
+        plt.savefig(predicted_figure_path)
+        plt.close()
+
+        heatmap_data_density_error = data_pd.pivot(index="trajectory_time", columns="link_id", values="error_density")
+        _min = data_pd["error_density"].min()
+        _max = data_pd["error_density"].max()
+        plt.figure(figsize=(10, 8))
+        sns.heatmap(
+            heatmap_data_density_error,
+            cmap="Reds",
+            vmin=_min,
+            vmax=_max,
+            annot=False,
+            cbar_kws={'label': 'Predicted'}
+        )
+
+        plt.title("Density Error Heatmap")
+        plt.xlabel("Link Index")
+        plt.ylabel("Time (s)")
+        plt.tight_layout()
+
+        # Save the heatmap
+        plt.savefig(density_error)
+        plt.close()
+
+
 
     def truncate_and_square_error_ctm(self, row):
         new_occ = np.array(row["new_occupancy"])
@@ -163,11 +271,12 @@ class Plotter:
         min_len = min(len(new_occ), len(next_occ), len(lengths))
         return ((new_occ[:min_len] - next_occ[:min_len]) / lengths[:min_len]) ** 2
 
-    def plot_error_ctm(self,
+    def plot_ctm(self,
                        data_file_name: str,
-            hash_parmas: str,
-            hash_geo: str,
-            traffic_model: str, params: Optional[tuple] = None):
+                       hash_parmas: str,
+                       hash_geo: str,
+                       traffic_model: str,
+                       params: Optional[tuple] = None):
         """
         Plots the error in CTM.
         Args:
@@ -175,18 +284,17 @@ class Plotter:
             hash_parmas (str): The hash of the parameters.
             hash_geo (str): The hash of the geo.
             traffic_model (str): The name of the traffic model.
+            params (tuple, optional): Parameters to save with the error. Defaults to None.
         """
         average_error = 0
         n = 0
         file_name = f"{self.cache_dir}/{traffic_model}/{data_file_name}_{hash_geo}_{hash_parmas}.json"
         if not os.path.exists(file_name):
             raise FileNotFoundError(f"File not found: {file_name}")
-        data = pl.read_json(
-            file_name
-        )
-        data = data.filter(
-            pl.col("link_id") != 5
-        )
+
+        data = pl.read_json(file_name)
+        data = data.filter(pl.col("link_id") != 5) # Filter out link_id 5
+
         data = data.with_columns(
             pl.col("link_id")
             .cast(pl.Int64)
@@ -199,60 +307,184 @@ class Plotter:
             .map_elements(self.truncate_and_square_error_ctm)
             .alias("squared_error")
         )
+        
         error_info = data.select(
-            ["link_id", "trajectory_time", "squared_error"]
+            ["link_id", "trajectory_time", "squared_error", "next_occupancy", "new_occupancy", "cell_lengths"]
         )
+
+        # Prepare a list to hold all error data for the combined heatmap
+        all_rmse_data = []
+
+        # Calculate min and max for consistent colormap scaling
+        all_errors_flat = []
+        for row in error_info.iter_rows(named=True):
+            all_errors_flat.extend(row["squared_error"])
+        
+        all_errors_flat = [e for e in all_errors_flat if e is not None] # Filter out None values
+        rmse_data_min = min(all_errors_flat) if all_errors_flat else 0
+        rmse_data_max = max(all_errors_flat) if all_errors_flat else 1
+
+
         groups = error_info.group_by(["link_id"])
-        figure_path = f"{self.cache_dir}/results/{self.get_base_name_without_extension(file_name)}/{traffic_model}/"
-        if not os.path.exists(figure_path):
-            os.makedirs(figure_path)
-        all_errors = error_info.to_pandas()["squared_error"].explode().astype(float)
-        rmse_data_min = all_errors.min()
-        rmse_data_max = all_errors.max()
+        actual_max = float("-inf")
+        actual_min = float("inf")
+
+        predicted_max = float("-inf")
+        predicted_min = float("inf")
         for name, group in groups:
             link_id = int(name[0]) # type: ignore
             group = group.sort("trajectory_time")
-            rmse_data = {
-                "trajectory_time": [],
-                "squared_error": [],
-                "cell_id": [],
-            }
-            for row in tqdm(group.iter_rows(named=True), desc=f"Processing link {link_id}", total=len(group)):
+            
+            for row in tqdm(group.iter_rows(named=True), desc=f"Collecting data for link {link_id}", total=len(group)):
                 trajectory_time = row["trajectory_time"]
                 squared_error = row["squared_error"]
+                next_occupancy = row["next_occupancy"]
+                new_occupancy = row["new_occupancy"]
+                cell_lengths = row["cell_lengths"]
                 for i in range(len(squared_error)):
-                    rmse_data["trajectory_time"].append(trajectory_time)
-                    rmse_data["squared_error"].append(squared_error[i])
+                    actual_cell_density = next_occupancy[i] / cell_lengths[i]
+                    predicted_cell_density = new_occupancy[i] / cell_lengths[i]
+                    all_rmse_data.append({
+                        "link_id": link_id,
+                        "trajectory_time": trajectory_time,
+                        "squared_error": squared_error[i],
+                        "actual_cell_density": actual_cell_density,
+                        "predicted_cell_density": predicted_cell_density,
+                        "cell_id": i + 1
+                    })
+                    if actual_cell_density > actual_max:
+                        actual_max = actual_cell_density
+                    
+                    if actual_cell_density < actual_min:
+                        actual_max = actual_cell_density
+
+                    if predicted_cell_density > predicted_max:
+                        predicted_max = predicted_cell_density
+                    
+                    if predicted_cell_density < predicted_min:
+                        predicted_min = predicted_cell_density
+
                     average_error += squared_error[i]
                     n += 1
-                    rmse_data["cell_id"].append(i+1)
-            rmse_data = pd.DataFrame(rmse_data)
-            heatmap_data = rmse_data.pivot(index="trajectory_time", columns="cell_id", values="squared_error")
-            plt.figure(figsize=(8, 6))
-            sns.heatmap(
-                heatmap_data,
-                cmap="Reds",
-                vmin=rmse_data_min,
-                vmax=rmse_data_max,
-                annot=False,
-                cbar_kws={'label': 'Error'}
-            )
-            if params is not None:
-                if traffic_model not in self.errors:
-                    self.errors[traffic_model] = {}
-                
-                str_key = str(params)
-                self.errors[traffic_model][str_key] = average_error/n
-                self.save_errors()
-            plt.title(f"Heatmap for Link ID: {link_id}")
-            plt.savefig(figure_path + f"Link_{link_id}.png")
-            plt.close()
-        # data = data.with_columns(
-        #     pl.struct(["new_outflow", "next_occupancy", "cell_lengths"])
-        #     .map_elements(lambda row: ((np.array(row["new_outflow"]) - np.array(row["next_occupancy"])) / np.array(row["cell_lengths"]))**2)
-        #     .alias("squared_error")
-        # )
-        # print(data.select(["squared_error"]).head(10))
+
+        if not all_rmse_data:
+            print("No error data to plot.")
+            return
+
+        combined_rmse_df = pd.DataFrame(all_rmse_data)
+
+        # Create a unique identifier for each cell within its link
+        combined_rmse_df['link_cell_id'] = "link " + combined_rmse_df['link_id'].astype(str) + ' cell ' + combined_rmse_df['cell_id'].astype(str)
+
+        # Pivot the data for the combined heatmap
+        # We need to decide how to represent multiple links on a single heatmap.
+        # One common way is to stack them vertically or horizontally.
+        # For simplicity, let's create a "synthetic" cell ID that combines link and cell.
+        combined_heatmap_data = combined_rmse_df.pivot_table(
+            index="trajectory_time",
+            columns="link_cell_id",
+            values="squared_error"
+        )
+        
+        combined_heatmap_data = combined_heatmap_data.reindex(sorted(combined_heatmap_data.columns, key=lambda x: (int(x.split(' ')[1]), int(x.split(' ')[3]))), axis=1)
+
+
+        figure_path = f"{self.cache_dir}/results/{self.get_base_name_without_extension(file_name)}/{traffic_model}/"
+        if not os.path.exists(figure_path):
+            os.makedirs(figure_path)
+
+        plt.figure(figsize=(15, 8)) 
+        sns.heatmap(
+            combined_heatmap_data,
+            cmap="Reds",
+            vmin=rmse_data_min,
+            vmax=rmse_data_max,
+            annot=False,
+            cbar_kws={'label': 'Squared Error'},
+            
+        )
+        plt.title(f"Heatmap of Squared Error for All Links ({traffic_model})")
+        plt.xlabel("Link_ID and Cell_ID")
+        plt.ylabel("Trajectory Time")
+        plt.tight_layout()
+        plt.xticks(rotation=45, ha='right')
+        plt.savefig(figure_path + "error_density.png")
+        plt.close()
+
+
+        combined_heatmap_data_actual_density = combined_rmse_df.pivot_table(
+            index="trajectory_time",
+            columns="link_cell_id",
+            values="actual_cell_density"
+        )
+        
+        combined_heatmap_data_actual_density = combined_heatmap_data_actual_density.reindex(sorted(combined_heatmap_data_actual_density.columns, key=lambda x: (int(x.split(' ')[1]), int(x.split(' ')[3]))), axis=1)
+
+
+        figure_path = f"{self.cache_dir}/results/{self.get_base_name_without_extension(file_name)}/{traffic_model}/"
+        if not os.path.exists(figure_path):
+            os.makedirs(figure_path)
+
+        plt.figure(figsize=(15, 8))
+        
+        sns.heatmap(
+            combined_heatmap_data_actual_density,
+            cmap="Reds",
+            vmin=actual_min,
+            vmax=actual_max,
+            annot=False,
+            cbar_kws={'label': 'Actual Density'},
+            
+        )
+        plt.title(f"Density Heatmap for All Links ({traffic_model})")
+        plt.xlabel("Link_ID and Cell_ID")
+        plt.ylabel("Trajectory Time")
+        plt.tight_layout()
+        plt.xticks(rotation=45, ha='right')
+        plt.savefig(figure_path + "actual_density.png")
+        plt.close()
+
+
+        combined_heatmap_data_predicted_density = combined_rmse_df.pivot_table(
+            index="trajectory_time",
+            columns="link_cell_id",
+            values="predicted_cell_density"
+        )
+        
+        combined_heatmap_data_predicted_density = combined_heatmap_data_predicted_density.reindex(sorted(combined_heatmap_data_predicted_density.columns, key=lambda x: (int(x.split(' ')[1]), int(x.split(' ')[3]))), axis=1)
+
+
+        figure_path = f"{self.cache_dir}/results/{self.get_base_name_without_extension(file_name)}/{traffic_model}/"
+        if not os.path.exists(figure_path):
+            os.makedirs(figure_path)
+
+        plt.figure(figsize=(15, 8)) 
+        sns.heatmap(
+            combined_heatmap_data_predicted_density,
+            cmap="Reds",
+            vmin=predicted_min,
+            vmax=predicted_max,
+            annot=False,
+            cbar_kws={'label': 'Actual Density'},
+            
+        )
+        plt.title(f"Density Heatmap for All Links ({traffic_model})")
+        plt.xlabel("Link_ID and Cell_ID")
+        plt.ylabel("Trajectory Time")
+        plt.tight_layout()
+        plt.xticks(rotation=45, ha='right')
+        plt.savefig(figure_path + "predicted_density.png")
+        plt.close()
+
+        
+
+        if params is not None:
+            if traffic_model not in self.errors:
+                self.errors[traffic_model] = {}
+            
+            str_key = str(params)
+            self.errors[traffic_model][str_key] = average_error/n
+            self.save_errors()
 
 
     def plot_sns_heatmap_ctm(self, 
@@ -335,7 +567,7 @@ class Plotter:
         plt.savefig(figure_path)
             
         
-    def plot_error_ltm(self,
+    def plot_ltm(self,
                        data_file_name,
                        hash_parmas: str,
                        hash_geo: str,
@@ -373,7 +605,7 @@ class Plotter:
                                      ).alias("x")                                     
         )
         error_info = data.select(
-            ["link_id", "trajectory_time", "squared_error", "x"]
+            ["link_id", "trajectory_time", "squared_error", "x", "new_occupancy", "next_occupancy", "cell_lengths"]
         )
         average_error = data["squared_error"].mean()
         if params is not None:
@@ -388,28 +620,112 @@ class Plotter:
             os.makedirs(figure_path)
         min_errors = error_info["squared_error"].cast(pl.Float64).min()
         max_errors = error_info["squared_error"].max()
+        # Step 1: Prepare a list to hold all error data
+        all_rmse_data = []
+        offset = 0.0
+
         for name, group in groups:
-            link_id = int(name[0]) # type: ignore
+            link_id = int(name[0])  # type: ignore
             group = group.sort("trajectory_time")
+            group = group.with_columns(
+                (pl.col("x") + offset).alias("x")
+            )
+            max_x = float(group["x"].max())
+            offset += max_x  # update for next link
+
             group = group.to_pandas()
-            rmse_data = group.pivot(
-                index="trajectory_time", columns="x", values="squared_error"
-            )
-            plt.figure(figsize=(8, 6))
-            sns.heatmap(
-                rmse_data,
-                cmap="Reds",
-                vmin=min_errors, # type: ignore
-                vmax=max_errors, # type: ignore
-                annot=False,
-                cbar_kws={'label': 'Error'}
-            )
-            plt.title(f"Heatmap for Link ID: {link_id}")
-            plt.xlabel("X (m)")
-            plt.ylabel("Time (s)")
-            plt.tight_layout()
-            plt.savefig(figure_path + f"Link_{link_id}.png")
-            plt.close()
+            for _, row in group.iterrows():
+                all_rmse_data.append({
+                    "trajectory_time": row["trajectory_time"],
+                    "x": row["x"],
+                    "squared_error": row["squared_error"],
+                    "predicted_density": row["new_occupancy"] / row["cell_lengths"],
+                    "actual_density": row["next_occupancy"] / row["cell_lengths"]
+
+                })
+        if not all_rmse_data:
+            print("No error data to plot.")
+            return
+
+        # Step 2: Convert to DataFrame and pivot
+        df_all = pd.DataFrame(all_rmse_data)
+        heatmap_data = df_all.pivot(index="trajectory_time", columns="x", values="squared_error")
+        heatmap_data = heatmap_data.sort_index(axis=1)
+
+        # Step 3: Plot single heatmap
+        plt.figure(figsize=(15, 8))
+        sns.heatmap(
+            heatmap_data,
+            cmap="Reds",
+            vmin=min_errors,
+            vmax=max_errors,
+            annot=False,
+            cbar_kws={'label': 'Squared Error'}
+        )
+        plt.title(f"Density Error Heatmap ({traffic_model})")
+        plt.xlabel("X (m, shifted)")
+        plt.ylabel("Trajectory Time")
+        plt.tight_layout()
+        plt.xticks(rotation=45, ha='right')
+
+        figure_path = f"{self.cache_dir}/results/{self.get_base_name_without_extension(file_name)}/{traffic_model}/"
+        if not os.path.exists(figure_path):
+            os.makedirs(figure_path)
+        plt.savefig(figure_path + "error_density.png")
+        plt.close()
+
+
+        heatmap_data_actual_density = df_all.pivot(index="trajectory_time", columns="x", values="actual_density")
+        heatmap_data_actual_density = heatmap_data_actual_density.sort_index(axis=1)
+        _min = df_all["actual_density"].min()
+        _max = df_all["actual_density"].max()
+        # Step 3: Plot single heatmap
+        plt.figure(figsize=(15, 8))
+        sns.heatmap(
+            heatmap_data_actual_density,
+            cmap="Reds",
+            vmin=_min,
+            vmax=_max,
+            annot=False,
+            cbar_kws={'label': 'Squared Error'}
+        )
+        plt.title(f"Actual Density Heatmap ({traffic_model})")
+        plt.xlabel("X (m, shifted)")
+        plt.ylabel("Trajectory Time")
+        plt.tight_layout()
+        plt.xticks(rotation=45, ha='right')
+
+        figure_path = f"{self.cache_dir}/results/{self.get_base_name_without_extension(file_name)}/{traffic_model}/"
+        if not os.path.exists(figure_path):
+            os.makedirs(figure_path)
+        plt.savefig(figure_path + "actual_density.png")
+        plt.close()
+
+        heatmap_data_actual_density = df_all.pivot(index="trajectory_time", columns="x", values="predicted_density")
+        heatmap_data_actual_density = heatmap_data_actual_density.sort_index(axis=1)
+        _min = df_all["predicted_density"].min()
+        _max = df_all["predicted_density"].max()
+        # Step 3: Plot single heatmap
+        plt.figure(figsize=(15, 8))
+        sns.heatmap(
+            heatmap_data_actual_density,
+            cmap="Reds",
+            vmin=_min,
+            vmax=_max,
+            annot=False,
+            cbar_kws={'label': 'Squared Error'}
+        )
+        plt.title(f"Predicted Density Heatmap ({traffic_model})")
+        plt.xlabel("X (m, shifted)")
+        plt.ylabel("Trajectory Time")
+        plt.tight_layout()
+        plt.xticks(rotation=45, ha='right')
+
+        figure_path = f"{self.cache_dir}/results/{self.get_base_name_without_extension(file_name)}/{traffic_model}/"
+        if not os.path.exists(figure_path):
+            os.makedirs(figure_path)
+        plt.savefig(figure_path + "predicted_density.png")
+        plt.close()
 
 
 
@@ -533,7 +849,7 @@ class Plotter:
                 params=params
             )
         elif traffic_model == "CTM":
-            self.plot_error_ctm(
+            self.plot_ctm(
                 data_file_name=data_file_name,
                 hash_parmas=hash_parmas,
                 hash_geo=hash_geo,
@@ -541,13 +857,18 @@ class Plotter:
                 params=params
             )
         elif traffic_model == "PointQueue" or traffic_model == "SpatialQueue":
-            self.plot_error_point_queue_spatial_queue(
+            self.plot_point_queue_spatial_queue(
                 data_file_name=data_file_name,
                 hash_parmas=hash_parmas,
                 hash_geo=hash_geo,
                 traffic_model=traffic_model,
-                params=params
             )
+            # self.plot_actual_predicted_point_queue_spatial_queue(
+            #     data_file_name=data_file_name,
+            #     hash_parmas=hash_parmas,
+            #     hash_geo=hash_geo,
+            #     traffic_model=traffic_model,
+            # )
         elif traffic_model == "PW":
             self.plot_error_pw(
                 data_file_name=data_file_name,
@@ -631,13 +952,13 @@ if __name__ == "__main__":
         cell_length=20.0
         )
     data_file_name = "d1_20181029_0800_0830"
-    params_hash = "dcca17e9025816395dbe6a5a465c2450"
+    params_hash = "0b7210c359e53370757ee14301c846fd"
     geo_hash = "682a48de"
-    traffic_model_name = "LTM"
+    traffic_model_name = "CTM"
     plotter = Plotter(cache_dir=".cache", geo_loader=model_geo_loader)
     # plotter.animation(f".cache/{data_file_name}_fully_process_vehicles_{geo_hash}.csv")
     # print("Heatmap generated and saved successfully.")
-    plotter.plot_error_ltm(
+    plotter.plot(
         data_file_name=data_file_name,
         hash_parmas=params_hash,
         hash_geo=geo_hash,
