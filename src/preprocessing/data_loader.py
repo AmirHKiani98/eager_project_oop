@@ -103,6 +103,8 @@ class DataLoader:
         self.cumulative_counts_dict = {}
         self.cell_exits_dict = {}
         self.tasks = {}
+        self.exit_cells_files_dict = {}
+        self.exit_links_files_dict = {}
         self.ltm_epsilon = None
         self.temp_df = None
         self.df = pl.DataFrame({})
@@ -331,6 +333,34 @@ class DataLoader:
                                 what_test="processed_traffic_light_status"
                             )
                         )
+
+                        self.exit_cells_files_dict[
+                            (location, date, time)
+                        ] = self.get_exit_cell(
+                            location, date, time
+                        )
+                        # self.test_files[(location, date, time)].append(
+                        #     self._get_test_df(
+                        #         self.exit_cells_files_dict[(location, date, time)],
+                        #         location, date, time,
+                        #         what_test="exit_cells"
+                        #     )
+                        # )
+
+                        self.exit_links_files_dict[
+                            (location, date, time)
+                        ] = self.get_exit_link(
+                            location, date, time
+                        )
+                        # self.test_files[(location, date, time)].append(
+                        #     self._get_test_df(
+                        #         self.exit_links_files_dict[(location, date, time)],
+                        #         location, date, time,
+                        #         what_test="exit_links"
+                        #     )
+                        # )
+
+                        
                         pbar.update(1)
         self.df.clear()
         self.df = pl.DataFrame({})
@@ -765,6 +795,79 @@ class DataLoader:
         # logger.debug(f"Density DataFrame saved to {file_address}")
         return file_address
 
+    def get_exit_cell(self, location, date, time):
+        """
+        Returns the outflow cell for each link.
+        """
+        file_address = (
+            self.params.cache_dir + "/" + self._get_filename(location, date, time) +
+            "_cell_exit_" + self.geo_loader.get_hash_str() + ".csv"
+        )
+        if os.path.isfile(file_address):
+            return file_address
+        density_entry_exit_files = self.density_exit_entry_files_dict[(location, date, time)]
+        if not os.path.isfile(density_entry_exit_files):
+            raise FileNotFoundError(
+                f"Density entry exit file not found for {location}, {date}, {time}"
+            )
+        df = pl.read_csv(density_entry_exit_files)
+        if not isinstance(df, pl.DataFrame):
+            raise TypeError("Expected a DataFrame")
+        output_data = {}
+        for row in df.iter_rows(named=True):
+            link_id = row["link_id"]
+            cell_id = row["cell_id"]
+            exit_value = row["exit_count"]
+            trajectory_time = row["trajectory_time"]
+            if not isinstance(trajectory_time, float):
+                trajectory_time = float(trajectory_time)
+            trajectory_time = round(trajectory_time, 2)
+            
+            if link_id not in output_data:
+                output_data[link_id] = {}
+            if trajectory_time not in output_data[link_id]:
+                output_data[link_id][trajectory_time] = {}
+            output_data[link_id][trajectory_time][cell_id] = exit_value
+            
+        with open(file_address, "w") as f:
+            json.dump(output_data, f, indent=4)
+        
+        return file_address
+
+    def get_exit_link(self, location, date, time):
+        file_address = (
+            self.params.cache_dir + "/" + self._get_filename(location, date, time) +
+            "_link_exit_" + self.geo_loader.get_hash_str() + ".csv"
+        )
+        if os.path.isfile(file_address):
+            return file_address
+        
+        cell_exit_file_address = self.get_exit_cell(location, date, time)
+        if not isinstance(cell_exit_file_address, str):
+            raise Exception("cell_exit_file_address should be a string")
+        with open(cell_exit_file_address, "r") as f:
+            cell_exit_data = json.load(f)
+        
+        output_data = {}
+        for link_id, times in cell_exit_data.items():
+            for time, cells in times.items():
+                if link_id not in output_data:
+                    output_data[link_id] = {}
+                if time not in output_data[link_id]:
+                    output_data[link_id][time] = 0
+                for _, exit_value in cells.items():
+                    output_data[link_id][time] += exit_value
+
+        with open(file_address, "w") as f:
+            json.dump(output_data, f, indent=4)
+        
+        return file_address
+    
+
+        
+        
+
+    
     def is_vehicle_passed_traffic_light(
         self,
         vehicle_loc: POINT,
@@ -969,7 +1072,7 @@ class DataLoader:
 
         return tl_dict
 
-    def get_occupancy_density_entry_exit_dict(self, location, date, time, coi="on_cell"):
+    def get_occupancy_density_flow_entry_exit_dict(self, location, date, time, coi="on_cell"):
         # nbbi: Needs test
         """
         Returns the occupancy or density entry DataFrame for the specified location, date, and time.
@@ -1138,8 +1241,10 @@ class DataLoader:
         Returns the density entry DataFrame for the specified location, date, and time.
         """
         self.cell_vector_occupancy_or_density_dict, self.cell_entries_dict, self.cell_exits_dict = (
-            self.get_occupancy_density_entry_exit_dict(location, date, time, coi)
+            self.get_occupancy_density_flow_entry_exit_dict(location, date, time, coi)
         )
+    
+
 
     def tl_status(self, time, link_id):
         """
@@ -1218,6 +1323,7 @@ class DataLoader:
             
 
         return first_cell_inflow_dict
+    
     
     def get_cumulative_count_point_queue_spatial_queue(self, location, date, time):
         """
@@ -1465,9 +1571,96 @@ class DataLoader:
         cumulative_counts_dict = self._cumulative_count_ltm_list_to_dict(cumulative_counts_result)
         with open(output_file_address, "w", encoding="utf-8") as f:
             json.dump(cumulative_counts_dict, f, indent=4)
-        
         return cumulative_counts_dict
-    
+
+    def get_next_cell_exit_file(self, location, date, time):
+        """
+        Get the next cell exit for the specified location, date, and time.
+        """
+        output_file_address = (
+            self.params.cache_dir + "/" +
+            self._get_filename(location, date, time) +
+            "_next_cell_exit_" +
+            self.params.get_hash_str(["dt"]) + "_" +
+            self.geo_loader.get_hash_str() + ".json"
+        )
+        if os.path.isfile(output_file_address):
+            return output_file_address
+        
+        density_entry_exit_files = self.density_exit_entry_files_dict[(location, date, time)]
+        if not os.path.isfile(density_entry_exit_files):
+            raise FileNotFoundError(
+                f"Density entry exit file not found for {location}, {date}, {time}"
+            )
+        
+        df = pl.read_csv(density_entry_exit_files)
+
+        groups = df.group_by(["link_id", "cell_id"])
+        ground_truth_occupancy = {}
+        dt_seconds = self.params.dt.to(Units.S).value
+        min_time = df["trajectory_time"].min()
+        max_time = df["trajectory_time"].max()
+        num_groups = df.select(["link_id", "cell_id"]).unique().height
+        for name, group in tqdm(groups, desc="Finding next timestamp cell exit", total=num_groups):
+            link_id, cell_id = name[0], name[1]
+            if link_id not in ground_truth_occupancy:
+                ground_truth_occupancy[link_id] = {}
+            group = fill_missing_timestamps(
+                group,
+                "trajectory_time",
+                self.time_interval,
+                min_time, # type: ignore
+                max_time # type: ignore
+            )
+            group = group.with_columns(
+                pl.col("exit_count").fill_null(0.0)
+            )
+            # Round the group trajectory_time to 2 decimal places
+            group = group.with_columns(
+                pl.col("trajectory_time").cast(pl.Float64).round(2)
+            )
+
+            group = group.sort(["trajectory_time"])
+            times = group["trajectory_time"].to_numpy()
+            for idx, current_time in enumerate(times):
+                target_time = current_time + dt_seconds
+                next_exit = (
+                    group.filter(pl.col("trajectory_time") == target_time)["exit_count"].first()
+                    if target_time in group["trajectory_time"] else 0
+                ) # nbbi: This part might be causing errors! Also, it's too slow!
+                if current_time not in ground_truth_occupancy[link_id]:
+                    ground_truth_occupancy[link_id][current_time] = {}
+                ground_truth_occupancy[link_id][current_time][cell_id] = next_exit
+        with open(output_file_address, "w") as f:
+            json.dump(ground_truth_occupancy, f, indent=4)
+        return output_file_address
+        
+    def get_next_link_exit_file(self, location, date, time):
+        """
+        Get the next link exit for the specified location, date, and time.
+        """
+        output_file_address = (
+            self.params.cache_dir + "/" +
+            self._get_filename(location, date, time) +
+            "_next_link_exit_" +
+            self.params.get_hash_str(["dt"]) + "_" +
+            self.geo_loader.get_hash_str() + ".json"
+        )
+        if os.path.isfile(output_file_address):
+            return output_file_address
+        
+        cell_link_address = self.get_next_cell_exit_file(location, date, time)
+        with open(cell_link_address, "r") as f:
+            cell_exit_dict = json.load(f)
+         
+        for link_id, trajectory_time in cell_exit_dict.items():
+            for time, exit_counts in trajectory_time.items():
+                cell_exit_dict[link_id][time] = sum(exit_counts.values())
+
+        with open(output_file_address, "w") as f:
+            json.dump(cell_exit_dict, f, indent=4)
+        return output_file_address
+
     def activate_cumulative_dict_queue(self, location, date, time):
         """
         Returns the cumulative counts for the specified location, date, and time.
@@ -1492,6 +1685,47 @@ class DataLoader:
         Returns the cumulative counts for the specified location, date, and time.
         """
         self.cumulative_counts_dict = self.get_cumulative_count_ltm(location, date, time)
+
+    def activate_exit_cell(self, location, date, time):
+        """
+        Sets the exit cell values
+        """
+        exit_cell_file = self.exit_cells_files_dict.get((location, date, time), None)
+        if exit_cell_file is None or not os.path.isfile(exit_cell_file):
+            raise Exception(f"Exit file for {location}, {date}, {time} ")
+        with open(exit_cell_file, "r") as f:
+            self.exit_cells_values = json.load(f)
+    
+    def activate_exit_link(self, location, date, time):
+        """
+        Sets the exit link values
+        """
+        exit_link_file = self.exit_links_files_dict.get((location, date, time), None)
+        if exit_link_file is None or not os.path.isfile(exit_link_file):
+            raise Exception(f"Exit file for {location}, {date}, {time} ")
+        with open(exit_link_file, "r") as f:
+            self.exit_links_values = json.load(f)
+        
+    
+    def activate_next_exit_cell(self, location, date, time):
+        """
+        Sets the next exit cell values
+        """
+        next_exit_cell_file = self.get_next_cell_exit_file(location, date, time)
+        if next_exit_cell_file is None or not os.path.isfile(next_exit_cell_file):
+            raise Exception(f"Next exit cell file for {location}, {date}, {time} not found")
+        with open(next_exit_cell_file, "r") as f:
+            self.next_exit_cell_values = convert_keys_to_float(json.load(f))
+    
+    def activate_next_exit_link(self, location, date, time):
+        """
+        Sets the next exit link values
+        """
+        next_exit_link_file = self.get_next_link_exit_file(location, date, time)
+        if next_exit_link_file is None or not os.path.isfile(next_exit_link_file):
+            raise Exception(f"Next exit link file for {location}, {date}, {time} not found")
+        with open(next_exit_link_file, "r") as f:
+            self.next_exit_link_values = convert_keys_to_float(json.load(f))
 
     def set_params(self, params: Parameters):
         """
@@ -1732,7 +1966,8 @@ class DataLoader:
         self.activate_tl_status_dict(location, date, time)
         self.activate_next_timestamp_occupancy(location, date, time)
         self.activate_first_cell_inflow_dict(location, date, time)
-        
+        self.activate_next_exit_cell(location, date, time)
+
         self.current_file_running = {
             "location": location,
             "date": date,
@@ -1764,7 +1999,8 @@ class DataLoader:
                         "tl_status": self.tl_status(trajectory_time, link_id),
                         "trajectory_time": trajectory_time,
                         "flow_capacity": self.params.flow_capacity.to(1).value, # type: ignore
-                        "alpha": self.params.alpha.to(1).value
+                        "alpha": self.params.alpha.to(1).value,
+                        "next_exit": list((dict(sorted(self.next_exit_cell_values[link_id][trajectory_time].items(), key= lambda x: x[0]))).values())
                     }
                 )
         with open(file_address, "w", encoding="utf-8") as f:
@@ -1781,7 +2017,7 @@ class DataLoader:
         self.activate_cumulative_dict_queue(location, date, time)
         self.activate_next_timestamp_occupancy(location, date, time)
         self.activate_tl_status_dict(location, date, time)
-
+        self.activate_next_exit_link(location, date, time)
 
         self.current_file_running = {
             "location": location,
@@ -1819,7 +2055,8 @@ class DataLoader:
                         "dt": self.params.dt,
                         "trajectory_time": trajectory_time,
                         "tl_status": self.tl_status(trajectory_time, link_id),
-                        "link_id": link_id
+                        "link_id": link_id,
+                        "next_exit": self.next_exit_link_values[link_id][trajectory_time]
                     }
                 )
 
@@ -1841,6 +2078,7 @@ class DataLoader:
         self.activate_cumulative_dict_queue(location, date, time)
         self.activate_tl_status_dict(location, date, time)
         self.activate_next_timestamp_occupancy(location, date, time)
+        self.activate_next_exit_link(location, date, time)
         self.current_file_running = {
             "location": location,
             "date": date,
@@ -1879,6 +2117,7 @@ class DataLoader:
                         "k_j": self.params.jam_density_link,
                         "entry_count": data["entry_count"],
                         "link_length": self.geo_loader.links[link_id].get_length(),
+                        "next_exit": self.next_exit_link_values[link_id][trajectory_time]
                     }
                 )
         self.tasks = tasks
@@ -1900,6 +2139,7 @@ class DataLoader:
         self.activate_cummulative_counts_ltm(location, date, time)
         self.activate_tl_status_dict(location, date, time)
         self.activate_next_timestamp_occupancy(location, date, time)
+        self.activate_next_exit_link(location, date, time)
         self.current_file_running = {
             "location": location,
             "date": date,
@@ -1952,6 +2192,7 @@ class DataLoader:
                             "link_length": self.cumulative_counts_dict[link_id][trajectory_time][cell_id]["link_length"] * Units.M,
                             "dt": self.params.dt,
                             "next_occupancy": self.next_timestamp_occupancy_dict[link_id][trajectory_time]["next_occupancy"][cell_id-1],
+                            "next_exit": self.next_exit_link_values[link_id][trajectory_time]
                         }
                     )
         self.tasks = tasks
