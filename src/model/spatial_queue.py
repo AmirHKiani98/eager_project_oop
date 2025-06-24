@@ -119,6 +119,7 @@ class SpatialQueue(TrafficModel):
             receiving_flow
         )
         current_number_of_vehicles = args["current_number_of_vehicles"]
+        new_occupancy = next_occupancy + inflow - sending_flow
         return {
             "outflow": sending_flow, # already applied filteration on sending flow so it became outflow
             "receiving_flow": receiving_flow,
@@ -126,7 +127,8 @@ class SpatialQueue(TrafficModel):
             "trajectory_time": trajectory_time,
             "link_id": link_id,
             "inflow": inflow,
-            "current_number_of_vehicles": current_number_of_vehicles
+            "current_number_of_vehicles": current_number_of_vehicles,
+            "new_occupancy": new_occupancy,
         }
 
 

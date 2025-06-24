@@ -158,6 +158,7 @@ class Plotter:
             hash_parmas: str,
             hash_geo: str,
             traffic_model: str,
+            params: Optional[tuple] = None
     ):
         """
         Plotting the actual and predicted values for PointQueue and SpatialQueue models.
@@ -249,9 +250,18 @@ class Plotter:
             vmin=_min,
             vmax=_max,
             annot=False,
-            cbar_kws={'label': 'Predicted'}
+            cbar_kws={'label': 'Error Density'}
         )
-
+        average_error = data["error_density"].mean()
+        if params is not None:
+            if traffic_model not in self.errors:
+                self.errors[traffic_model] = {}
+            
+            str_key = str(params)
+            self.errors[traffic_model][str_key] = average_error
+            print("Saved error for params: ", str_key, " with value: ", average_error)
+            self.save_errors()
+        
         plt.title("Density Error Heatmap")
         plt.xlabel("Link Index")
         plt.ylabel("Time (s)")
@@ -334,7 +344,6 @@ class Plotter:
         for name, group in groups:
             link_id = int(name[0]) # type: ignore
             group = group.sort("trajectory_time")
-            
             for row in tqdm(group.iter_rows(named=True), desc=f"Collecting data for link {link_id}", total=len(group)):
                 trajectory_time = row["trajectory_time"]
                 squared_error = row["squared_error"]
@@ -360,7 +369,7 @@ class Plotter:
 
                     if predicted_cell_density > predicted_max:
                         predicted_max = predicted_cell_density
-                    
+
                     if predicted_cell_density < predicted_min:
                         predicted_min = predicted_cell_density
 
@@ -630,7 +639,7 @@ class Plotter:
             group = group.with_columns(
                 (pl.col("x") + offset).alias("x")
             )
-            max_x = float(group["x"].max())
+            max_x = float(group["x"].max()) # type: ignore
             offset += max_x  # update for next link
 
             group = group.to_pandas()
@@ -657,8 +666,8 @@ class Plotter:
         sns.heatmap(
             heatmap_data,
             cmap="Reds",
-            vmin=min_errors,
-            vmax=max_errors,
+            vmin=min_errors, # type: ignore
+            vmax=max_errors, # type: ignore
             annot=False,
             cbar_kws={'label': 'Squared Error'}
         )
@@ -753,81 +762,133 @@ class Plotter:
             hash_geo: str,
             traffic_model: str,
             params: Optional[tuple] = None
-    ):
-        """
-        data_file_name (str): The name of the file to plot.
-        hash_parmas (str): The hash of the parameters.
-        hash_geo (str): The hash of the geo.
-        traffic_model (str): The name of the traffic model.
-        """
-        file_name = f"{self.cache_dir}/{traffic_model}/{data_file_name}_{hash_geo}_{hash_parmas}.json"
-        if not os.path.exists(file_name):
-            raise FileNotFoundError(f"File not found: {file_name}")
-        data = pl.read_json(
-            file_name
-        )
-        data = data.filter(
-            pl.col("link_id") != 5
-        )
-        data = data.with_columns(
-            pl.struct(["new_densities", "next_densities"])
-            .map_elements(lambda row: ((np.array(row["new_densities"]) - np.array(row["next_densities"])) / len(row["new_densities"]))**2)
-            .alias("squared_error")
-        )
-        group = data.group_by(["link_id"])
-        figure_path = f"{self.cache_dir}/results/{self.get_base_name_without_extension(file_name)}/{traffic_model}/"
-        if not os.path.exists(figure_path):
-            os.makedirs(figure_path)
-        min_errors = data["squared_error"].to_pandas().explode().astype(float).min()
-        max_errors = data["squared_error"].to_pandas().explode().astype(float).max()
-        average_error = 0
-        n = 0
-        for name, group in group:
-            link_id = int(name[0]) # type: ignore
-            group = group.sort("trajectory_time")
-            rmse_data = {
-                "trajectory_time": [],
-                "cell_id": [],
-                "squared_error": []
-            }
-            for row in tqdm(group.iter_rows(named=True), desc=f"Processing link {link_id} for pw", total=len(group)):
-                for i in range(len(row["squared_error"])):
-                    rmse_data["trajectory_time"].append(row["trajectory_time"])
-                    rmse_data["cell_id"].append(i+1)
-                    rmse_data["squared_error"].append(row["squared_error"][i])
-                    average_error += row["squared_error"][i]
-                    n += 1
-            
-            rmse_data = pd.DataFrame(rmse_data)
-            heatmap_data = rmse_data.pivot(index="trajectory_time", columns="cell_id", values="squared_error")
-            plt.figure(figsize=(8, 6))
-            sns.heatmap(
-                heatmap_data,
-                cmap="Reds",
-                vmin=min_errors,
-                vmax=max_errors,
-                annot=False,
-                cbar_kws={'label': 'Error'}
+        ):
+            file_name = f"{self.cache_dir}/{traffic_model}/{data_file_name}_{hash_geo}_{hash_parmas}.json"
+            if not os.path.exists(file_name):
+                raise FileNotFoundError(f"File not found: {file_name}")
+
+            data = pl.read_json(file_name)
+            data = data.filter(pl.col("link_id") != 5)
+
+            data = data.with_columns(
+                pl.struct(["new_densities", "next_densities"])
+                .map_elements(
+                    lambda row: ((np.array(row["new_densities"]) - np.array(row["next_densities"])) / len(row["new_densities"])) ** 2,
+                    return_dtype=pl.List(pl.Float64)
+                )
+                .alias("squared_error")
             )
+
+            all_rmse_data = []
+            average_error = 0
+            n = 0
+            actual_min, actual_max = float("inf"), float("-inf")
+            predicted_min, predicted_max = float("inf"), float("-inf")
+
+            for row in tqdm(data.iter_rows(named=True), desc="Collecting error data for all links"):
+                link_id = int(row["link_id"])
+                trajectory_time = row["trajectory_time"]
+                squared_error = row["squared_error"]
+                new_densities = row["new_densities"]
+                next_densities = row["next_densities"]
+                cell_lengths = row["cell_lengths"]
+
+                for i in range(len(squared_error)):
+                    actual_density = next_densities[i]
+                    predicted_density = new_densities[i]
+                    all_rmse_data.append({
+                        "link_id": link_id,
+                        "trajectory_time": trajectory_time,
+                        "squared_error": squared_error[i],
+                        "actual_cell_density": actual_density,
+                        "predicted_cell_density": predicted_density,
+                        "cell_id": i + 1,
+                        "link_cell_id": f"link {link_id} cell {i+1}"
+                    })
+                    average_error += squared_error[i]
+                    n += 1
+
+                    actual_min = min(actual_min, actual_density)
+                    actual_max = max(actual_max, actual_density)
+                    predicted_min = min(predicted_min, predicted_density)
+                    predicted_max = max(predicted_max, predicted_density)
+
+            if not all_rmse_data:
+                print("No error data to plot.")
+                return
+
+            df = pd.DataFrame(all_rmse_data)
+            sorted_cols = sorted(df["link_cell_id"].unique(), key=lambda x: (int(x.split()[1]), int(x.split()[3])))
+
+            figure_path = f"{self.cache_dir}/results/{self.get_base_name_without_extension(file_name)}/{traffic_model}/"
+            os.makedirs(figure_path, exist_ok=True)
+
+            # --- Error Heatmap ---
+            error_data = df.pivot(index="trajectory_time", columns="link_cell_id", values="squared_error")
+            error_data = error_data[sorted_cols]
+            plt.figure(figsize=(15, 8))
+            sns.heatmap(
+                error_data,
+                cmap="Reds",
+                vmin=df["squared_error"].min(),
+                vmax=df["squared_error"].max(),
+                cbar_kws={'label': 'Squared Error'}
+            )
+            plt.title(f"Error Heatmap for All Links ({traffic_model})")
+            plt.xlabel("Link_ID and Cell_ID")
+            plt.ylabel("Trajectory Time")
+            plt.xticks(rotation=45, ha='right')
+            plt.tight_layout()
+            plt.savefig(figure_path + "error_density.png")
+            plt.close()
+
+            # --- Actual Density Heatmap ---
+            actual_data = df.pivot(index="trajectory_time", columns="link_cell_id", values="actual_cell_density")
+            actual_data = actual_data[sorted_cols]
+            plt.figure(figsize=(15, 8))
+            sns.heatmap(
+                actual_data,
+                cmap="Reds",
+                vmin=actual_min,
+                vmax=actual_max,
+                cbar_kws={'label': 'Actual Density'}
+            )
+            plt.title(f"Actual Density Heatmap ({traffic_model})")
+            plt.xlabel("Link_ID and Cell_ID")
+            plt.ylabel("Trajectory Time")
+            plt.xticks(rotation=45, ha='right')
+            plt.tight_layout()
+            plt.savefig(figure_path + "actual_density.png")
+            plt.close()
+
+            # --- Predicted Density Heatmap ---
+            predicted_data = df.pivot(index="trajectory_time", columns="link_cell_id", values="predicted_cell_density")
+            predicted_data = predicted_data[sorted_cols]
+            plt.figure(figsize=(15, 8))
+            sns.heatmap(
+                predicted_data,
+                cmap="Reds",
+                vmin=predicted_min,
+                vmax=predicted_max,
+                cbar_kws={'label': 'Predicted Density'}
+            )
+            plt.title(f"Predicted Density Heatmap ({traffic_model})")
+            plt.xlabel("Link_ID and Cell_ID")
+            plt.ylabel("Trajectory Time")
+            plt.xticks(rotation=45, ha='right')
+            plt.tight_layout()
+            plt.savefig(figure_path + "predicted_density.png")
+            plt.close()
+
+            # --- Save error if params provided ---
             if params is not None:
                 if traffic_model not in self.errors:
                     self.errors[traffic_model] = {}
-                
                 str_key = str(params)
-                self.errors[traffic_model][str_key] = average_error/n
+                self.errors[traffic_model][str_key] = average_error / n
                 self.save_errors()
-            plt.title(f"Heatmap for Link ID: {link_id}")
-            plt.xlabel("Cell ID")
-            plt.ylabel("Time (s)")
-            plt.tight_layout()
-            plt.savefig(figure_path + f"Link_{link_id}.png")
-            plt.close()
-        if params is not None:
-            if traffic_model not in self.errors:
-                self.errors[traffic_model] = {}
-            str_key = str(params)
-            self.errors[traffic_model][str_key] = average_error/n
-            self.save_errors()
+
+
         
         
 
@@ -862,6 +923,7 @@ class Plotter:
                 hash_parmas=hash_parmas,
                 hash_geo=hash_geo,
                 traffic_model=traffic_model,
+                params=params
             )
             # self.plot_actual_predicted_point_queue_spatial_queue(
             #     data_file_name=data_file_name,
@@ -952,9 +1014,9 @@ if __name__ == "__main__":
         cell_length=20.0
         )
     data_file_name = "d1_20181029_0800_0830"
-    params_hash = "0b7210c359e53370757ee14301c846fd"
+    params_hash = "00b87522d0046c6d7054be1242574dad"
     geo_hash = "682a48de"
-    traffic_model_name = "CTM"
+    traffic_model_name = "PW"
     plotter = Plotter(cache_dir=".cache", geo_loader=model_geo_loader)
     # plotter.animation(f".cache/{data_file_name}_fully_process_vehicles_{geo_hash}.csv")
     # print("Heatmap generated and saved successfully.")

@@ -2297,20 +2297,24 @@ class DataLoader:
         average_speeds = self.get_average_speeds_per_cell(location, date, time)
         self.activate_tl_status_dict(location, date, time)
         self.activate_next_timestamp_occupancy(location, date, time)
-        
-        
+
+
+
         file_address = (
             self.params.cache_dir + "/" +
             f"{self._get_filename(location, date, time)}_prepared_pw_tasks_"
             f"{self.geo_loader.get_hash_str()}_{self.params.get_hash_str(['cache_dir', 'free_flow_speed', 'dt', 'jam_density_link'])}.json"
         )
+
         self.current_file_running = {
             "location": location,
             "date": date,
             "time": time
         }
+
         if not isinstance(self.cell_vector_occupancy_or_density_dict, dict):
             raise ValueError(f"self.cell_vector_occupancy_or_density_dict should be a dictionary. Got {type(self.cell_vector_occupancy_or_density_dict)}")
+
         if os.path.isfile(file_address):
             self.tasks = json.load(open(file_address, "r", encoding="utf-8"))
             for index in range(len(self.tasks)):
@@ -2332,8 +2336,13 @@ class DataLoader:
             for trajectory_time in self.cell_vector_occupancy_or_density_dict[link_id].keys():
                 
                 density = self.cell_vector_occupancy_or_density_dict[link_id][trajectory_time]
-                density_unit = [den * Units.PER_M for den in density]
-                                
+                density_unit = [
+                    (next_occupancy / self.geo_loader.links[link_id].cells[i+1].get_length()) 
+                    for i, next_occupancy in enumerate(
+                        self.next_timestamp_occupancy_dict[link_id][trajectory_time]["next_occupancy"]
+                    )
+                ]
+
                 cell_length = [self.geo_loader.links[link_id].cells[i+1].get_length() for i in range(len(density))]
                 speeds = average_speeds[link_id][trajectory_time]
                 speeds_unit = [speed * Units.KM_PER_HR for speed in speeds]
