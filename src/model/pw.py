@@ -10,7 +10,6 @@ class PW(TrafficModel):
 
     @staticmethod
     def run(args):
-
         """
         Run the PW model.
         """
@@ -48,17 +47,16 @@ class PW(TrafficModel):
 
         dt = args["dt"]
 
-        c = 10.14 # density drop
-        critical_density = 150 * Units.PER_KM
+        c = 8
+        critical_density = 100 * Units.PER_KM
         tau = 1
         c0 = free_flow_speed/(tau**2)
-        inflow = 0 * Units.PER_HR
-        outflow = 0 * Units.PER_HR
+        first_cell_inflow = args["inflow"].get("1.0", 0)/dt
 
         for i in range(num_cells):  # iterate over all cells
-            
+
             # find the equilibrium speed
-            if 0<= densities[i] <= critical_density:
+            if 0<= densities[i] and densities[i] <= critical_density:
                 eq_speed = free_flow_speed
             else:
                 eq_speed = c * (jam_density_link/densities[i] - 1)
@@ -66,14 +64,17 @@ class PW(TrafficModel):
             
             term = (dt.to(Units.HR).value * (eq_speed.to(Units.KM_PER_HR) - speeds[i].to(Units.KM_PER_HR))/tau).to(Units.KM_PER_HR)
             if i == 0:  # first cell
-                
-                new_densities[i] = densities[i] - (dt / cell_lengths[i]) * (densities[i] * speeds[i] - inflow)
+                # Mazi kam aghl. Mazi kam aghl! inflow hasn't changed at all!
+                new_densities[i] = densities[i] - (dt / cell_lengths[i]) * (densities[i] * speeds[i] - first_cell_inflow)
+                if new_densities[i] < 0:
+                    new_densities[i] = 0 * Units.PER_M
                 # Mazi kam aghl. Mazi kam aghl! dt * (eq_speed - speeds[i])/tau + speeds[1] both terms here should have the same units
                 if len(densities) < i+2:
                     new_speeds[i] = 0  * Units.KM_PER_HR
                 else:
                     new_speeds[i] = speeds[i] + term - (dt / cell_lengths[i]) * c0**2 * (densities[i+1]-densities[i])/(densities[i]+ epss)
-
+                if new_speeds[i] < 0:
+                    new_speeds[i] = 0 * Units.KM_PER_HR
             if i == num_cells - 1:  # last cell
 
 
@@ -84,15 +85,20 @@ class PW(TrafficModel):
                     new_speeds[i] = 0 * Units.KM_PER_HR
 
                 new_densities[i] = densities[i] - (dt / cell_lengths[i]) * (densities[i] * speeds[i] - densities[i-1] * speeds[i-1])
-
+                if new_densities[i] < 0:
+                    new_densities[i] = 0 * Units.PER_M
 
             else:       # for all other cells: find density and speed using PW discrete model
                     # [i] = outflow # Maz
                 new_densities[i] = densities[i] - (dt / cell_lengths[i]) * (densities[i] * speeds[i] - densities[i-1] * speeds[i-1])
-
+                if new_densities[i] < 0:
+                    new_densities[i] = 0 * Units.PER_M
                 new_speeds[i] = speeds[i] - (dt / cell_lengths[i]) * speeds[i] * (speeds[i] - speeds[i-1]) + term - (dt / cell_lengths[i]) * c0**2 * (densities[i+1]-densities[i])/(densities[i]+ epss)
-
+            if new_speeds[i] < 0:
+                new_speeds[i] = 0 * Units.KM_PER_HR
             new_outflows[i] = new_speeds[i] * new_densities[i] # find outflow q = kv
+            if new_outflows[i] < 0:
+                new_outflows[i] = 0 * Units.PER_HR
 
         density_value = []
         speed_value = []
@@ -103,6 +109,7 @@ class PW(TrafficModel):
             raise ValueError("Length of items:", len(new_densities), len(new_speeds), len(cell_lengths), num_cells)
         if len(new_densities) != len(new_speeds):
             raise ValueError("Length of items:", len(new_densities), len(new_speeds), len(cell_lengths), num_cells)
+        next_density_value = []
         for i in range(num_cells):
             density = new_densities[i]
             speed = new_speeds[i]
@@ -112,21 +119,22 @@ class PW(TrafficModel):
             if not isinstance(speed, Units.Quantity):
                 speed = speed * Units.KM_PER_HR
 
-            if not isinstance(outflow, Units.Quantity):
-                raise ValueError(f"Outflow {outflow} is not of type Units")
             density = density.to(Units.PER_M).value
+            new_density = (next_occupancy[i] / cell_lengths[i]).to(Units.PER_M).value
+            next_density_value.append(new_density)
             speed = speed.to(Units.KM_PER_HR).value
             density_value.append(density)
             speed_value.append(speed)
         trajectory_time = args["trajectory_time"]
-        inflow = args["inflow"]
+        actual_inflow = args["inflow"]
         return {
             "new_densities": density_value,
             "new_speeds": speed_value,
-            "next_densities": [float(d) if isinstance(d, Units.Quantity) else d for d in next_occupancy],
+            "next_densities": next_density_value,
             "cell_lengths": [length.to(Units.M).value for length in cell_lengths],
             "link_id": args["link_id"],
             "trajectory_time": float(trajectory_time) if isinstance(trajectory_time, Units.Quantity) else trajectory_time,
-            "outflow": [outflow.to(Units.PER_HR).value if isinstance(outflow, Units.Quantity) else outflow for outflow in new_outflows],
-            "inflow": list(dict(sorted(inflow.items(), key=lambda x: x[0])).values()),
+            "outflow": [(outflow*dt).to(1).value if isinstance(outflow, Units.Quantity) else outflow for outflow in new_outflows],
+            "inflow": list(dict(sorted(actual_inflow.items(), key=lambda x: x[0])).values()),
+            "next_inflow": []
         }

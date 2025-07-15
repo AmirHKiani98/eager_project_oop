@@ -115,7 +115,7 @@ class CTM(TrafficModel):
             # First cell
             if i == 0:
                 
-                inflow = all_inflow.get("1", 0)
+                inflow = all_inflow.get("1.0", 0)
             else:
                 inflow = CTM.compute_flow({
                         "prev_cell_occupancy":cell_occupancies[i-1],

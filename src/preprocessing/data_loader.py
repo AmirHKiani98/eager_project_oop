@@ -2356,10 +2356,7 @@ class DataLoader:
                 
                 density = self.cell_vector_occupancy_or_density_dict[link_id][trajectory_time]
                 density_unit = [
-                    (next_occupancy / self.geo_loader.links[link_id].cells[i+1].get_length()) 
-                    for i, next_occupancy in enumerate(
-                        self.next_timestamp_occupancy_dict[link_id][trajectory_time]["next_occupancy"]
-                    )
+                    density_value * Units.PER_M for density_value in density
                 ]
 
                 cell_length = [self.geo_loader.links[link_id].cells[i+1].get_length() for i in range(len(density))]
