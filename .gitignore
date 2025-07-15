@@ -16,3 +16,4 @@ __pycache__/
 *.json
 .cache_scen_err
 .cache*
+*.log
