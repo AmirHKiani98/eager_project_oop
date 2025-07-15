@@ -79,15 +79,16 @@ class CTM(TrafficModel):
             tuple: Updated densities and outflows after applying the CTM model.
         """
         required_keys = {
-            "cell_occupancies", "first_cell_inflow", "is_tl", "tl_status",
-            "cell_capacities", "flow_capacity", "max_flows", "alpha"
+            "cell_occupancies","is_tl", "tl_status",
+            "cell_capacities", "flow_capacity", "max_flows", "alpha",
+            "inflow"
         }
         if not required_keys.issubset(kwargs):
             missing = required_keys - kwargs.keys()
             raise ValueError(f"Missing required parameters for CTM.predict(): {missing}")
 
         cell_occupancies = kwargs["cell_occupancies"]
-        first_cell_inflow = kwargs["first_cell_inflow"]
+        all_inflow = kwargs["inflow"]
         cell_capacities = kwargs["cell_capacities"]
         flow_capacity = kwargs["flow_capacity"] # self.dl.params.flow_capacity
         max_flows = kwargs["max_flows"]
@@ -113,7 +114,7 @@ class CTM(TrafficModel):
             max_flow = max_flows[i] # self.dl.params.get_max_flow(cell_length)
             # First cell
             if i == 0:
-                inflow = first_cell_inflow
+                inflow = all_inflow["1"]
             else:
                 inflow = CTM.compute_flow({
                         "prev_cell_occupancy":cell_occupancies[i-1],
@@ -166,7 +167,7 @@ class CTM(TrafficModel):
             None
         """
         occupancy_list = args["occupancy_list"]
-        first_cell_inflow = args["first_cell_inflow"]
+        inflow = args["inflow"]
         is_tl = args["is_tl"]
         tl_status = args["tl_status"]
         trajectory_time = args["trajectory_time"]
@@ -190,7 +191,7 @@ class CTM(TrafficModel):
             raise TypeError("tl_status must be a boolean")
         new_occupancy, new_outflow = CTM.predict({
             "cell_occupancies": occupancy_list,
-            "first_cell_inflow": first_cell_inflow,
+            "inflow": inflow,
             "is_tl": is_tl,
             "tl_status": tl_status,
             "cell_capacities": cell_capacities,
@@ -201,7 +202,7 @@ class CTM(TrafficModel):
 
         return {
             "occupancy_list": occupancy_list,
-            "first_cell_inflow": first_cell_inflow,
+            "inflow": inflow,
             "link_id": link_id,
             "is_tl": is_tl,
             "tl_status": tl_status,

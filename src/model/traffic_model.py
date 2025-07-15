@@ -172,6 +172,7 @@ class TrafficModel:
                 )
                 all_results.extend(results)
         with open(run_file_path, "w", encoding="utf-8") as f:
+            print(f"Saving results to {run_file_path}")
             json.dump(all_results, f, indent=4)
         return all_results
 

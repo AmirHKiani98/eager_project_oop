@@ -54,13 +54,15 @@ class PointQueue(TrafficModel):
             "trajectory_time",
             "link_id",
             "current_number_of_vehicles",
-            "cummulative_count_upstream"
+            "cummulative_count_upstream",
+            "inflow"
         ]
         for arg in required_args:
             if arg not in args:
                 raise ValueError(f"Missing required argument: {arg}")
         # Placeholder for running the point queue model
         q_max_up = args["q_max_up"]
+        inflow = args["inflow"]
         if not isinstance(q_max_up, Units.Quantity):
             raise TypeError(
                 f"q_max_up should be a Units.Quantity (Per time), got {type(q_max_up)}"
@@ -98,23 +100,24 @@ class PointQueue(TrafficModel):
         trajectory_time = args["trajectory_time"]
         entry_count = args["entry_count"]
         # todo not sure if this is correct
-        inflow = min(
+        outflow = min(
             entry_count,
             receiving_flow
         )
         current_number_of_vehicles = args["current_number_of_vehicles"]
         if sending_flow > 0:
             sending_flow = sending_flow
-        new_occupancy = next_occupancy + inflow - sending_flow
+        new_occupancy = next_occupancy + outflow - sending_flow
         return {
             "outflow": sending_flow, # already applied filteration on sending flow so it became outflow
             "receiving_flow": receiving_flow,
             "next_occupancy": next_occupancy,
             "trajectory_time": trajectory_time,
             "link_id": link_id,
-            "inflow": inflow,
+            "outflow": outflow,
             "current_number_of_vehicles": current_number_of_vehicles,
             "new_occupancy": new_occupancy,
+            "inflow": inflow,
         }
 
 

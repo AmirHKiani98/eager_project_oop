@@ -59,12 +59,14 @@ class SpatialQueue(TrafficModel):
             "tl_status",
             "entry_count",
             "current_number_of_vehicles",
+            "inflow"
         ]
         for arg in required_args:
             if arg not in args:
                 raise ValueError(f"Missing required argument: {arg}")
         # Placeholder for running the point queue model
         q_max_up = args["q_max_up"]
+        inflow = args["inflow"]
         if not isinstance(q_max_up, Units.Quantity):
             raise TypeError(
                 f"q_max_up should be a Units.Quantity (Per time), got {type(q_max_up)}"
@@ -114,21 +116,21 @@ class SpatialQueue(TrafficModel):
         link_id = args["link_id"]
         entry_count = args["entry_count"]
         # todo not sure if this is correct
-        inflow = min(
+        outflow = min(
             entry_count,
             receiving_flow
         )
         current_number_of_vehicles = args["current_number_of_vehicles"]
-        new_occupancy = next_occupancy + inflow - sending_flow
+        new_occupancy = next_occupancy + outflow - sending_flow
         return {
-            "outflow": sending_flow, # already applied filteration on sending flow so it became outflow
+            "outflow": outflow,  # corrected to reflect the actual outflow
             "receiving_flow": receiving_flow,
             "next_occupancy": next_occupancy,
             "trajectory_time": trajectory_time,
             "link_id": link_id,
-            "inflow": inflow,
             "current_number_of_vehicles": current_number_of_vehicles,
             "new_occupancy": new_occupancy,
+            "inflow": inflow,  # re-adding inflow to the return statement
         }
 
 

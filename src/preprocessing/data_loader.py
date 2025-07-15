@@ -1294,30 +1294,37 @@ class DataLoader:
         if os.path.isfile(output_file_address):
             with open(output_file_address, "r", encoding="utf-8") as f:
                 first_cell_inflow_dict = json.load(f)
-                
             return convert_keys_to_float(first_cell_inflow_dict)
 
-        df = pl.read_csv(file_address).filter(
-            pl.col("cell_id") == 1
-        )
+        df = pl.read_csv(file_address)
         df = df.sort(["link_id", "trajectory_time"])
         first_cell_inflow_dict = {}
-        groups = df.group_by("link_id")
-        num_groups = df.select(["link_id"]).unique().height
+        groups = df.group_by("link_id", "cell_id")
+        num_groups = df.select(["link_id", "cell_id"]).unique().height
 
-        for link_id, group in tqdm(groups, total=num_groups, desc="Finding first cell inflow"):
+        for name, group in tqdm(groups, total=num_groups, desc="Finding first cell inflow"):
             
-            link_id = link_id[0] if isinstance(link_id, (list, tuple)) else link_id
-            link_first_cell_inflow_dict = {
-                round(t, 2): group.filter(
-                    (pl.col("trajectory_time") >= t) &
-                    (pl.col("trajectory_time") < t + self.params.dt.to(Units.S).value)
-                )["entry_count"].sum()
-                for t in group["trajectory_time"]
-            }
+            link_id = name[0] if isinstance(name, (list, tuple)) else name
+            cell_id = name[1] if isinstance(name, (list, tuple)) else name
             if isinstance(link_id, (str, float)):
                 link_id = int(link_id)
-            first_cell_inflow_dict[link_id] = link_first_cell_inflow_dict
+            if link_id not in first_cell_inflow_dict:
+                first_cell_inflow_dict[link_id] = {}
+            trajectory_times = group.sort(["trajectory_time"])["trajectory_time"].to_numpy()
+            for trajectory_time in trajectory_times:
+                if not isinstance(trajectory_time, float):
+                    trajectory_time = float(trajectory_time)
+                trajectory_time = round(trajectory_time, 2)
+                if trajectory_time not in first_cell_inflow_dict[link_id]:
+                    first_cell_inflow_dict[link_id][trajectory_time] = {}
+                if cell_id not in first_cell_inflow_dict[link_id][trajectory_time]:
+                    first_cell_inflow_dict[link_id][trajectory_time][cell_id] = 0
+                first_cell_inflow_dict[link_id][trajectory_time][cell_id] += group.filter(
+                    (pl.col("trajectory_time") >= trajectory_time) &
+                    (pl.col("trajectory_time") < trajectory_time + self.params.dt.to(Units.S).value)
+                )["entry_count"].sum()
+            
+        
         with open(output_file_address, "w", encoding="utf-8") as f:
             json.dump(first_cell_inflow_dict, f, indent=4)
             
@@ -1958,6 +1965,7 @@ class DataLoader:
         self.cell_exits_dict.clear()
         self.df = pl.DataFrame({})
 
+
     def prepare_ctm_tasks(self, location, date, time):
 
         """
@@ -1968,6 +1976,7 @@ class DataLoader:
         self.activate_first_cell_inflow_dict(location, date, time)
         self.activate_next_exit_cell(location, date, time)
 
+        
         self.current_file_running = {
             "location": location,
             "date": date,
@@ -1993,7 +2002,7 @@ class DataLoader:
                         "cell_capacities": deepcopy(cell_capacities[link_id]),
                         "next_occupancy": occupancy_list["next_occupancy"],
                         "max_flows": deepcopy(max_flows[link_id]),
-                        "first_cell_inflow": self.first_cell_inflow_dict[link_id].get(trajectory_time, 0), # nbbi: This part might be causing errors!
+                        "inflow": self.first_cell_inflow_dict[link_id].get(trajectory_time, 0), # nbbi: This part might be causing errors!
                         "link_id": link_id,
                         "is_tl": self.is_tl(link_id),
                         "tl_status": self.tl_status(trajectory_time, link_id),
@@ -2003,8 +2012,10 @@ class DataLoader:
                         "next_exit": list((dict(sorted(self.next_exit_cell_values[link_id][trajectory_time].items(), key= lambda x: x[0]))).values())
                     }
                 )
+                
         with open(file_address, "w", encoding="utf-8") as f:
             json.dump(tasks, f, indent=4)
+            
         self.tasks = tasks
         self.destruct()
     
@@ -2018,6 +2029,7 @@ class DataLoader:
         self.activate_next_timestamp_occupancy(location, date, time)
         self.activate_tl_status_dict(location, date, time)
         self.activate_next_exit_link(location, date, time)
+        self.activate_first_cell_inflow_dict(location, date, time)
 
         self.current_file_running = {
             "location": location,
@@ -2051,6 +2063,7 @@ class DataLoader:
                         "cummulative_count_downstream": data["cummulative_count_downstream"],
                         "cummulative_count_upstream": data["cummulative_count_upstream"],
                         "current_number_of_vehicles": data["current_number_of_vehicles"],
+                        "inflow": self.first_cell_inflow_dict[link_id].get(trajectory_time, 0),
                         "entry_count": data["entry_count"],
                         "dt": self.params.dt,
                         "trajectory_time": trajectory_time,
@@ -2079,6 +2092,7 @@ class DataLoader:
         self.activate_tl_status_dict(location, date, time)
         self.activate_next_timestamp_occupancy(location, date, time)
         self.activate_next_exit_link(location, date, time)
+        self.activate_first_cell_inflow_dict(location, date, time)
         self.current_file_running = {
             "location": location,
             "date": date,
@@ -2110,6 +2124,7 @@ class DataLoader:
                         "cummulative_count_upstream": data["cummulative_count_upstream"],
                         "cummulative_count_downstream": data["cummulative_count_downstream"],
                         "current_number_of_vehicles": data["current_number_of_vehicles"],
+                        "inflow": self.first_cell_inflow_dict[link_id].get(trajectory_time, 0),
                         "dt": self.params.dt,
                         "trajectory_time": trajectory_time,
                         "tl_status": self.tl_status(trajectory_time, link_id),
@@ -2132,6 +2147,8 @@ class DataLoader:
             json.dump(copy_tasks, f, indent=4)
         self.destruct()
 
+
+
     def prepare_ltm_tasks(self, location, date, time):
         """
         Prepares the necessary tasks for the specified location, date, and time.
@@ -2140,6 +2157,7 @@ class DataLoader:
         self.activate_tl_status_dict(location, date, time)
         self.activate_next_timestamp_occupancy(location, date, time)
         self.activate_next_exit_link(location, date, time)
+        self.activate_first_cell_inflow_dict(location, date, time)
         self.current_file_running = {
             "location": location,
             "date": date,
@@ -2176,7 +2194,7 @@ class DataLoader:
                             "downstream_value_freeflow_with_eps_t": self.cumulative_counts_dict[link_id][trajectory_time][cell_id]["downstream_value_freeflow_with_eps_t"],
                             "upstream_value_freeflow": self.cumulative_counts_dict[link_id][trajectory_time][cell_id]["upstream_value_freeflow"],
                             "downstream_value_freeflow": self.cumulative_counts_dict[link_id][trajectory_time][cell_id]["downstream_value_freeflow"],
-
+                            "inflow": self.first_cell_inflow_dict[link_id].get(trajectory_time, 0),
                             "upstream_value_wavespeed_with_eps_x": self.cumulative_counts_dict[link_id][trajectory_time][cell_id]["upstream_value_wavespeed_with_eps_x"],
                             "downstream_value_wavespeed_with_eps_x": self.cumulative_counts_dict[link_id][trajectory_time][cell_id]["downstream_value_wavespeed_with_eps_x"],
                             "upstream_value_wavespeed_with_eps_t": self.cumulative_counts_dict[link_id][trajectory_time][cell_id]["upstream_value_wavespeed_with_eps_t"],
@@ -2297,6 +2315,7 @@ class DataLoader:
         average_speeds = self.get_average_speeds_per_cell(location, date, time)
         self.activate_tl_status_dict(location, date, time)
         self.activate_next_timestamp_occupancy(location, date, time)
+        self.activate_first_cell_inflow_dict(location, date, time)
 
 
 
@@ -2360,6 +2379,7 @@ class DataLoader:
                         "cell_lengths": cell_length, # It's a list!
                         "speeds": speeds_unit,
                         "dt": self.params.dt,
+                        "inflow": self.first_cell_inflow_dict[link_id].get(trajectory_time, 0),
                         "jam_density_link": self.params.jam_density_link,
                         "tl_status": tl_status,
                         "free_flow_speed": self.params.free_flow_speed,

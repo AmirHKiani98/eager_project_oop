@@ -48,15 +48,7 @@ def main():
     """
     logging.basicConfig(level=logging.INFO)
 
-    params = Parameters(
-        vehicle_length=5 * Units.M,
-        free_flow_speed=50 * Units.KM_PER_HR,
-        wave_speed=10 * Units.KM_PER_HR,
-        num_lanes=3,
-        jam_density_link=150 * Units.PER_KM,
-        dt=1 * Units.S,
-        q_max=2500 * Units.PER_HR,
-    )
+    
 
     # Initialize argparse
     parser = argparse.ArgumentParser(description="Traffic Simulation")
@@ -95,9 +87,32 @@ def main():
         action="store_true",
         help="Run calibration for the model"
     )
+    parser.add_argument(
+        "--cache-dir",
+        type=str,
+        default=".cache",
+        help="Directory to store cache files"
+    )
+    parser.add_argument(
+        "--dt",
+        type=float,
+        default=10.0,
+        help="Time step for the simulation in seconds"
+    )
     
     args = parser.parse_args()
     # Example usage
+
+    params = Parameters(
+        vehicle_length=5 * Units.M,
+        free_flow_speed=50 * Units.KM_PER_HR,
+        wave_speed=10 * Units.KM_PER_HR,
+        num_lanes=3,
+        jam_density_link=150 * Units.PER_KM,
+        dt=args.dt * Units.S,
+        q_max=2500 * Units.PER_HR,
+        cache_dir=args.cache_dir,
+    )
     intersection_locations = (
         pl.read_csv(args.fp_geo)
         .to_numpy()
