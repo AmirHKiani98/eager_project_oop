@@ -63,7 +63,8 @@ class GeoLoader:
                 locations: Optional[list[POINT]] = None,
                 cell_length: Optional[float] = None,
                 number_of_cells: Optional[int] = None,
-                testing: bool = False):
+                testing: bool = False,
+                                cache: str = ".cache"):
         self.locations = locations
         # Check if the link is already saved:
         self.links = {}
@@ -71,6 +72,7 @@ class GeoLoader:
         self.cells = []
         self.cell_length = cell_length * Units.M
         self.number_of_cells = number_of_cells
+        self.cache_dir = cache
         if self._geo_data_already_exists():
             self._load()
         else:
@@ -185,7 +187,7 @@ class GeoLoader:
             for link in self.links.values()
         ]
         links_df = pl.DataFrame(links_data)
-        links_df.write_csv(f".cache/links_{hash_str}.csv")
+        links_df.write_csv(os.path.join(self.cache_dir,f"links_{hash_str}.csv"))
 
         # Save cells to a CSV file
         cells_data = [
@@ -201,7 +203,7 @@ class GeoLoader:
             for cell in self.cells
         ]
         cells_df = pl.DataFrame(cells_data)
-        cells_df.write_csv(f".cache/cells_{hash_str}.csv")
+        cells_df.write_csv(os.path.join(self.cache_dir,f"cells_{hash_str}.csv"))
 
         # Save metadata to a separate file
         if self.locations is None:
@@ -212,14 +214,14 @@ class GeoLoader:
             "number_of_cells": self.number_of_cells,
         }
         metadata_df = pl.DataFrame([metadata])
-        metadata_df.write_csv(f".cache/metadata_{hash_str}.csv")
+        metadata_df.write_csv(os.path.join(self.cache_dir,f"metadata_{hash_str}.csv"))
 
     def _load(self):
         """
         Loads links and cells from saved CSV files.
         """
         hash_str = self._get_hash_str()
-        links_df = pl.read_csv(f".cache/links_{hash_str}.csv")
+        links_df = pl.read_csv(os.path.join(self.cache_dir,f"links_{hash_str}.csv"))
 
         for row in links_df.iter_rows(named=True):
             start_point = POINT(row['start_lon'], row['start_lat'])
@@ -229,7 +231,7 @@ class GeoLoader:
             self.links[link_id] = link
 
 
-        cells_df = pl.read_csv(f".cache/cells_{hash_str}.csv")
+        cells_df = pl.read_csv(os.path.join(self.cache_dir,f"cells_{hash_str}.csv"))
         for row in cells_df.iter_rows(named=True):
             cell_start = POINT(row['cell_start_lon'], row['cell_start_lat'])
             cell_end = POINT(row['cell_end_lon'], row['cell_end_lat'])
@@ -253,8 +255,8 @@ class GeoLoader:
         Check if the geospatial data already exists in the cache.
         """
         hash_str = self._get_hash_str()
-        if os.path.exists(f".cache/links_{hash_str}.csv") and \
-           os.path.exists(f".cache/cells_{hash_str}.csv"):
+        if os.path.exists(os.path.join(self.cache_dir,f"links_{hash_str}.csv")) and \
+           os.path.exists(os.path.join(self.cache_dir,f"cells_{hash_str}.csv")):
             return True
         return False
 

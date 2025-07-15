@@ -114,7 +114,8 @@ class CTM(TrafficModel):
             max_flow = max_flows[i] # self.dl.params.get_max_flow(cell_length)
             # First cell
             if i == 0:
-                inflow = all_inflow["1"]
+                
+                inflow = all_inflow.get("1", 0)
             else:
                 inflow = CTM.compute_flow({
                         "prev_cell_occupancy":cell_occupancies[i-1],

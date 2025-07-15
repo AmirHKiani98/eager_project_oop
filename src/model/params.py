@@ -110,7 +110,7 @@ class Parameters():
         self.dt = dt
         self.jam_density_link = jam_density_link
         self.q_max = q_max
-        self.alpha = self.wave_speed/self.free_flow_speed
+        self.alpha = self.wave_speed / self.free_flow_speed
         # Calculate the maximum number of vehicles that can flow into the system per time step.
         # nbbi: flow_capacity should be an attribute of Cell model.
         self.flow_capacity = self.q_max * self.dt # veh

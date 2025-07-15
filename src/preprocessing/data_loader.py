@@ -1852,7 +1852,7 @@ class DataLoader:
         
         all_trajectory_times = link_df["trajectory_time"].to_numpy()
         closest_index = np.searchsorted(all_trajectory_times, target_time_value)
-        if closest_index == len(all_trajectory_times) - 1:
+        if closest_index == len(all_trajectory_times) - 1 or closest_index == len(all_trajectory_times):
             cummulative_count_upstream = 0.0
             cummulative_count_downstream = 0.0
         else:
@@ -1917,7 +1917,7 @@ class DataLoader:
                 if not isinstance(target_time, float):
                     target_time = float(target_time)
                 closest_index = np.searchsorted(all_trajectory_times, target_time)
-                if closest_index == len(all_trajectory_times) - 1:
+                if closest_index == len(all_trajectory_times) - 1 or closest_index == len(all_trajectory_times):
                     cummulative_count_upstream_offset = 0.0
                     cummulative_count_downstream_offset = 0.0
                 else:
@@ -1985,7 +1985,7 @@ class DataLoader:
         file_address = (
             self.params.cache_dir + "/" +
             f"{self._get_filename(location, date, time)}_prepared_ctm_tasks_"
-            f"{self.geo_loader.get_hash_str()}_{self.params.get_hash_str(['cache_dir', 'dt'])}.json"
+            f"{self.geo_loader.get_hash_str()}_{self.params.get_hash_str(['cache_dir', 'dt', 'alpha', 'jam_density_link', 'q_max'])}.json"
         )
         if os.path.isfile(file_address):
             self.tasks = json.load(open(file_address, "r", encoding="utf-8"))
@@ -2042,7 +2042,7 @@ class DataLoader:
         file_address = (
             self.params.cache_dir + "/" +
             f"{self._get_filename(location, date, time)}_prepared_pq_tasks_"
-            f"{self.geo_loader.get_hash_str()}_{self.params.get_hash_str(['cache_dir', 'free_flow_speed', 'dt'])}.json"
+            f"{self.geo_loader.get_hash_str()}_{self.params.get_hash_str(['cache_dir', 'free_flow_speed', 'dt', 'q_max'])}.json"
         )
         if os.path.isfile(file_address):
             self.tasks = json.load(open(file_address, "r", encoding="utf-8"))
@@ -2101,7 +2101,7 @@ class DataLoader:
         file_address = (
             self.params.cache_dir + "/" +
             f"{self._get_filename(location, date, time)}_prepared_sq_tasks_"
-            f"{self.geo_loader.get_hash_str()}_{self.params.get_hash_str(['cache_dir', 'free_flow_speed', 'dt'])}.json"
+            f"{self.geo_loader.get_hash_str()}_{self.params.get_hash_str(['cache_dir', 'free_flow_speed', 'dt', 'q_max'])}.json"
         )
         if os.path.isfile(file_address):
             self.tasks = json.load(open(file_address, "r", encoding="utf-8"))
@@ -2166,7 +2166,7 @@ class DataLoader:
         file_address = (
             self.params.cache_dir + "/" +
             f"{self._get_filename(location, date, time)}_prepared_ltm_tasks_"
-            f"{self.geo_loader.get_hash_str()}_{self.params.get_hash_str(['cache_dir', 'free_flow_speed', 'dt', 'wave_speed'])}.json"
+            f"{self.geo_loader.get_hash_str()}_{self.params.get_hash_str(['cache_dir', 'free_flow_speed', 'dt', 'wave_speed', 'jam_density_link'])}.json"
         )
         if os.path.isfile(file_address):
             self.tasks = json.load(open(file_address, "r", encoding="utf-8"))

@@ -70,7 +70,7 @@ class PW(TrafficModel):
                 new_densities[i] = densities[i] - (dt / cell_lengths[i]) * (densities[i] * speeds[i] - inflow)
                 # Mazi kam aghl. Mazi kam aghl! dt * (eq_speed - speeds[i])/tau + speeds[1] both terms here should have the same units
                 if len(densities) < i+2:
-                    new_speeds[i] = 0
+                    new_speeds[i] = 0  * Units.KM_PER_HR
                 else:
                     new_speeds[i] = speeds[i] + term - (dt / cell_lengths[i]) * c0**2 * (densities[i+1]-densities[i])/(densities[i]+ epss)
 
@@ -81,7 +81,7 @@ class PW(TrafficModel):
                 if tl_status == 1: # green light
                     new_speeds[i] = speeds[i] - (dt / cell_lengths[i]) * speeds[i] * (speeds[i] - speeds[i-1]) + term
                 else:    # red light
-                    new_speeds[i] = 0
+                    new_speeds[i] = 0 * Units.KM_PER_HR
 
                 new_densities[i] = densities[i] - (dt / cell_lengths[i]) * (densities[i] * speeds[i] - densities[i-1] * speeds[i-1])
 
@@ -93,6 +93,7 @@ class PW(TrafficModel):
                 new_speeds[i] = speeds[i] - (dt / cell_lengths[i]) * speeds[i] * (speeds[i] - speeds[i-1]) + term - (dt / cell_lengths[i]) * c0**2 * (densities[i+1]-densities[i])/(densities[i]+ epss)
 
             new_outflows[i] = new_speeds[i] * new_densities[i] # find outflow q = kv
+
         density_value = []
         speed_value = []
         
@@ -122,10 +123,10 @@ class PW(TrafficModel):
         return {
             "new_densities": density_value,
             "new_speeds": speed_value,
-            "next_densities": next_occupancy,
+            "next_densities": [float(d) if isinstance(d, Units.Quantity) else d for d in next_occupancy],
             "cell_lengths": [length.to(Units.M).value for length in cell_lengths],
             "link_id": args["link_id"],
-            "trajectory_time": trajectory_time,
-            "outflow": [outflow for outflow in new_outflows],
-            "inflow": inflow
+            "trajectory_time": float(trajectory_time) if isinstance(trajectory_time, Units.Quantity) else trajectory_time,
+            "outflow": [outflow.to(Units.PER_HR).value if isinstance(outflow, Units.Quantity) else outflow for outflow in new_outflows],
+            "inflow": list(dict(sorted(inflow.items(), key=lambda x: x[0])).values()),
         }

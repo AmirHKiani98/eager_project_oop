@@ -18,6 +18,7 @@ from src.model.params import Parameters
 from src.preprocessing.data_loader import DataLoader
 from src.preprocessing.geo_loader import GeoLoader
 from src.common_utility.units import Units
+
 # from src.visualization.plotter import Plotter
 
 def main():
@@ -42,7 +43,7 @@ def main():
 
     Note:
     - The CSV file containing intersection locations is expected to be located at
-      `.cache/traffic_lights.csv`.
+      `traffic_lights.csv`.
     - The POINT objects are created using the latitude and longitude values from
       the CSV file.
     """
@@ -80,7 +81,7 @@ def main():
     parser.add_argument(
         "--fp-geo",
         type=str,
-        default=".cache/traffic_lights.csv"
+        default="traffic_lights.csv"
     )
     parser.add_argument(
         "--calibration",
@@ -124,7 +125,8 @@ def main():
     ]
     model_geo_loader = GeoLoader(
         locations=intersection_locations,
-        cell_length=20.0
+        cell_length=20.0,
+        cache=args.cache_dir,
         )
     dl = DataLoader(
         params=params,

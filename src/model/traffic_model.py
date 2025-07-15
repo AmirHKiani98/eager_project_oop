@@ -33,6 +33,7 @@ from tqdm import tqdm
 from src.preprocessing.data_loader import DataLoader
 from src.common_utility.units import Units
 from src.visualization.plotter import Plotter
+from src.model.params import Parameters
 
 logging.basicConfig(
     level="DEBUG",
@@ -223,12 +224,18 @@ class TrafficModel:
         ))
         combinations_array = np.array(combinations)
         for params in tqdm(combinations_array, desc="Calibrating traffic model"):
-            self.dl.params.set_initialized(False)
-            self.dl.params.free_flow_speed = params[0] * Units.KM_PER_HR
-            self.dl.params.jam_density_link = params[1] * Units.PER_KM
-            self.dl.params.wave_speed = params[2] * Units.KM_PER_HR
-            self.dl.params.q_max = params[3] * Units.PER_HR
-            self.dl.params.set_initialized(True)
+            new_params = Parameters(
+                free_flow_speed=params[0] * Units.KM_PER_HR,
+                jam_density_link=params[1] * Units.PER_KM,
+                wave_speed=params[2] * Units.KM_PER_HR,
+                q_max=params[3] * Units.PER_HR,
+                cache_dir=self.dl.params.cache_dir,
+                vehicle_length=self.dl.params.vehicle_length,
+                num_lanes=self.dl.params.num_lanes,
+                dt=self.dl.params.dt
+                
+            )
+            self.dl.params = new_params
             self.dl.params.save_metadata()
             
             self.run_with_multiprocessing(num_processes, batch_size)

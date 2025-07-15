@@ -942,13 +942,14 @@ class Plotter:
                 if isinstance(inflow, dict):
                     inflow = dict(sorted(inflow.items(), key=lambda x: x[0]))
                     inflow = list(inflow.values())
-                outflow = row["new_outflow"]
+                outflow = row["outflow"]
                 
                 for i in range(len(next_density)):
                     actual_density = next_density[i]
                     predicted_density = max(new_densities[i], 0)
                     squared_error = (actual_density - predicted_density) ** 2
                     squared_flow_error = (inflow[i] - outflow[i]) ** 2
+                    
                     all_rmse_data.append({
                         "link_id": link_id,
                         "trajectory_time": trajectory_time,
@@ -1072,8 +1073,8 @@ class Plotter:
             sns.heatmap(
                 actual_flow_data,
                 cmap="Reds",
-                vmin=predicted_min_flow,
-                vmax=predicted_max_flow,
+                vmin=actual_min,
+                vmax=actual_max,
                 cbar_kws={'label': 'Actual Flow (Veh/s)'}
             )
             plt.title(f"Actual Flow Heatmap ({traffic_model})")
