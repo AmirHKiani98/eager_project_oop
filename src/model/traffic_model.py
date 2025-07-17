@@ -222,7 +222,7 @@ class TrafficModel:
             wave_speeds,
             q_max
         ))
-        combinations_array = np.array(combinations)
+        combinations_array = np.array(combinations, dtype=float)
         for params in tqdm(combinations_array, desc="Calibrating traffic model"):
             new_params = Parameters(
                 free_flow_speed=params[0] * Units.KM_PER_HR,
