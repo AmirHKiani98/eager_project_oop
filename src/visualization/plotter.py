@@ -17,6 +17,8 @@ from shapely.geometry import Point as POINT
 from src.preprocessing.geo_loader import GeoLoader
 from src.common_utility.units import Units
 from collections import defaultdict
+from pyproj import Geod
+GEOD = Geod(ellps="WGS84")
 matplotlib.set_loglevel("warning")
 class Plotter:
     """
@@ -146,7 +148,7 @@ class Plotter:
         )
 
         plt.title("Density Error Heatmap")
-        plt.xlabel("Link Index")
+        #plt.xlabel("Link Index")
         plt.ylabel("Time (s)")
         plt.tight_layout()
 
@@ -261,12 +263,12 @@ class Plotter:
             cmap="Reds",
             vmin=df["squared_error"].min(),
             vmax=df["squared_error"].max(),
-            cbar_kws={'label': 'Squared Error (Veh/m)^2'}
+            cbar_kws={'label': r'Squared Error $\frac{Veh}{m}^2$'}
         )
-        plt.title(f"Error Heatmap for All Links ({traffic_model})")
-        plt.xlabel("Link_ID and Cell_ID")
-        plt.ylabel("Trajectory Time")
-        plt.xticks(rotation=45, ha='right')
+        plt.title(f"Error Heatmap for All Links ({traffic_model})", fontsize=16)
+        plt.xlabel("")
+        plt.ylabel("Trajectory Time", fontsize=14)
+        plt.xticks(rotation=45, ha='right', fontsize=12)
         plt.tight_layout()
         plt.savefig(figure_path + "error_density.png")
         plt.close()
@@ -280,12 +282,12 @@ class Plotter:
             cmap="Reds",
             vmin=actual_min,
             vmax=actual_max,
-            cbar_kws={'label': 'Actual Density (Veh/m)'}
+            cbar_kws={'label': r'Actual Density $(Veh/m)$'}
         )
-        plt.title(f"Actual Density Heatmap ({traffic_model})")
-        plt.xlabel("Link_ID and Cell_ID")
-        plt.ylabel("Trajectory Time")
-        plt.xticks(rotation=45, ha='right')
+        plt.title(f"Actual Density Heatmap ({traffic_model})", fontsize=16)
+        plt.xlabel("")
+        plt.ylabel("Trajectory Time", fontsize=14)
+        plt.xticks(rotation=45, ha='right', fontsize=12)
         plt.tight_layout()
         plt.savefig(figure_path + "actual_density.png")
         plt.close()
@@ -299,12 +301,12 @@ class Plotter:
             cmap="Reds",
             vmin=predicted_min,
             vmax=predicted_max,
-            cbar_kws={'label': 'Predicted Density (Veh/m)'}
+            cbar_kws={'label': r'Predicted Density $(Veh/m)$'}
         )
-        plt.title(f"Predicted Density Heatmap ({traffic_model})")
-        plt.xlabel("Link_ID and Cell_ID")
-        plt.ylabel("Trajectory Time")
-        plt.xticks(rotation=45, ha='right')
+        plt.title(f"Predicted Density Heatmap ({traffic_model})", fontsize=16)
+        plt.xlabel("")
+        plt.ylabel("Trajectory Time", fontsize=14)
+        plt.xticks(rotation=45, ha='right', fontsize=12)
         plt.tight_layout()
         plt.savefig(figure_path + "predicted_density.png")
         plt.close()
@@ -328,10 +330,10 @@ class Plotter:
             cmap="Reds",
             cbar_kws={'label': 'Flow Error (Veh/s)^2'}
         )
-        plt.title(f"Flow Error Heatmap for All Links ({traffic_model})")
-        plt.xlabel("Link_ID and Cell_ID")
-        plt.ylabel("Trajectory Time")
-        plt.xticks(rotation=45, ha='right')
+        plt.title(f"Flow Error Heatmap ({traffic_model})", fontsize=16)
+        plt.xlabel("")
+        plt.ylabel("Trajectory Time", fontsize=14)
+        plt.xticks(rotation=45, ha='right', fontsize=12)
         plt.tight_layout()
         plt.savefig(figure_path + "flow_error.png")
         plt.close()
@@ -347,10 +349,10 @@ class Plotter:
             vmax=predicted_max_flow,
             cbar_kws={'label': 'Actual Flow (Veh/s)'}
         )
-        plt.title(f"Actual Flow Heatmap ({traffic_model})")
-        plt.xlabel("Link_ID and Cell_ID")
-        plt.ylabel("Trajectory Time")
-        plt.xticks(rotation=45, ha='right')
+        plt.title(f"Actual Flow Heatmap ({traffic_model})", fontsize=16)
+        plt.xlabel("")
+        plt.ylabel("Trajectory Time", fontsize=14)
+        plt.xticks(rotation=45, ha='right', fontsize=12)
         plt.tight_layout()
         plt.savefig(figure_path + "actual_flow.png")
         plt.close()
@@ -365,10 +367,10 @@ class Plotter:
             vmax=predicted_max_flow,
             cbar_kws={'label': 'Predicted Flow (Veh/s)'}
         )
-        plt.title(f"Predicted Flow Heatmap ({traffic_model})")
-        plt.xlabel("Link_ID and Cell_ID")
-        plt.ylabel("Trajectory Time")
-        plt.xticks(rotation=45, ha='right')
+        plt.title(f"Predicted Flow Heatmap ({traffic_model})", fontsize=16)
+        plt.xlabel("")
+        plt.ylabel("Trajectory Time", fontsize=14)
+        plt.xticks(rotation=45, ha='right', fontsize=12)
         plt.tight_layout()
         plt.savefig(figure_path + "predicted_flow.png")
         plt.close()
@@ -481,7 +483,7 @@ class Plotter:
             next_density = row["next_densities"]
             inflow = row["inflow"]
             outflow = row["new_outflow"]
-            
+            inflow = list(dict(sorted(inflow.items(), key=lambda x: x[0])).values())
             for i in range(len(next_density)):
                 actual_density = next_density[i]
                 predicted_density = max(new_densities[i], 0)
@@ -528,12 +530,12 @@ class Plotter:
             cmap="Reds",
             vmin=df["squared_error"].min(),
             vmax=df["squared_error"].max(),
-            cbar_kws={'label': 'Squared Error (Veh/m)^2'}
+            cbar_kws={'label': r'Squared Error $\frac{Veh}{m}^2$'}
         )
-        plt.title(f"Error Heatmap for All Links ({traffic_model})")
-        plt.xlabel("Link_ID and Cell_ID")
-        plt.ylabel("Trajectory Time")
-        plt.xticks(rotation=45, ha='right')
+        plt.title(f"Error Heatmap for All Links ({traffic_model})", fontsize=16)
+        plt.xlabel("")
+        plt.ylabel("Trajectory Time", fontsize=14)
+        plt.xticks(rotation=45, ha='right', fontsize=12)
         plt.tight_layout()
         plt.savefig(figure_path + "error_density.png")
         plt.close()
@@ -547,12 +549,12 @@ class Plotter:
             cmap="Reds",
             vmin=actual_min,
             vmax=actual_max,
-            cbar_kws={'label': 'Actual Density (Veh/m)'}
+            cbar_kws={'label': r'Actual Density $(Veh/m)$'}
         )
-        plt.title(f"Actual Density Heatmap ({traffic_model})")
-        plt.xlabel("Link_ID and Cell_ID")
-        plt.ylabel("Trajectory Time")
-        plt.xticks(rotation=45, ha='right')
+        plt.title(f"Actual Density Heatmap ({traffic_model})", fontsize=16)
+        plt.xlabel("")
+        plt.ylabel("Trajectory Time", fontsize=14)
+        plt.xticks(rotation=45, ha='right', fontsize=12)
         plt.tight_layout()
         plt.savefig(figure_path + "actual_density.png")
         plt.close()
@@ -566,10 +568,10 @@ class Plotter:
             cmap="Reds",
             vmin=predicted_min,
             vmax=predicted_max,
-            cbar_kws={'label': 'Predicted Density (Veh/m)'}
+            cbar_kws={'label': r'Predicted Density $(Veh/m)$'}
         )
         plt.title(f"Predicted Density Heatmap ({traffic_model})")
-        plt.xlabel("Link_ID and Cell_ID")
+        plt.xlabel("")
         plt.ylabel("Trajectory Time")
         plt.xticks(rotation=45, ha='right')
         plt.tight_layout()
@@ -595,8 +597,8 @@ class Plotter:
             cmap="Reds",
             cbar_kws={'label': 'Flow Error'}
         )
-        plt.title(f"Flow Error Heatmap for All Links ({traffic_model})")
-        plt.xlabel("Link_ID and Cell_ID")
+        plt.title(f"Flow Error Heatmap ({traffic_model})")
+        plt.xlabel("")
         plt.ylabel("Trajectory Time")
         plt.xticks(rotation=45, ha='right')
         plt.tight_layout()
@@ -615,7 +617,7 @@ class Plotter:
             cbar_kws={'label': 'Actual Flow (Veh/s)'}
         )
         plt.title(f"Actual Flow Heatmap ({traffic_model})")
-        plt.xlabel("Link_ID and Cell_ID")
+        plt.xlabel("")
         plt.ylabel("Trajectory Time")
         plt.xticks(rotation=45, ha='right')
         plt.tight_layout()
@@ -633,7 +635,7 @@ class Plotter:
             cbar_kws={'label': 'Predicted Flow (Veh/s)'}
         )
         plt.title(f"Predicted Flow Heatmap ({traffic_model})")
-        plt.xlabel("Link_ID and Cell_ID")
+        plt.xlabel("")
         plt.ylabel("Trajectory Time")
         plt.xticks(rotation=45, ha='right')
         plt.tight_layout()
@@ -715,7 +717,7 @@ class Plotter:
             linewidths=1
         )
         plt.title("Error Heatmap by Link and Trajectory Time")
-        plt.xlabel("Link ID")
+        #plt.xlabel("Link ID")
         plt.ylabel("Trajectory Time")
         plt.tight_layout()
         plt.savefig(figure_path)
@@ -817,7 +819,7 @@ class Plotter:
             cbar_kws={'label': 'Squared Error'}
         )
         plt.title(f"Density Error Heatmap ({traffic_model})")
-        plt.xlabel("X (m, shifted)")
+        #plt.xlabel("X (m, shifted)")
         plt.ylabel("Trajectory Time")
         plt.tight_layout()
         plt.xticks(rotation=45, ha='right')
@@ -844,7 +846,7 @@ class Plotter:
             cbar_kws={'label': 'Squared Error'}
         )
         plt.title(f"Actual Density Heatmap ({traffic_model})")
-        plt.xlabel("X (m, shifted)")
+        #plt.xlabel("X (m, shifted)")
         plt.ylabel("Trajectory Time")
         plt.tight_layout()
         plt.xticks(rotation=45, ha='right')
@@ -870,7 +872,7 @@ class Plotter:
             cbar_kws={'label': 'Squared Error'}
         )
         plt.title(f"Predicted Density Heatmap ({traffic_model})")
-        plt.xlabel("X (m, shifted)")
+        #plt.xlabel("X (m, shifted)")
         plt.ylabel("Trajectory Time")
         plt.tight_layout()
         plt.xticks(rotation=45, ha='right')
@@ -948,8 +950,10 @@ class Plotter:
                     actual_density = next_density[i]
                     predicted_density = max(new_densities[i], 0)
                     squared_error = (actual_density - predicted_density) ** 2
-                    squared_flow_error = (inflow[i] - outflow[i]) ** 2
-                    
+                    inflow_i = inflow[i]/3600 
+                    outflow_i = outflow[i]/3600
+                    squared_flow_error = (inflow_i - outflow_i) ** 2
+
                     all_rmse_data.append({
                         "link_id": link_id,
                         "trajectory_time": trajectory_time,
@@ -970,8 +974,8 @@ class Plotter:
                     actual_max = max(actual_max, actual_density)
                     predicted_min = min(predicted_min, predicted_density)
                     predicted_max = max(predicted_max, predicted_density)
-                    predicted_min_flow = min([predicted_min_flow, inflow[i], outflow[i]])
-                    predicted_max_flow = max(predicted_max_flow, inflow[i], outflow[i])
+                    predicted_min_flow = min([predicted_min_flow, inflow_i, outflow_i])
+                    predicted_max_flow = max(predicted_max_flow, inflow_i, outflow_i)
             if not all_rmse_data:
                     print("No error data to plot.")
                     return
@@ -991,10 +995,10 @@ class Plotter:
                 cmap="Reds",
                 vmin=df["squared_error"].min(),
                 vmax=df["squared_error"].max(),
-                cbar_kws={'label': 'Squared Error (Veh/m)^2'}
+                cbar_kws={'label': r'Squared Error $\frac{Veh}{m}^2$'}
             )
             plt.title(f"Error Heatmap for All Links ({traffic_model})")
-            plt.xlabel("Link_ID and Cell_ID")
+            #plt.xlabel("Link_ID and Cell_ID")
             plt.ylabel("Trajectory Time")
             plt.xticks(rotation=45, ha='right')
             plt.tight_layout()
@@ -1010,10 +1014,10 @@ class Plotter:
                 cmap="Reds",
                 vmin=actual_min,
                 vmax=actual_max,
-                cbar_kws={'label': 'Actual Density (Veh/m)'}
+                cbar_kws={'label': r'Actual Density $(Veh/m)$'}
             )
             plt.title(f"Actual Density Heatmap ({traffic_model})")
-            plt.xlabel("Link_ID and Cell_ID")
+            #plt.xlabel("Link_ID and Cell_ID")
             plt.ylabel("Trajectory Time")
             plt.xticks(rotation=45, ha='right')
             plt.tight_layout()
@@ -1029,10 +1033,10 @@ class Plotter:
                 cmap="Reds",
                 vmin=predicted_min,
                 vmax=predicted_max,
-                cbar_kws={'label': 'Predicted Density (Veh/m)'}
+                cbar_kws={'label': r'Predicted Density $(Veh/m)$'}
             )
             plt.title(f"Predicted Density Heatmap ({traffic_model})")
-            plt.xlabel("Link_ID and Cell_ID")
+            #plt.xlabel("Link_ID and Cell_ID")
             plt.ylabel("Trajectory Time")
             plt.xticks(rotation=45, ha='right')
             plt.tight_layout()
@@ -1058,8 +1062,8 @@ class Plotter:
                 cmap="Reds",
                 cbar_kws={'label': 'Flow Error'}
             )
-            plt.title(f"Flow Error Heatmap for All Links ({traffic_model})")
-            plt.xlabel("Link_ID and Cell_ID")
+            plt.title(f"Flow Error Heatmap ({traffic_model})")
+            #plt.xlabel("Link_ID and Cell_ID")
             plt.ylabel("Trajectory Time")
             plt.xticks(rotation=45, ha='right')
             plt.tight_layout()
@@ -1078,7 +1082,7 @@ class Plotter:
                 cbar_kws={'label': 'Actual Flow (Veh/s)'}
             )
             plt.title(f"Actual Flow Heatmap ({traffic_model})")
-            plt.xlabel("Link_ID and Cell_ID")
+            #plt.xlabel("Link_ID and Cell_ID")
             plt.ylabel("Trajectory Time")
             plt.xticks(rotation=45, ha='right')
             plt.tight_layout()
@@ -1096,7 +1100,7 @@ class Plotter:
                 cbar_kws={'label': 'Predicted Flow (Veh/s)'}
             )
             plt.title(f"Predicted Flow Heatmap ({traffic_model})")
-            plt.xlabel("Link_ID and Cell_ID")
+            #plt.xlabel("Link_ID and Cell_ID")
             plt.ylabel("Trajectory Time")
             plt.xticks(rotation=45, ha='right')
             plt.tight_layout()
@@ -1199,6 +1203,61 @@ class Plotter:
         ani.save("animation.gif", writer='imagemagick', fps=5)
         print("Animation saved as 'animation.gif'.")
 
+    def plot_trajectory(
+            self,
+            data_file_name: str,
+            hash_geo: str,
+            min_time: Optional[float] = None,
+            max_time: Optional[float] = None
+    ):
+        """
+        Plotting the trajectory of the vehicles.
+        """
+        file_name = f"{self.cache_dir}/{data_file_name}_vehicle_on_corridor_{hash_geo}.csv"
+        if not os.path.exists(file_name):
+            raise FileNotFoundError(f"File not found: {file_name}")
+        df = pd.read_csv(file_name)
+        links = self.geo_loader.get_links()
+        
+        df = df[df["trajectory_time"] >= min_time] if min_time is not None else df
+        df = df[df["trajectory_time"] <= max_time] if max_time is not None else df
+        df = df[df["distance_from_cell"] <= 100]
+        print(f"Plotting trajectory for {len(df)} vehicles.")
+        
+        print("Sorting the dataframe by trajectory time and loc.")
+        
+        fig, ax = plt.subplots(figsize=(10, 6))
+        distance_passed = 0.0
+        print("Plotting the trajectory of the vehicles.")
+        links = dict(sorted(links.items(), key=lambda x: x[0]))  # sort links by id
+        add_link_distance = {}
+        for link_id, link in links.items():
+            add_link_distance[link_id] = distance_passed
+            distance_passed += link.get_length().value
+            ax.axhline(y=distance_passed, color='r', linestyle='--', linewidth=2)
+        print("Distance passed:", distance_passed)
+        ax.set_xlabel("Trajectory Time (s)")
+        ax.set_ylabel("Distance (m)")
+        ax.set_title("Trajectory of Vehicles")
+        ax.set_xlim(df["trajectory_time"].min(), df["trajectory_time"].max())
+        ax.set_ylim(0, distance_passed + 100)
+        df["loc"] = df.apply(
+            lambda row: GEOD.inv(
+                row["lon"], row["lat"],
+                links[row["link_id"]].get_from().x,
+                links[row["link_id"]].get_from().y
+            )[2] + add_link_distance[row["link_id"]],  # only get the distance
+            axis=1
+        )
+        df = df.sort_values(by=["trajectory_time", "loc"])
+        ax.plot(df["trajectory_time"], df["loc"], marker='o', linestyle='-', markersize=0.1, linewidth=0.01, label="Vehicle Trajectory")    
+        ax.legend()
+        figure_path = f"{self.cache_dir}/results/{self.get_base_name_without_extension(file_name)}/"
+        if not os.path.exists(figure_path):
+            os.makedirs(figure_path)
+        plt.savefig(figure_path + "trajectory_plot.png")
+        plt.close()
+
     def save_errors(self):
         """
         Save the errors.
@@ -1217,7 +1276,7 @@ class Plotter:
 
 if __name__ == "__main__":
     intersection_locations = (
-        pl.read_csv(".cache/traffic_lights.csv")
+        pl.read_csv("traffic_lights.csv")
         .to_numpy()
         .tolist()
     )
@@ -1230,15 +1289,22 @@ if __name__ == "__main__":
         cell_length=20.0
         )
     data_file_name = "d1_20181029_0800_0830"
-    params_hash = "00b87522d0046c6d7054be1242574dad"
+    params_hash = "0a043bb9c51bc73349c36a052764479b"
     geo_hash = "682a48de"
-    traffic_model_name = "PointQueue"
-    plotter = Plotter(cache_dir=".cache", geo_loader=model_geo_loader)
+    traffic_model_name = "PW"
+    plotter = Plotter(cache_dir=".cache_dt10s", geo_loader=model_geo_loader)
     # plotter.animation(f".cache/{data_file_name}_fully_process_vehicles_{geo_hash}.csv")
     # print("Heatmap generated and saved successfully.")
-    plotter.plot(
-        data_file_name=data_file_name,
-        hash_parmas=params_hash,
+    plotter.plot_trajectory(
+        data_file_name = data_file_name,
         hash_geo=geo_hash,
-        traffic_model=traffic_model_name
+        min_time=200,
+        max_time=300
     )
+    # plotter.plot(
+    #     data_file_name=data_file_name,
+    #     hash_parmas=params_hash,
+    #     hash_geo=geo_hash,
+    #     traffic_model=traffic_model_name
+    # )
+# row
