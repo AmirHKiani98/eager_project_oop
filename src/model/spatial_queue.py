@@ -130,7 +130,7 @@ class SpatialQueue(TrafficModel):
             "link_id": link_id,
             "current_number_of_vehicles": current_number_of_vehicles,
             "new_occupancy": new_occupancy,
-            "inflow": inflow,  # re-adding inflow to the return statement
+            "inflow": {cell_id: value.to(Units.PER_HR).value for cell_id, value in inflow.items()},  # re-adding inflow to the return statement
         }
 
 

@@ -68,11 +68,12 @@ class CTM(TrafficModel):
             alpha*(cell_capacity - current_cell_occupancy)
         ) / dt
         if flow < 0:
-            raise ValueError(f"Flow cannot be negative. Check the parameters: prev_cell_occupancy= {prev_cell_occupancy},"
-                             f"current_cell_occupancy= {current_cell_occupancy},"
-                             f"cell_capacity= {cell_capacity},"
-                             f"flow_capacity= {flow_capacity},"
-                             f"alpha= {alpha}, dt= {dt}")
+            # raise ValueError(f"Flow cannot be negative. Check the parameters: prev_cell_occupancy= {prev_cell_occupancy},"
+            #                  f"current_cell_occupancy= {current_cell_occupancy},"
+            #                  f"cell_capacity= {cell_capacity},"
+            #                  f"flow_capacity= {flow_capacity},"
+            #                  f"alpha= {alpha}, dt= {dt}")
+            flow = 0 * Units.PER_HR  # Ensure flow is non-negative
         return flow
 
     @staticmethod

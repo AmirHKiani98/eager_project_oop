@@ -117,7 +117,7 @@ class PointQueue(TrafficModel):
             "outflow": outflow,
             "current_number_of_vehicles": current_number_of_vehicles,
             "new_occupancy": new_occupancy,
-            "inflow": inflow,
+            "inflow": {cell_id: inflow.to(Units.PER_HR).value for cell_id, inflow in args["inflow"].items()},
         }
 
 

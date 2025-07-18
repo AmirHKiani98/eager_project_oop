@@ -2116,6 +2116,7 @@ class DataLoader:
                         "cummulative_count_upstream_offset": data["cummulative_count_upstream_offset"],
                         "cummulative_count_downstream_offset": data["cummulative_count_downstream"],
                         "cummulative_count_upstream": data["cummulative_count_upstream"],
+                        "cummulative_count_downstream": data["cummulative_count_downstream"],
                         "current_number_of_vehicles": data["current_number_of_vehicles"],
                         "inflow": {cell_id: inflow * Units.PER_HR for cell_id, inflow in self.first_cell_inflow_dict[link_id].get(trajectory_time, 0).items()},
                         "entry_count": data["entry_count"],

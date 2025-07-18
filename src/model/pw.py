@@ -51,8 +51,7 @@ class PW(TrafficModel):
         critical_density = 100 * Units.PER_KM
         tau = 1
         c0 = free_flow_speed/(tau**2)
-        first_cell_inflow = args["inflow"].get("1.0", 0)/dt
-
+        first_cell_inflow = args["inflow"].get("1.0", 0 * Units.PER_HR)
         for i in range(num_cells):  # iterate over all cells
 
             # find the equilibrium speed
@@ -135,6 +134,6 @@ class PW(TrafficModel):
             "link_id": args["link_id"],
             "trajectory_time": float(trajectory_time) if isinstance(trajectory_time, Units.Quantity) else trajectory_time,
             "outflow": [(outflow*dt).to(1).value if isinstance(outflow, Units.Quantity) else outflow for outflow in new_outflows],
-            "inflow": list(dict(sorted(actual_inflow.items(), key=lambda x: x[0])).values()),
+            "inflow": {cell_id: inflow.to(Units.PER_HR).value for cell_id, inflow in actual_inflow.items()},
             "next_inflow": []
         }
