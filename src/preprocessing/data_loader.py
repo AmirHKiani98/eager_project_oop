@@ -1996,13 +1996,32 @@ class DataLoader:
         max_flows = self.geo_loader.get_max_flows(self.params)
         for link_id, cell_dict in self.next_timestamp_occupancy_dict.items():
             for trajectory_time, occupancy_list in cell_dict.items():
-                tasks.append(
+                
+                # Debug: Print information about the occupancy and capacity mismatch
+                current_occupancy = occupancy_list["current_occupancy"]
+                current_cell_capacities = cell_capacities[link_id]
+                # print(f"DEBUG: Link {link_id}, Time {trajectory_time}")
+                # print(f"  Current occupancy length: {len(current_occupancy)}")
+                # print(f"  Cell capacities length: {len(current_cell_capacities)}")
+                # print(f"  Current occupancy: {current_occupancy}")
+                # print(f"  Cell capacities: {current_cell_capacities}")
+                
+                # Check if lengths match and adjust if necessary
+                if len(current_occupancy) != len(current_cell_capacities):
+                    print(f"WARNING: Occupancy length ({len(current_occupancy)}) != capacity length ({len(current_cell_capacities)}) for link {link_id}")
+                    # Adjust by taking the minimum length to avoid the error
+                    min_length = min(len(current_occupancy), len(current_cell_capacities))
+                    current_occupancy = current_occupancy[:min_length]
+                    current_cell_capacities = current_cell_capacities[:min_length]
+                    print(f"  Adjusted to length: {min_length}")
+                
+                self.tasks.append(
                     {
-                        "occupancy_list": occupancy_list["current_occupancy"],
-                        "cell_capacities": deepcopy(cell_capacities[link_id]),
-                        "next_occupancy": occupancy_list["next_occupancy"],
-                        "max_flows": deepcopy(max_flows[link_id]),
-                        "inflow": self.first_cell_inflow_dict[link_id].get(trajectory_time, 0), # nbbi: This part might be causing errors!
+                        "occupancy_list": current_occupancy,
+                        "cell_capacities": current_cell_capacities,
+                        "next_occupancy": occupancy_list["next_occupancy"][:len(current_occupancy)] if len(occupancy_list["next_occupancy"]) > len(current_occupancy) else occupancy_list["next_occupancy"],
+                        "q_max": self.params.q_max,
+                        "inflow": {cell_id: inflow * Units.PER_HR for cell_id, inflow in self.first_cell_inflow_dict[link_id].get(trajectory_time, 0).items()}, # nbbi: This part might be causing errors!
                         "link_id": link_id,
                         "is_tl": self.is_tl(link_id),
                         "tl_status": self.tl_status(trajectory_time, link_id),
