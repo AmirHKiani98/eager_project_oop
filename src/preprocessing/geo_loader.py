@@ -70,7 +70,13 @@ class GeoLoader:
         self.links = {}
         self.links_to_location = {}
         self.cells = []
-        self.cell_length = cell_length * Units.M
+        if cell_length is not None:
+            if isinstance(cell_length, (int, float)):
+                self.cell_length = cell_length * Units.M
+            else:
+                self.cell_length = cell_length
+        else:
+            self.cell_length = None
         self.number_of_cells = number_of_cells
         self.cache_dir = cache
         if self._geo_data_already_exists():
@@ -210,7 +216,7 @@ class GeoLoader:
             raise ValueError("No locations provided for saving metadata.")
         metadata = {
             "locations_count": len(self.locations),
-            "cell_length": self.cell_length.to(Units.M).value,
+            "cell_length": self.cell_length.to(Units.M).value if self.cell_length is not None else None,
             "number_of_cells": self.number_of_cells,
         }
         metadata_df = pl.DataFrame([metadata])

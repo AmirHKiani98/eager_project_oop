@@ -34,7 +34,8 @@ from src.preprocessing.data_loader import DataLoader
 from src.common_utility.units import Units
 from src.visualization.plotter import Plotter
 from src.model.params import Parameters
-
+from src.preprocessing.geo_loader import GeoLoader
+from typing import Optional
 logging.basicConfig(
     level="DEBUG",
     format="%(message)s",
@@ -63,7 +64,13 @@ class TrafficModel:
             based on the model's logic and input arguments.
     """
     check = 0
-    def __init__(self, dl: DataLoader, fp_location: str, fp_date: str, fp_time: str):
+    def __init__(
+            self,
+            dl: Optional[DataLoader] = None,
+            fp_location: Optional[str] = None,
+            fp_date: Optional[str] = None,
+            fp_time: Optional[str] = None
+        ):
         """
         Initialize the TrafficModel with a GeoLoader instance, Parameters object,
         and a DataLoader instance.
@@ -79,10 +86,10 @@ class TrafficModel:
         self.fp_location = fp_location
         self.fp_date = fp_date
         self.fp_time = fp_time
-        self.plotter = Plotter(
-            cache_dir=self.dl.params.cache_dir,
-            geo_loader=self.dl.geo_loader
-        )
+        # self.plotter = Plotter(
+        #     cache_dir=self.dl.params.cache_dir,
+        #     geo_loader=self.dl.geo_loader
+        # )
 
 
     def get_cell_length(self, cell_id, link_id):
@@ -96,6 +103,9 @@ class TrafficModel:
         Returns:
             float: Length of the specified cell.
         """
+        if not isinstance(self.dl, DataLoader):
+            raise TypeError("DataLoader instance is not set.")
+        
         return self.dl.geo_loader.get_cell_length(cell_id, link_id)
 
 
@@ -144,9 +154,15 @@ class TrafficModel:
         Returns:
             list: Aggregated results from all batches.
         """
+        if not isinstance(self.dl, DataLoader):
+            raise TypeError("DataLoader instance is not set.")
+        if not self.fp_date or not self.fp_location or not self.fp_time:
+            raise ValueError("Location, date, and time must be provided.")
         self.dl.prepare(self.__class__.__name__, self.fp_location, self.fp_date, self.fp_time)
         args_list = self.dl.tasks
+        
         if not args_list:
+            print(f"Running {self.__class__.__name__} with current file running {self.dl.current_file_running['location']}_{self.dl.current_file_running['date']}_{self.dl.current_file_running['time']}_file_indications_{self.dl.geo_loader.get_hash_str()}_{self.dl.params.get_hash_str()}")
             raise ValueError("No tasks to process. Please provide a list of tasks.")
         if num_processes is None:
             num_processes = cpu_count()
@@ -199,7 +215,7 @@ class TrafficModel:
         """
         raise NotImplementedError("Subclasses must implement this method.")
 
-    def run_calibration(self, num_processes=None, batch_size=None):
+    def run_calibration(self, cache_dir, locations,  num_processes=None, batch_size=None, vehicle_length=5, num_lanes=1, dt=5):
         """
         This function runs the calibration process for the traffic model.
         It uses multiprocessing to speed up the process by dividing the tasks
@@ -212,10 +228,11 @@ class TrafficModel:
         Returns:
             void
         """
-        free_flow_speeds = np.linspace(8, 50, 3)
-        jam_densities = np.linspace(40, 160, 3)
-        wave_speeds = np.linspace(5, 20, 3)
-        q_max = np.linspace(100, 4000, 3)
+        dt = dt * Units.S
+        free_flow_speeds = np.linspace(30, 40, 2)
+        jam_densities = np.linspace(90*3,150*3, 2)
+        wave_speeds = np.linspace(5, 20, 2)
+        q_max = np.linspace(1000*3, 3000*3, 2)
         combinations = list(itertools.product(
             free_flow_speeds,
             jam_densities,
@@ -229,23 +246,34 @@ class TrafficModel:
                 jam_density_link=params[1] * Units.PER_KM,
                 wave_speed=params[2] * Units.KM_PER_HR,
                 q_max=params[3] * Units.PER_HR,
-                cache_dir=self.dl.params.cache_dir,
-                vehicle_length=self.dl.params.vehicle_length,
-                num_lanes=self.dl.params.num_lanes,
-                dt=self.dl.params.dt
-                
+                cache_dir=cache_dir,
+                vehicle_length=vehicle_length * Units.M,
+                num_lanes=num_lanes,
+                dt=dt
             )
-            self.dl.params = new_params
-            self.dl.params.save_metadata()
-            
+
+            new_geo  = GeoLoader(
+                locations= locations,
+                cache=cache_dir,
+                cell_length=(dt * new_params.free_flow_speed).to(Units.M).value, # type: ignore
+            )
+            if not self.fp_date or not self.fp_location or not self.fp_time:
+                raise ValueError("Location, date, and time must be provided.")
+            self.dl = DataLoader(
+                params=new_params,
+                fp_location=self.fp_location,
+                fp_date=self.fp_date,
+                fp_time=self.fp_time,
+                geo_loader=new_geo
+            )
             self.run_with_multiprocessing(num_processes, batch_size)
-            self.plotter.plot(
-                data_file_name=self.dl.current_file_running["location"] + "_" + self.dl.current_file_running["date"] + "_" + self.dl.current_file_running["time"],
-                hash_geo=self.dl.geo_loader.get_hash_str(),
-                hash_parmas=self.dl.params.get_hash_str(),
-                traffic_model=self.__class__.__name__,
-                params=tuple(params)
-            )
+            # self.plotter.plot(
+            #     data_file_name=self.dl.current_file_running["location"] + "_" + self.dl.current_file_running["date"] + "_" + self.dl.current_file_running["time"],
+            #     hash_geo=self.dl.geo_loader.get_hash_str(),
+            #     hash_parmas=self.dl.params.get_hash_str(),
+            #     traffic_model=self.__class__.__name__,
+            #     params=tuple(params)
+            # )
 
     def get_run_file_path(self):
         """
@@ -254,6 +282,8 @@ class TrafficModel:
         Returns:
             str: The file path of the run.
         """
+        if self.dl is None or self.dl.current_file_running is None:
+            raise ValueError("DataLoader instance or current file running is not set.")
         return (
             (
                 self.dl.params.cache_dir + "/"

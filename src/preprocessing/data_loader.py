@@ -710,9 +710,6 @@ class DataLoader:
             link_id = group["link_id"].unique()[0]
             cell_id = group["cell_id"].unique()[0]
             # Printing type of trajectory_time
-            
-
-            
             # Get previous list of vehicles
             group = group.with_columns([
                 pl.col("vehicle_ids").shift(1).alias("prev_vehicles"),
@@ -775,7 +772,43 @@ class DataLoader:
             ])
             
             complete_counts = pl.concat([complete_counts, filled_group])
-        return complete_counts
+        
+        # Initialize containers
+        padded_groups = []
+        all_missing_rows = []
+
+        # Group
+        groups = complete_counts.group_by(["trajectory_time", "link_id"])
+        num_groups = complete_counts.select(["trajectory_time", "link_id"]).unique().height
+
+        # Iterate, but don't concat yet
+        for name, group in tqdm(groups, total=num_groups, desc="Padding DataFrame"):
+            trajectory_time, link_id = name
+            cell_ids = self.geo_loader.links[link_id].cells
+            present_cell_ids = set(group["cell_id"].to_list())
+            
+            for cell_id in cell_ids.keys():
+                if cell_id not in present_cell_ids:
+                    all_missing_rows.append({
+                        "trajectory_time": trajectory_time,
+                        "link_id": link_id,
+                        "cell_id": int(cell_id),
+                        "entry_count": 0,
+                        "exit_count": 0,
+                        "on_cell": 0,
+                        "density": 0.0
+                    })
+            
+            padded_groups.append(group)
+
+        # Build the missing DataFrame once
+        if all_missing_rows:
+            missing_df = pl.DataFrame(all_missing_rows).cast(dict(group.schema.items()))
+            padded_groups.append(missing_df)
+
+        # Combine everything at once
+        padded_df = pl.concat(padded_groups, rechunk=True)
+        return padded_df
 
     def _write_density_entry_exit_df(self, fully_processed_file_address, location, date, time):
         """
@@ -786,7 +819,7 @@ class DataLoader:
             self.params.cache_dir + "/" + self._get_filename(location, date, time)
             + "_density_entry_exit_" + self.geo_loader.get_hash_str() + ".csv"
         )
-
+        print(f"Writing density entry exit file to {file_address}")
         if os.path.isfile(file_address):
             return file_address
         wlc_df = pl.read_csv(fully_processed_file_address)
@@ -1082,12 +1115,13 @@ class DataLoader:
         file_address = self.density_exit_entry_files_dict.get((location, date, time), None)
         if file_address is None:
             raise ValueError(f"File not found for {location}, {date}, {time}")
-
+        print(f"File  address: {file_address}")
         output_file_address = (
             self.params.cache_dir + "/" + self._get_filename(location, date, time) +
             f"_{coi}_" + self.geo_loader.get_hash_str() +  "_" +
             self.params.get_hash_str(["dt"]) + ".json"
         )
+        print(f"Output file address: {output_file_address}")
         if os.path.isfile(output_file_address):
             with open(output_file_address, "rb") as f:
                 data = json.load(f)
@@ -1322,7 +1356,7 @@ class DataLoader:
                 first_cell_inflow_dict[link_id][trajectory_time][cell_id] += group.filter(
                     (pl.col("trajectory_time") >= trajectory_time) &
                     (pl.col("trajectory_time") < trajectory_time + self.params.dt.to(Units.S).value)
-                )["entry_count"].sum()
+                )["entry_count"].sum() / self.params.dt.to(Units.S).value
             
         
         with open(output_file_address, "w", encoding="utf-8") as f:
@@ -1752,8 +1786,9 @@ class DataLoader:
         file_address = (
             self.params.cache_dir + "/" + self._get_filename(location, date, time) +
             "_next_timestamp_occupancy_" + self.geo_loader.get_hash_str()  + "_" +
-           self.params.get_hash_str(['dt']) + ".json"
+           self.params.get_hash_str(['dt', 'free_flow_speed']) + ".json"
         )
+        print(f"get_next_timestamp_occupancy File address: {file_address}")
         if os.path.isfile(file_address):
             with open(file_address, "r", encoding="utf-8") as f:
                 next_timestamp_occupancy_dict = json.load(f)
@@ -1985,44 +2020,41 @@ class DataLoader:
         file_address = (
             self.params.cache_dir + "/" +
             f"{self._get_filename(location, date, time)}_prepared_ctm_tasks_"
-            f"{self.geo_loader.get_hash_str()}_{self.params.get_hash_str(['cache_dir', 'dt', 'alpha', 'jam_density_link', 'q_max'])}.json"
+            f"{self.geo_loader.get_hash_str()}_{self.params.get_hash_str(['cache_dir', 'dt', 'alpha', 'jam_density_link', 'q_max', 'free_flow_speed'])}.json"
         )
+        # for link_id, link in self.geo_loader.links.items():
+        #     if not link.cells:
+        #         raise ValueError(f"Link {link_id} has no cells. Please check the link data.")
+        #     print(link)
+        #     print(f"Link ID: {link_id}")
+        #     for cell_id, cell in link.cells.items():
+        #         print(cell)
+        #         print()
+        print(f"CTM File address: {file_address}")
         if os.path.isfile(file_address):
             self.tasks = json.load(open(file_address, "r", encoding="utf-8"))
+            for index in range(len(self.tasks)):
+                self.tasks[index]["dt"] = self.tasks[index]["dt"] * Units.S
+                self.tasks[index]["inflow"] = {cell_id: inflow * Units.PER_HR for cell_id, inflow in self.tasks[index]["inflow"].items()}
+                self.tasks[index]["q_max"] = self.tasks[index]["q_max"] * Units.PER_HR
+              
             return
-        
-        tasks = [] # ["cell_occupancies list", "first_cell_inflow", "link_id", "is_tl", "tl_status"]
+        self.tasks = [] # ["cell_occupancies list", "first_cell_inflow", "link_id", "is_tl", "tl_status"]
         cell_capacities = self.geo_loader.get_cell_capacities(self.params)
-        max_flows = self.geo_loader.get_max_flows(self.params)
+        
+        # print cell length
+
         for link_id, cell_dict in self.next_timestamp_occupancy_dict.items():
             for trajectory_time, occupancy_list in cell_dict.items():
-                
-                # Debug: Print information about the occupancy and capacity mismatch
-                current_occupancy = occupancy_list["current_occupancy"]
-                current_cell_capacities = cell_capacities[link_id]
-                # print(f"DEBUG: Link {link_id}, Time {trajectory_time}")
-                # print(f"  Current occupancy length: {len(current_occupancy)}")
-                # print(f"  Cell capacities length: {len(current_cell_capacities)}")
-                # print(f"  Current occupancy: {current_occupancy}")
-                # print(f"  Cell capacities: {current_cell_capacities}")
-                
-                # Check if lengths match and adjust if necessary
-                if len(current_occupancy) != len(current_cell_capacities):
-                    print(f"WARNING: Occupancy length ({len(current_occupancy)}) != capacity length ({len(current_cell_capacities)}) for link {link_id}")
-                    # Adjust by taking the minimum length to avoid the error
-                    min_length = min(len(current_occupancy), len(current_cell_capacities))
-                    current_occupancy = current_occupancy[:min_length]
-                    current_cell_capacities = current_cell_capacities[:min_length]
-                    print(f"  Adjusted to length: {min_length}")
-                
                 self.tasks.append(
                     {
-                        "occupancy_list": current_occupancy,
-                        "cell_capacities": current_cell_capacities,
-                        "next_occupancy": occupancy_list["next_occupancy"][:len(current_occupancy)] if len(occupancy_list["next_occupancy"]) > len(current_occupancy) else occupancy_list["next_occupancy"],
+                        "occupancy_list": occupancy_list["current_occupancy"],
+                        "cell_capacities": deepcopy(cell_capacities[link_id]),
+                        "next_occupancy": occupancy_list["next_occupancy"],
                         "q_max": self.params.q_max,
                         "inflow": {cell_id: inflow * Units.PER_HR for cell_id, inflow in self.first_cell_inflow_dict[link_id].get(trajectory_time, 0).items()}, # nbbi: This part might be causing errors!
                         "link_id": link_id,
+                        "dt": self.params.dt,
                         "is_tl": self.is_tl(link_id),
                         "tl_status": self.tl_status(trajectory_time, link_id),
                         "trajectory_time": trajectory_time,
@@ -2031,11 +2063,13 @@ class DataLoader:
                         "next_exit": list((dict(sorted(self.next_exit_cell_values[link_id][trajectory_time].items(), key= lambda x: x[0]))).values())
                     }
                 )
-                
         with open(file_address, "w", encoding="utf-8") as f:
-            json.dump(tasks, f, indent=4)
-            
-        self.tasks = tasks
+            copy_tasks = deepcopy(self.tasks)
+            for index in range(len(self.tasks)):
+                copy_tasks[index]["inflow"] = {cell_id: inflow.to(Units.PER_HR).value for cell_id, inflow in copy_tasks[index]["inflow"].items()}
+                copy_tasks[index]["dt"] = copy_tasks[index]["dt"].to(Units.S).value
+                copy_tasks[index]["q_max"] = copy_tasks[index]["q_max"].to(Units.PER_HR).value
+            json.dump(copy_tasks, f, indent=4)
         self.destruct()
     
 
@@ -2069,6 +2103,7 @@ class DataLoader:
                 self.tasks[index]["dt"] = self.tasks[index]["dt"] * Units.S
                 self.tasks[index]["q_max_up"] = self.tasks[index]["q_max_up"] * Units.PER_HR
                 self.tasks[index]["q_max_down"] = self.tasks[index]["q_max_down"] * Units.PER_HR
+                self.tasks[index]["inflow"] = {cell_id: inflow * Units.PER_HR for cell_id, inflow in self.tasks[index]["inflow"].items()}
             return
         tasks = []
         for link_id, cell_dict in self.cumulative_counts_dict.items(): # type: ignore
@@ -2079,10 +2114,10 @@ class DataLoader:
                         "q_max_down": self.params.q_max,
                         "next_occupancy": sum(self.next_timestamp_occupancy_dict[link_id][trajectory_time]["next_occupancy"]),
                         "cummulative_count_upstream_offset": data["cummulative_count_upstream_offset"],
-                        "cummulative_count_downstream": data["cummulative_count_downstream"],
+                        "cummulative_count_downstream_offset": data["cummulative_count_downstream"],
                         "cummulative_count_upstream": data["cummulative_count_upstream"],
                         "current_number_of_vehicles": data["current_number_of_vehicles"],
-                        "inflow": self.first_cell_inflow_dict[link_id].get(trajectory_time, 0),
+                        "inflow": {cell_id: inflow * Units.PER_HR for cell_id, inflow in self.first_cell_inflow_dict[link_id].get(trajectory_time, 0).items()},
                         "entry_count": data["entry_count"],
                         "dt": self.params.dt,
                         "trajectory_time": trajectory_time,
@@ -2098,6 +2133,7 @@ class DataLoader:
                 copy_tasks[index]["dt"] = copy_tasks[index]["dt"].to(Units.S).value
                 copy_tasks[index]["q_max_up"] = copy_tasks[index]["q_max_up"].to(Units.PER_HR).value
                 copy_tasks[index]["q_max_down"] = copy_tasks[index]["q_max_down"].to(Units.PER_HR).value
+                copy_tasks[index]["inflow"] = {cell_id: inflow.to(Units.PER_HR).value for cell_id, inflow in copy_tasks[index]["inflow"].items()}
             json.dump(copy_tasks, f, indent=4)
         self.tasks = tasks
         self.destruct()
@@ -2130,6 +2166,7 @@ class DataLoader:
                 self.tasks[index]["q_max_down"] = self.tasks[index]["q_max_down"] * Units.PER_HR
                 self.tasks[index]["k_j"] = self.tasks[index]["k_j"] * Units.PER_KM
                 self.tasks[index]["link_length"] = self.tasks[index]["link_length"] * Units.M
+                self.tasks[index]["inflow"] = {cell_id: inflow * Units.PER_HR for cell_id, inflow in self.tasks[index]["inflow"].items()}
             return
         tasks = []
         for link_id, cell_dict in self.cumulative_counts_dict.items(): # type: ignore
@@ -2143,7 +2180,7 @@ class DataLoader:
                         "cummulative_count_upstream": data["cummulative_count_upstream"],
                         "cummulative_count_downstream": data["cummulative_count_downstream"],
                         "current_number_of_vehicles": data["current_number_of_vehicles"],
-                        "inflow": self.first_cell_inflow_dict[link_id].get(trajectory_time, 0),
+                        "inflow": {cell_id: inflow * Units.PER_HR for cell_id, inflow in self.first_cell_inflow_dict[link_id].get(trajectory_time, 0).items()},
                         "dt": self.params.dt,
                         "trajectory_time": trajectory_time,
                         "tl_status": self.tl_status(trajectory_time, link_id),
@@ -2163,8 +2200,9 @@ class DataLoader:
                 copy_tasks[index]["q_max_down"] = copy_tasks[index]["q_max_down"].to(Units.PER_HR).value
                 copy_tasks[index]["k_j"] = copy_tasks[index]["k_j"].to(Units.PER_KM).value
                 copy_tasks[index]["link_length"] = copy_tasks[index]["link_length"].to(Units.M).value
+                copy_tasks[index]["inflow"] = {cell_id: inflow.to(Units.PER_HR).value for cell_id, inflow in copy_tasks[index]["inflow"].items()}
             json.dump(copy_tasks, f, indent=4)
-        self.destruct()
+        self.destruct
 
 
 
@@ -2241,7 +2279,6 @@ class DataLoader:
                 copy_tasks[index]["link_length"] = copy_tasks[index]["link_length"].to(Units.M).value
                 copy_tasks[index]["x"] = copy_tasks[index]["x"].to(Units.M).value
                 copy_tasks[index]["jam_density_link"] = copy_tasks[index]["jam_density_link"].to(Units.PER_KM).value
-
             json.dump(copy_tasks, f, indent=4)
         self.destruct()
         self.tasks = tasks
@@ -2362,6 +2399,7 @@ class DataLoader:
                 self.tasks[index]["densities"] = [density * Units.PER_M for density in self.tasks[index]["densities"]]
                 self.tasks[index]["speeds"] = [speed * Units.KM_PER_HR for speed in self.tasks[index]["speeds"]]
                 self.tasks[index]["free_flow_speed"] = self.tasks[index]["free_flow_speed"] * Units.KM_PER_HR
+                self.tasks[index]["inflow"] = {cell_id: inflow * Units.PER_HR for cell_id, inflow in self.tasks[index]["inflow"].items()}   
             return
         
         self.tasks = []
@@ -2395,7 +2433,7 @@ class DataLoader:
                         "cell_lengths": cell_length, # It's a list!
                         "speeds": speeds_unit,
                         "dt": self.params.dt,
-                        "inflow": self.first_cell_inflow_dict[link_id].get(trajectory_time, 0),
+                        "inflow": {cell_id: inflow * Units.PER_HR for cell_id, inflow in self.first_cell_inflow_dict[link_id].get(trajectory_time, 0).items()},
                         "jam_density_link": self.params.jam_density_link,
                         "tl_status": tl_status,
                         "free_flow_speed": self.params.free_flow_speed,
@@ -2411,6 +2449,7 @@ class DataLoader:
                 copy_tasks[index]["densities"] = [density.to(Units.PER_M).value for density in copy_tasks[index]["densities"]]
                 copy_tasks[index]["speeds"] = [speed.to(Units.KM_PER_HR).value for speed in copy_tasks[index]["speeds"]]
                 copy_tasks[index]["free_flow_speed"] = copy_tasks[index]["free_flow_speed"].to(Units.KM_PER_HR).value
+                copy_tasks[index]["inflow"] = {cell_id: inflow.to(Units.PER_HR).value for cell_id, inflow in copy_tasks[index]["inflow"].items()}
             json.dump(copy_tasks, f, indent=4)
         self.destruct()
         
@@ -2481,4 +2520,3 @@ if __name__ == "__main__":
         geo_loader=geo_loader,
         params=params
     )
-    

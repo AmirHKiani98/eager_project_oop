@@ -104,16 +104,7 @@ def main():
     args = parser.parse_args()
     # Example usage
 
-    params = Parameters(
-        vehicle_length=5 * Units.M,
-        free_flow_speed=50 * Units.KM_PER_HR,
-        wave_speed=10 * Units.KM_PER_HR,
-        num_lanes=3,
-        jam_density_link=150 * Units.PER_KM,
-        dt=args.dt * Units.S,
-        q_max=2500 * Units.PER_HR,
-        cache_dir=args.cache_dir,
-    )
+    
     intersection_locations = (
         pl.read_csv(args.fp_geo)
         .to_numpy()
@@ -123,89 +114,53 @@ def main():
         POINT(loc[1], loc[0])
         for loc in intersection_locations
     ]
-    model_geo_loader = GeoLoader(
-        locations=intersection_locations,
-        cell_length=20.0,
-        cache=args.cache_dir,
-        )
-    dl = DataLoader(
-        params=params,
-        fp_location=args.fp_location,
-        fp_date=args.fp_date,
-        fp_time=args.fp_time,
-        geo_loader=model_geo_loader
-    )
+    
+    
     batch_size = args.batch_size
     if len(args.model.split(",")) > 1:
         for model_name in args.model.split(","):
             os.system(f"python -m src.main --model {model_name} --fp-location {args.fp_location} --fp-date {args.fp_date} --fp-time {args.fp_time} --batch-size {batch_size} --calibration")
     if args.model == "ctm":
         model = CTM(
-            dl=dl,
             fp_location=args.fp_location,
             fp_date=args.fp_date,
             fp_time=args.fp_time,
         )
-        num_processes = cpu_count()
-        if not args.calibration:
-            model.run_with_multiprocessing(num_processes=num_processes, batch_size=batch_size)
-        else:
-            dl.prepare("CTM", args.fp_location, args.fp_date, args.fp_time) # This will be automatically handled in run_with_multiprocessing
-            model.run_calibration(num_processes=num_processes, batch_size=batch_size)
+        
     elif args.model == "pq":
         model = PointQueue(
-            dl=dl,
             fp_location=args.fp_location,
             fp_date=args.fp_date,
             fp_time=args.fp_time,
         )
-        num_processes = cpu_count()
-        if not args.calibration:
-            model.run_with_multiprocessing(num_processes=num_processes, batch_size=batch_size)
-        else:
-            dl.prepare("PointQueue", args.fp_location, args.fp_date, args.fp_time)
-            model.run_calibration(num_processes=num_processes, batch_size=batch_size)
+        
     elif args.model == "sq":
         model = SpatialQueue(
-            dl=dl,
             fp_location=args.fp_location,
             fp_date=args.fp_date,
             fp_time=args.fp_time,
         )
-        num_processes = cpu_count()
-        if not args.calibration:
-            model.run_with_multiprocessing(num_processes=num_processes, batch_size=batch_size)
-        else:
-            dl.prepare("SpatialQueue", args.fp_location, args.fp_date, args.fp_time)
-            model.run_calibration(num_processes=num_processes, batch_size=batch_size)
     elif args.model == "ltm":
         model = LTM(
-            dl=dl,
             fp_location=args.fp_location,
             fp_date=args.fp_date,
             fp_time=args.fp_time,
         )
-        num_processes = cpu_count()
-        if not args.calibration:
-            model.run_with_multiprocessing(num_processes=num_processes, batch_size=batch_size)
-        else:
-            dl.prepare("LTM", args.fp_location, args.fp_date, args.fp_time)
-            model.run_calibration(num_processes=num_processes, batch_size=batch_size)
+        
     elif args.model == "pw":
         model = PW(
-            dl=dl,
             fp_location=args.fp_location,
             fp_date=args.fp_date,
             fp_time=args.fp_time,
         )
-        num_processes = cpu_count()
-        if not args.calibration:
-            model.run_with_multiprocessing(num_processes=num_processes, batch_size=batch_size)
-        else:
-            dl.prepare("PW", args.fp_location, args.fp_date, args.fp_time)
-            model.run_calibration(num_processes=num_processes, batch_size=batch_size)
+        
     else:
         raise ValueError(f"Model {args.model} not supported")
-
+    num_processes = cpu_count()
+    if not args.calibration:
+        model.run_with_multiprocessing(num_processes=num_processes, batch_size=batch_size)
+    else:
+        # cache_dir, num_processes=None, batch_size=None, vehicle_length=5, num_lanes=1, dt=5, locations=None)
+        model.run_calibration(cache_dir=args.cache_dir, locations=intersection_locations, num_processes=num_processes, batch_size=batch_size, vehicle_length=5, num_lanes=3, dt=args.dt)
 if __name__ == "__main__":
     main()

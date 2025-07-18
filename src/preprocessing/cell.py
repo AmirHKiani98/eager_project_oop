@@ -58,6 +58,9 @@ class Cell(SpatialLine):
             f"length_meters={self.length_meters})"
         )
 
+    def __repr__(self) -> str:
+        return f"Cell(from={self._from}, to={self._to}, length={self.length_meters}), link={self.link}"
+
     def __eq__(self, other):
         if not isinstance(other, Cell):
             return False
@@ -66,6 +69,7 @@ class Cell(SpatialLine):
             self._to == other._to and
             self.length_meters == other.length_meters
         )
+    
     
     def get_capacity(self, params: Parameters):
         """
