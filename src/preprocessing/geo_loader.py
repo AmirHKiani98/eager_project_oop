@@ -64,12 +64,28 @@ class GeoLoader:
                 cell_length: Optional[float] = None,
                 number_of_cells: Optional[int] = None,
                 testing: bool = False,
-                                cache: str = ".cache"):
-        self.locations = locations
-        # Check if the link is already saved:
+                                cache: str = ".cache",
+                                hash_str: Optional[str] = None):
         self.links = {}
         self.links_to_location = {}
         self.cells = []
+        self.number_of_cells = number_of_cells
+        self.cache_dir = cache
+        self.locations = locations
+        if hash_str is not None:
+            self._hash_str = hash_str
+            if os.path.exists(os.path.join(cache, f"links_{hash_str}.csv")) and \
+                os.path.exists(os.path.join(cache, f"cells_{hash_str}.csv")):
+                    logger.info("Geo data already exists, loading from cache.")
+                    self.cache_dir = cache
+                    self._load()
+                    return
+            else:
+                raise ValueError("Hash string provided but files do not exist in cache.")
+
+        
+        # Check if the link is already saved:
+        
         if cell_length is not None:
             if isinstance(cell_length, (int, float)):
                 self.cell_length = cell_length * Units.M
@@ -77,8 +93,7 @@ class GeoLoader:
                 self.cell_length = cell_length
         else:
             self.cell_length = None
-        self.number_of_cells = number_of_cells
-        self.cache_dir = cache
+        
         if self._geo_data_already_exists():
             self._load()
         else:
@@ -157,6 +172,9 @@ class GeoLoader:
 
     def _get_hash_str(self):
         # Generate a unique identifier based on intersection locations
+        # if _hash_str exists in self, use it; otherwise, generate a new one.
+        if hasattr(self, '_hash_str'):
+            return self._hash_str
         if self.locations is None:
             raise ValueError("No locations provided for generating hash.")
         hash_input = str([(point.x, point.y) for point in self.locations])

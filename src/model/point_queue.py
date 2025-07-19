@@ -55,7 +55,8 @@ class PointQueue(TrafficModel):
             "link_id",
             "current_number_of_vehicles",
             "cummulative_count_upstream",
-            "inflow"
+            "inflow",
+            "actual_outflow"  # dict[str, Units]
         ]
         for arg in required_args:
             if arg not in args:
@@ -108,6 +109,7 @@ class PointQueue(TrafficModel):
         if sending_flow > 0:
             sending_flow = sending_flow
         new_occupancy = next_occupancy + outflow - sending_flow
+        actual_outflow = args["actual_outflow"]
         return {
             "outflow": sending_flow, # already applied filteration on sending flow so it became outflow
             "receiving_flow": receiving_flow,
@@ -118,6 +120,7 @@ class PointQueue(TrafficModel):
             "current_number_of_vehicles": current_number_of_vehicles,
             "new_occupancy": new_occupancy,
             "inflow": {cell_id: inflow.to(Units.PER_HR).value for cell_id, inflow in args["inflow"].items()},
+            "actual_outflow": {cell_id: value.to(Units.PER_HR).value for cell_id, value in actual_outflow.items()}
         }
 
 

@@ -59,7 +59,8 @@ class SpatialQueue(TrafficModel):
             "tl_status",
             "entry_count",
             "current_number_of_vehicles",
-            "inflow"
+            "inflow",
+            "actual_outflow"
         ]
         for arg in required_args:
             if arg not in args:
@@ -122,6 +123,7 @@ class SpatialQueue(TrafficModel):
         )
         current_number_of_vehicles = args["current_number_of_vehicles"]
         new_occupancy = next_occupancy + outflow - sending_flow
+        actual_outflow = args["actual_outflow"]
         return {
             "outflow": outflow,  # corrected to reflect the actual outflow
             "receiving_flow": receiving_flow,
@@ -131,6 +133,7 @@ class SpatialQueue(TrafficModel):
             "current_number_of_vehicles": current_number_of_vehicles,
             "new_occupancy": new_occupancy,
             "inflow": {cell_id: value.to(Units.PER_HR).value for cell_id, value in inflow.items()},  # re-adding inflow to the return statement
+            "actual_outflow": {cell_id: value.to(Units.PER_HR).value for cell_id, value in actual_outflow.items()},  # re-adding actual_outflow to the return statement
         }
 
 

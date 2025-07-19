@@ -24,7 +24,8 @@ class PW(TrafficModel):
             "tl_status",
             "next_occupancy", # list[unitless]
             "trajectory_time",
-            "inflow"
+            "inflow",
+            "actual_outflow", # dict[str, Units]
 
         ]
         for arg in required_arguments:
@@ -126,6 +127,7 @@ class PW(TrafficModel):
             speed_value.append(speed)
         trajectory_time = args["trajectory_time"]
         actual_inflow = args["inflow"]
+        actual_outflow = args["actual_outflow"]
         return {
             "new_densities": density_value,
             "new_speeds": speed_value,
@@ -135,5 +137,6 @@ class PW(TrafficModel):
             "trajectory_time": float(trajectory_time) if isinstance(trajectory_time, Units.Quantity) else trajectory_time,
             "outflow": [(outflow*dt).to(1).value if isinstance(outflow, Units.Quantity) else outflow for outflow in new_outflows],
             "inflow": {cell_id: inflow.to(Units.PER_HR).value for cell_id, inflow in actual_inflow.items()},
-            "next_inflow": []
+            "next_inflow": [],
+            "actual_outflow": {cell_id: value.to(Units.PER_HR).value for cell_id, value in actual_outflow.items()}
         }

@@ -67,6 +67,13 @@ class CTM(TrafficModel):
             flow_capacity,
             alpha*(cell_capacity - current_cell_occupancy)
         ) / dt
+        # print("prev_cell_occupancy:", prev_cell_occupancy)
+        # print("current_cell_occupancy:", current_cell_occupancy)
+        # print("cell_capacity:", cell_capacity)
+        # print("flow_capacity:", flow_capacity)
+        # print("alpha:", alpha)
+        # print("dt:", dt)
+        # print("flow:", flow)
         if flow < 0:
             # raise ValueError(f"Flow cannot be negative. Check the parameters: prev_cell_occupancy= {prev_cell_occupancy},"
             #                  f"current_cell_occupancy= {current_cell_occupancy},"
@@ -145,9 +152,8 @@ class CTM(TrafficModel):
                     # max_flow = self.dl.params.get_max_flow(cell_len)
                     if not isinstance(q_max, Units.Quantity):
                         raise TypeError("max_flow must be a Units.Quantity")
-                    max_flow_value = q_max.to(Units.PER_HR).value
-                    cell_flow_value = (cell_occupancies[i] / dt).to(Units.PER_HR).value
-                    outflow = min(max_flow_value, cell_flow_value)*Units.PER_HR
+                    cell_flow_value = (cell_occupancies[i] / dt)
+                    outflow = min(q_max, cell_flow_value) # type: ignore
             else:
                 outflow = CTM.compute_flow({
                         "prev_cell_occupancy":cell_occupancies[i],
@@ -194,11 +200,12 @@ class CTM(TrafficModel):
         q_max = args["q_max"]
         alpha = args["alpha"]
         dt = args["dt"]
-        if len(occupancy_list) != len(cell_capacities):
-            print(f"DEBUG: cell_occupancies: {occupancy_list}, len(cell_occupancies): {len(occupancy_list)}")
-            print(f"DEBUG: cell_capacities: {cell_capacities}, len(cell_capacities): {len(cell_capacities)}")
-            print(f"DEBUG: all_inflow: {inflow}, len(all_inflow): {len(inflow)}")
-            print(f"DEBUG: Running CTM for link_id: {link_id}, trajectory_time: {trajectory_time}")
+        actual_outflow = args["actual_outflow"]
+        # if len(occupancy_list) != len(cell_capacities):
+        #     print(f"DEBUG: cell_occupancies: {occupancy_list}, len(cell_occupancies): {len(occupancy_list)}")
+        #     print(f"DEBUG: cell_capacities: {cell_capacities}, len(cell_capacities): {len(cell_capacities)}")
+        #     print(f"DEBUG: all_inflow: {inflow}, len(all_inflow): {len(inflow)}")
+        #     print(f"DEBUG: Running CTM for link_id: {link_id}, trajectory_time: {trajectory_time}")
         if not isinstance(occupancy_list, list) and not isinstance(occupancy_list, np.ndarray):
             raise TypeError("occupancy_list must be a list or numpy array.")
 
@@ -229,10 +236,13 @@ class CTM(TrafficModel):
             "alpha": alpha,
             "dt": dt
         })
+        
+
 
         return {
             "occupancy_list": occupancy_list,
             "inflow": {cell_id: inflow.to(Units.PER_HR).value for cell_id, inflow in inflow.items()},
+            "actual_outflow": {cell_id: outflow.to(Units.PER_HR).value for cell_id, outflow in actual_outflow.items()},
             "link_id": link_id,
             "is_tl": is_tl,
             "tl_status": tl_status,

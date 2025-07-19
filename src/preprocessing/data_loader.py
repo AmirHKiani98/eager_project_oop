@@ -1357,7 +1357,7 @@ class DataLoader:
                     (pl.col("trajectory_time") >= trajectory_time) &
                     (pl.col("trajectory_time") < trajectory_time + self.params.dt.to(Units.S).value)
                 )["entry_count"].sum() / self.params.dt.to(Units.S).value
-            
+
         
         with open(output_file_address, "w", encoding="utf-8") as f:
             json.dump(first_cell_inflow_dict, f, indent=4)
@@ -1365,6 +1365,58 @@ class DataLoader:
 
         return first_cell_inflow_dict
     
+    def get_cell_outflow_dict(self, location, date, time):
+        """
+        Returns the cell outflow for the specified location, date, and time.
+        """
+        file_address = self.density_exit_entry_files_dict.get((location, date, time), None)
+        if file_address is None:
+            raise ValueError(f"File not found for {location}, {date}, {time}")
+        output_file_address = (
+            self.params.cache_dir + "/" + self._get_filename(location, date, time) +
+            "_first_cell_outflow_" + self.params.get_hash_str(["dt"]) + "_" +
+            self.geo_loader.get_hash_str() + ".json"
+        )
+
+        if os.path.isfile(output_file_address):
+            with open(output_file_address, "r", encoding="utf-8") as f:
+                first_cell_inflow_dict = json.load(f)
+            return convert_keys_to_float(first_cell_inflow_dict)
+
+        df = pl.read_csv(file_address)
+        df = df.sort(["link_id", "trajectory_time"])
+        first_cell_inflow_dict = {}
+        groups = df.group_by("link_id", "cell_id")
+        num_groups = df.select(["link_id", "cell_id"]).unique().height
+
+        for name, group in tqdm(groups, total=num_groups, desc="Finding first cell inflow"):
+            
+            link_id = name[0] if isinstance(name, (list, tuple)) else name
+            cell_id = name[1] if isinstance(name, (list, tuple)) else name
+            if isinstance(link_id, (str, float)):
+                link_id = int(link_id)
+            if link_id not in first_cell_inflow_dict:
+                first_cell_inflow_dict[link_id] = {}
+            trajectory_times = group.sort(["trajectory_time"])["trajectory_time"].to_numpy()
+            for trajectory_time in trajectory_times:
+                if not isinstance(trajectory_time, float):
+                    trajectory_time = float(trajectory_time)
+                trajectory_time = round(trajectory_time, 2)
+                if trajectory_time not in first_cell_inflow_dict[link_id]:
+                    first_cell_inflow_dict[link_id][trajectory_time] = {}
+                if cell_id not in first_cell_inflow_dict[link_id][trajectory_time]:
+                    first_cell_inflow_dict[link_id][trajectory_time][cell_id] = 0
+                first_cell_inflow_dict[link_id][trajectory_time][cell_id] += group.filter(
+                    (pl.col("trajectory_time") >= trajectory_time) &
+                    (pl.col("trajectory_time") < trajectory_time + self.params.dt.to(Units.S).value)
+                )["exit_count"].sum() / self.params.dt.to(Units.S).value
+
+        
+        with open(output_file_address, "w", encoding="utf-8") as f:
+            json.dump(first_cell_inflow_dict, f, indent=4)
+            
+
+        return first_cell_inflow_dict
     
     def get_cumulative_count_point_queue_spatial_queue(self, location, date, time):
         """
@@ -1715,6 +1767,12 @@ class DataLoader:
         """
         self.first_cell_inflow_dict = self.get_first_cell_inflow_dict(location, date, time)
 
+    def activate_first_cell_outflow_dict(self, location, date, time):
+        """
+        Returns the first cell outflow dictionary for the specified location, date, and time.
+        """
+        self.first_cell_outflow_dict = self.get_cell_outflow_dict(location, date, time)
+
     def activate_next_timestamp_occupancy(self, location, date, time):
         """
         Returns the next timestamp occupancy for the specified location, date, and time.
@@ -2010,7 +2068,7 @@ class DataLoader:
         self.activate_next_timestamp_occupancy(location, date, time)
         self.activate_first_cell_inflow_dict(location, date, time)
         self.activate_next_exit_cell(location, date, time)
-
+        self.activate_first_cell_outflow_dict(location, date, time)
         
         self.current_file_running = {
             "location": location,
@@ -2035,7 +2093,8 @@ class DataLoader:
             self.tasks = json.load(open(file_address, "r", encoding="utf-8"))
             for index in range(len(self.tasks)):
                 self.tasks[index]["dt"] = self.tasks[index]["dt"] * Units.S
-                self.tasks[index]["inflow"] = {cell_id: inflow * Units.PER_HR for cell_id, inflow in self.tasks[index]["inflow"].items()}
+                self.tasks[index]["inflow"] = {cell_id: inflow * Units.PER_SEC for cell_id, inflow in self.tasks[index]["inflow"].items()}
+                self.tasks[index]["actual_outflow"] = {cell_id: outflow * Units.PER_SEC for cell_id, outflow in self.tasks[index]["actual_outflow"].items()}
                 self.tasks[index]["q_max"] = self.tasks[index]["q_max"] * Units.PER_HR
               
             return
@@ -2052,7 +2111,8 @@ class DataLoader:
                         "cell_capacities": deepcopy(cell_capacities[link_id]),
                         "next_occupancy": occupancy_list["next_occupancy"],
                         "q_max": self.params.q_max,
-                        "inflow": {cell_id: inflow * Units.PER_HR for cell_id, inflow in self.first_cell_inflow_dict[link_id].get(trajectory_time, 0).items()}, # nbbi: This part might be causing errors!
+                        "inflow": {cell_id: inflow * Units.PER_SEC for cell_id, inflow in self.first_cell_inflow_dict[link_id].get(trajectory_time, 0).items()}, # nbbi: This part might be causing errors!
+                        "actual_outflow": {cell_id: outflow * Units.PER_SEC for cell_id, outflow in self.first_cell_outflow_dict[link_id].get(trajectory_time, 0).items()},
                         "link_id": link_id,
                         "dt": self.params.dt,
                         "is_tl": self.is_tl(link_id),
@@ -2066,7 +2126,8 @@ class DataLoader:
         with open(file_address, "w", encoding="utf-8") as f:
             copy_tasks = deepcopy(self.tasks)
             for index in range(len(self.tasks)):
-                copy_tasks[index]["inflow"] = {cell_id: inflow.to(Units.PER_HR).value for cell_id, inflow in copy_tasks[index]["inflow"].items()}
+                copy_tasks[index]["inflow"] = {cell_id: inflow.to(Units.PER_SEC).value for cell_id, inflow in copy_tasks[index]["inflow"].items()}
+                copy_tasks[index]["actual_outflow"] = {cell_id: outflow.to(Units.PER_SEC).value for cell_id, outflow in copy_tasks[index]["actual_outflow"].items()}
                 copy_tasks[index]["dt"] = copy_tasks[index]["dt"].to(Units.S).value
                 copy_tasks[index]["q_max"] = copy_tasks[index]["q_max"].to(Units.PER_HR).value
             json.dump(copy_tasks, f, indent=4)
@@ -2083,7 +2144,7 @@ class DataLoader:
         self.activate_tl_status_dict(location, date, time)
         self.activate_next_exit_link(location, date, time)
         self.activate_first_cell_inflow_dict(location, date, time)
-
+        self.activate_first_cell_outflow_dict(location, date, time)
         self.current_file_running = {
             "location": location,
             "date": date,
@@ -2103,7 +2164,8 @@ class DataLoader:
                 self.tasks[index]["dt"] = self.tasks[index]["dt"] * Units.S
                 self.tasks[index]["q_max_up"] = self.tasks[index]["q_max_up"] * Units.PER_HR
                 self.tasks[index]["q_max_down"] = self.tasks[index]["q_max_down"] * Units.PER_HR
-                self.tasks[index]["inflow"] = {cell_id: inflow * Units.PER_HR for cell_id, inflow in self.tasks[index]["inflow"].items()}
+                self.tasks[index]["inflow"] = {cell_id: inflow * Units.PER_SEC for cell_id, inflow in self.tasks[index]["inflow"].items()}
+                self.tasks[index]["actual_outflow"] = {cell_id: outflow * Units.PER_SEC for cell_id, outflow in self.tasks[index]["actual_outflow"].items()}
             return
         tasks = []
         for link_id, cell_dict in self.cumulative_counts_dict.items(): # type: ignore
@@ -2118,7 +2180,8 @@ class DataLoader:
                         "cummulative_count_upstream": data["cummulative_count_upstream"],
                         "cummulative_count_downstream": data["cummulative_count_downstream"],
                         "current_number_of_vehicles": data["current_number_of_vehicles"],
-                        "inflow": {cell_id: inflow * Units.PER_HR for cell_id, inflow in self.first_cell_inflow_dict[link_id].get(trajectory_time, 0).items()},
+                        "actual_outflow": {cell_id: outflow * Units.PER_SEC for cell_id, outflow in self.first_cell_outflow_dict[link_id].get(trajectory_time, 0).items()},
+                        "inflow": {cell_id: inflow * Units.PER_SEC for cell_id, inflow in self.first_cell_inflow_dict[link_id].get(trajectory_time, 0).items()},
                         "entry_count": data["entry_count"],
                         "dt": self.params.dt,
                         "trajectory_time": trajectory_time,
@@ -2134,7 +2197,8 @@ class DataLoader:
                 copy_tasks[index]["dt"] = copy_tasks[index]["dt"].to(Units.S).value
                 copy_tasks[index]["q_max_up"] = copy_tasks[index]["q_max_up"].to(Units.PER_HR).value
                 copy_tasks[index]["q_max_down"] = copy_tasks[index]["q_max_down"].to(Units.PER_HR).value
-                copy_tasks[index]["inflow"] = {cell_id: inflow.to(Units.PER_HR).value for cell_id, inflow in copy_tasks[index]["inflow"].items()}
+                copy_tasks[index]["inflow"] = {cell_id: inflow.to(Units.PER_SEC).value for cell_id, inflow in copy_tasks[index]["inflow"].items()}
+                copy_tasks[index]["actual_outflow"] = {cell_id: outflow.to(Units.PER_SEC).value for cell_id, outflow in copy_tasks[index]["actual_outflow"].items()}
             json.dump(copy_tasks, f, indent=4)
         self.tasks = tasks
         self.destruct()
@@ -2149,6 +2213,7 @@ class DataLoader:
         self.activate_next_timestamp_occupancy(location, date, time)
         self.activate_next_exit_link(location, date, time)
         self.activate_first_cell_inflow_dict(location, date, time)
+        self.activate_first_cell_outflow_dict(location, date, time)
         self.current_file_running = {
             "location": location,
             "date": date,
@@ -2167,7 +2232,8 @@ class DataLoader:
                 self.tasks[index]["q_max_down"] = self.tasks[index]["q_max_down"] * Units.PER_HR
                 self.tasks[index]["k_j"] = self.tasks[index]["k_j"] * Units.PER_KM
                 self.tasks[index]["link_length"] = self.tasks[index]["link_length"] * Units.M
-                self.tasks[index]["inflow"] = {cell_id: inflow * Units.PER_HR for cell_id, inflow in self.tasks[index]["inflow"].items()}
+                self.tasks[index]["inflow"] = {cell_id: inflow * Units.PER_SEC for cell_id, inflow in self.tasks[index]["inflow"].items()}
+                self.tasks[index]["next_exit"] = {cell_id: exit * Units.PER_SEC for cell_id, exit in self.tasks[index]["next_exit"].items()}
             return
         tasks = []
         for link_id, cell_dict in self.cumulative_counts_dict.items(): # type: ignore
@@ -2181,7 +2247,8 @@ class DataLoader:
                         "cummulative_count_upstream": data["cummulative_count_upstream"],
                         "cummulative_count_downstream": data["cummulative_count_downstream"],
                         "current_number_of_vehicles": data["current_number_of_vehicles"],
-                        "inflow": {cell_id: inflow * Units.PER_HR for cell_id, inflow in self.first_cell_inflow_dict[link_id].get(trajectory_time, 0).items()},
+                        "inflow": {cell_id: inflow * Units.PER_SEC for cell_id, inflow in self.first_cell_inflow_dict[link_id].get(trajectory_time, 0).items()},
+                        "actual_outflow": {cell_id: outflow * Units.PER_SEC for cell_id, outflow in self.first_cell_outflow_dict[link_id].get(trajectory_time, 0).items()},
                         "dt": self.params.dt,
                         "trajectory_time": trajectory_time,
                         "tl_status": self.tl_status(trajectory_time, link_id),
@@ -2201,7 +2268,8 @@ class DataLoader:
                 copy_tasks[index]["q_max_down"] = copy_tasks[index]["q_max_down"].to(Units.PER_HR).value
                 copy_tasks[index]["k_j"] = copy_tasks[index]["k_j"].to(Units.PER_KM).value
                 copy_tasks[index]["link_length"] = copy_tasks[index]["link_length"].to(Units.M).value
-                copy_tasks[index]["inflow"] = {cell_id: inflow.to(Units.PER_HR).value for cell_id, inflow in copy_tasks[index]["inflow"].items()}
+                copy_tasks[index]["inflow"] = {cell_id: inflow.to(Units.PER_SEC).value for cell_id, inflow in copy_tasks[index]["inflow"].items()}
+                copy_tasks[index]["next_exit"] = {cell_id: exit.to(Units.PER_SEC).value for cell_id, exit in copy_tasks[index]["next_exit"].items()}
             json.dump(copy_tasks, f, indent=4)
         self.destruct
 
@@ -2216,6 +2284,7 @@ class DataLoader:
         self.activate_next_timestamp_occupancy(location, date, time)
         self.activate_next_exit_link(location, date, time)
         self.activate_first_cell_inflow_dict(location, date, time)
+        self.activate_first_cell_outflow_dict(location, date, time)
         self.current_file_running = {
             "location": location,
             "date": date,
@@ -2373,7 +2442,7 @@ class DataLoader:
         self.activate_tl_status_dict(location, date, time)
         self.activate_next_timestamp_occupancy(location, date, time)
         self.activate_first_cell_inflow_dict(location, date, time)
-
+        self.activate_first_cell_outflow_dict(location, date, time)
 
 
         file_address = (
@@ -2400,7 +2469,8 @@ class DataLoader:
                 self.tasks[index]["densities"] = [density * Units.PER_M for density in self.tasks[index]["densities"]]
                 self.tasks[index]["speeds"] = [speed * Units.KM_PER_HR for speed in self.tasks[index]["speeds"]]
                 self.tasks[index]["free_flow_speed"] = self.tasks[index]["free_flow_speed"] * Units.KM_PER_HR
-                self.tasks[index]["inflow"] = {cell_id: inflow * Units.PER_HR for cell_id, inflow in self.tasks[index]["inflow"].items()}   
+                self.tasks[index]["inflow"] = {cell_id: inflow * Units.PER_SEC for cell_id, inflow in self.tasks[index]["inflow"].items()}
+                self.tasks[index]["outflow"] = {cell_id: outflow * Units.PER_SEC for cell_id, outflow in self.tasks[index]["outflow"].items()}
             return
         
         self.tasks = []
@@ -2434,7 +2504,8 @@ class DataLoader:
                         "cell_lengths": cell_length, # It's a list!
                         "speeds": speeds_unit,
                         "dt": self.params.dt,
-                        "inflow": {cell_id: inflow * Units.PER_HR for cell_id, inflow in self.first_cell_inflow_dict[link_id].get(trajectory_time, 0).items()},
+                        "inflow": {cell_id: inflow * Units.PER_SEC for cell_id, inflow in self.first_cell_inflow_dict[link_id].get(trajectory_time, 0).items()},
+                        "outflow": {cell_id: outflow * Units.PER_SEC for cell_id, outflow in self.first_cell_outflow_dict[link_id].get(trajectory_time, 0).items()},
                         "jam_density_link": self.params.jam_density_link,
                         "tl_status": tl_status,
                         "free_flow_speed": self.params.free_flow_speed,
@@ -2450,7 +2521,8 @@ class DataLoader:
                 copy_tasks[index]["densities"] = [density.to(Units.PER_M).value for density in copy_tasks[index]["densities"]]
                 copy_tasks[index]["speeds"] = [speed.to(Units.KM_PER_HR).value for speed in copy_tasks[index]["speeds"]]
                 copy_tasks[index]["free_flow_speed"] = copy_tasks[index]["free_flow_speed"].to(Units.KM_PER_HR).value
-                copy_tasks[index]["inflow"] = {cell_id: inflow.to(Units.PER_HR).value for cell_id, inflow in copy_tasks[index]["inflow"].items()}
+                copy_tasks[index]["inflow"] = {cell_id: inflow.to(Units.PER_SEC).value for cell_id, inflow in copy_tasks[index]["inflow"].items()}
+                copy_tasks[index]["outflow"] = {cell_id: outflow.to(Units.PER_SEC).value for cell_id, outflow in copy_tasks[index]["outflow"].items()}
             json.dump(copy_tasks, f, indent=4)
         self.destruct()
         

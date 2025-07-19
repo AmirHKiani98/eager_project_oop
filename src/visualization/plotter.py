@@ -30,7 +30,7 @@ class Plotter:
             Generates a plot of the data. This is a placeholder method and should be
             implemented using a plotting library such as matplotlib or seaborn.
     """
-    def __init__(self, cache_dir: str, geo_loader: GeoLoader):
+    def __init__(self, cache_dir: str):
         """
         Initializes the Plotter with the cache directory.
 
@@ -39,24 +39,51 @@ class Plotter:
             traffic_model (str): The traffic model to be used for visualization.
         """
         self.cache_dir = cache_dir
-        self.geo_loader = geo_loader
-        self.link_lengths = {
-            link_id: link.get_length().to(Units.M).value
-            for link_id, link in self.geo_loader.links.items()
-        }
-        self.cell_length = {
-            link_id: {
-                cell_id: cell.get_length().to(Units.M).value for cell_id, cell in link.cells.items()
-            } for link_id, link in self.geo_loader.links.items()
-        }
+        
 
         self.errors = {}
         all_errors_path = f"{self.cache_dir}/all_errors.json"
         if os.path.exists(all_errors_path):
             with open(all_errors_path, "r") as f:
                 self.errors = json.load(f)
-        
-        
+    
+    def _get_geo_loader(self, geo_loader_hash: str):
+
+        return GeoLoader(
+            locations=None,
+            cache=self.cache_dir,
+            hash_str=geo_loader_hash
+        )
+
+    def _get_link_lengths(self, geo_loader_hash: str) -> dict:
+        """
+        Get the link lengths from the geo loader.
+        Args:
+            geo_loader_hash (str): The hash of the geo loader.
+        Returns:
+            dict: A dictionary mapping link IDs to their lengths.
+        """
+        geo_loader = self._get_geo_loader(geo_loader_hash)
+        return {
+            link_id: link.get_length().to(Units.M).value
+            for link_id, link in geo_loader.links.items()
+        }
+    def _get_cell_length(self, geo_loader_hash: str) -> dict:
+        """
+        Get the cell lengths from the geo loader.
+        Args:
+            geo_loader_hash (str): The hash of the geo loader.
+        Returns:
+            dict: A dictionary mapping link IDs to their cell lengths.
+        """
+        geo_loader = self._get_geo_loader(geo_loader_hash)
+        return {
+            link_id: {
+                cell_id: cell.get_length().to(Units.M).value for cell_id, cell in link.cells.items()
+            } for link_id, link in geo_loader.links.items()
+        }
+
+    
 
     def get_parameters(self, file_name: str):
         """
@@ -78,7 +105,7 @@ class Plotter:
         
     def plot_error_point_queue_spatial_queue(self,
                                              data_file_name: str,
-            hash_parmas: str,
+            hash_params: str,
             hash_geo: str,
             traffic_model: str,
             params: Optional[tuple] = None):
@@ -87,12 +114,12 @@ class Plotter:
 
         Args:
             data_file_name (str): The name of the file to extract parameters from.
-            hash_parmas (str): The hash of the parameters.
+            hash_params (str): The hash of the parameters.
             hash_geo (str): The hash of the geo.
             traffic_model (str): The name of the traffic model.
         """
 
-        file_name = f"{self.cache_dir}/{traffic_model}/{data_file_name}_{hash_geo}_{hash_parmas}.json"
+        file_name = f"{self.cache_dir}/{traffic_model}/{data_file_name}_{hash_geo}_{hash_params}.json"
         if not os.path.exists(file_name):
             raise FileNotFoundError(f"File not found: {file_name}")
         
@@ -102,8 +129,11 @@ class Plotter:
         data = data.filter(
             pl.col("link_id") != 5
         )
+        link_lengths = self._get_link_lengths(hash_geo)
+        if not link_lengths:
+            raise ValueError(f"No link lengths found for geo hash: {hash_geo}")
         data = data.with_columns(
-            pl.col("link_id").cast(pl.Int64).replace(self.link_lengths).alias("link_length")
+            pl.col("link_id").cast(pl.Int64).replace(link_lengths).alias("link_length")
         )
         rmse_data = data.group_by(["link_id", "trajectory_time"]).agg(
             (((pl.col("receiving_flow") - pl.col("outflow")) - (pl.col("next_occupancy")) / pl.col("link_length"))
@@ -158,7 +188,7 @@ class Plotter:
     
     def plot_point_queue_spatial_queue(self,
             data_file_name: str,
-            hash_parmas: str,
+            hash_params: str,
             hash_geo: str,
             traffic_model: str,
             params: Optional[tuple] = None
@@ -167,12 +197,12 @@ class Plotter:
         Plotting the actual and predicted values for PointQueue and SpatialQueue models.
         Args:
             data_file_name (str): The name of the file to plot.
-            hash_parmas (str): The hash of the parameters.
+            hash_params (str): The hash of the parameters.
             hash_geo (str): The hash of the geo.
             traffic_model (str): The name of the traffic model.
             params (tuple, optional): Parameters to save with the error. Defaults to None.
         """
-        file_name = f"{self.cache_dir}/{traffic_model}/{data_file_name}_{hash_geo}_{hash_parmas}.json"
+        file_name = f"{self.cache_dir}/{traffic_model}/{data_file_name}_{hash_geo}_{hash_params}.json"
         if not os.path.exists(file_name):
             raise FileNotFoundError(f"File not found: {file_name}")
         # Read geo
@@ -185,10 +215,32 @@ class Plotter:
         ).to_dict(as_series=False)
         cells_dict = {cells_dict["link_id"][i]: {"num_cells": cells_dict["num_cells"][i], "link_length": cells_dict["link_length"][i]} for i in range(len(cells_dict["link_id"]))}
 
-        data = pl.read_json(file_name)
+        with open(file_name, 'r') as f:
+            json_data = json.load(f)
+            
+            # Flatten the nested structures if needed
+            flattened_data = []
+            for record in json_data:
+                flat_record = {}
+                for key, value in record.items():
+                    if isinstance(value, (list, dict)):
+                        # Convert complex types to string for visualization
+                        if isinstance(value, list):
+                            flat_record[key] = value
+                        elif isinstance(value, dict):
+                            v = dict(sorted(value.items(), key=lambda x: x[0]))
+                            flat_record[key] = list(v.values())
+                        
+                    else:
+                        flat_record[key] = value
+                flattened_data.append(flat_record)
+            data = pl.DataFrame(flattened_data, strict=False)
         data = data.filter((pl.col("link_id") != 5))
+        link_lengths = self._get_link_lengths(hash_geo)
+        if not link_lengths:
+            raise ValueError(f"No link lengths found for geo hash: {hash_geo}")
         data = data.with_columns(
-            pl.col("link_id").cast(pl.Int64).replace(self.link_lengths).alias("link_length"),
+            pl.col("link_id").cast(pl.Int64).replace(link_lengths).alias("link_length"),
             pl.col("link_id").cast(pl.Int64)
         )
 
@@ -212,13 +264,10 @@ class Plotter:
             actual_density = next_occupancy / cells_dict[link_id]["link_length"]
             squared_error = (actual_density - predicted_density) ** 2
             outflow = max(0, row["outflow"])
-            inflow = row["inflow"]
-            inflow = {k: (v if v is not None else 0) for k, v in inflow.items()}
-            inflow = {k: max(0, v) for k, v in inflow.items()}
-            sum_inflow = sum(inflow.values())
+            sum_actual_outflow = max(0, sum(row["actual_outflow"]))
             sum_outflow = outflow
-            flow_error = (sum_inflow - sum_outflow)**2
-            
+            flow_error = (sum_actual_outflow - sum_outflow)
+
             for i in range(cells_dict[link_id]["num_cells"]):
                 
                 all_rmse_data.append({
@@ -229,7 +278,7 @@ class Plotter:
                     "predicted_cell_density": predicted_density,
                     "cell_id": i + 1,
                     "link_cell_id": f"link {link_id} cell {i+1}",
-                    "actual_flow": sum_inflow,
+                    "actual_flow": sum_actual_outflow,
                     "predicted_flow": sum_outflow,
                     "flow_error": flow_error
                 })
@@ -241,9 +290,9 @@ class Plotter:
             actual_max = max(actual_max, actual_density)
             predicted_min = min(predicted_min, predicted_density)
             predicted_max = max(predicted_max, predicted_density)
-            predicted_min_flow = min(predicted_min_flow, sum_inflow, sum_outflow)
-            predicted_max_flow = max(predicted_max_flow, sum_inflow, sum_outflow)
-            predicted_max_flow = max(predicted_max_flow, sum_inflow, sum_outflow)
+            predicted_min_flow = min(predicted_min_flow, sum_actual_outflow, sum_outflow)
+            predicted_max_flow = max(predicted_max_flow, sum_actual_outflow, sum_outflow)
+            predicted_max_flow = max(predicted_max_flow, sum_actual_outflow, sum_outflow)
         if not all_rmse_data:
                 print("No error data to plot.")
                 return
@@ -263,7 +312,7 @@ class Plotter:
             cmap="Reds",
             vmin=df["squared_error"].min(),
             vmax=df["squared_error"].max(),
-            cbar_kws={'label': r'Squared Error $\frac{Veh}{m}^2$'}
+            cbar_kws={'label': r'Density Error $\frac{Veh}{m}$'}
         )
         plt.title(f"Error Heatmap for All Links ({traffic_model})", fontsize=16)
         plt.xlabel("")
@@ -328,7 +377,7 @@ class Plotter:
             vmin=predicted_min_flow,
             vmax=predicted_max_flow,
             cmap="Reds",
-            cbar_kws={'label': 'Flow Error (Veh/s)^2'}
+            cbar_kws={'label': 'Flow Error (Veh/s)'}
         )
         plt.title(f"Flow Error Heatmap ({traffic_model})", fontsize=16)
         plt.xlabel("")
@@ -378,7 +427,7 @@ class Plotter:
 
     def plot_ctm(self,
                        data_file_name: str,
-                       hash_parmas: str,
+                       hash_params: str,
                        hash_geo: str,
                        traffic_model: str,
                        params: Optional[tuple] = None):
@@ -386,14 +435,14 @@ class Plotter:
         Plots the error in CTM.
         Args:
             data_file_name (str): The name of the file to plot.
-            hash_parmas (str): The hash of the parameters.
+            hash_params (str): The hash of the parameters.
             hash_geo (str): The hash of the geo.
             traffic_model (str): The name of the traffic model.
             params (tuple, optional): Parameters to save with the error. Defaults to None.
         """
         average_error = 0
         n = 0
-        file_name = f"{self.cache_dir}/{traffic_model}/{data_file_name}_{hash_geo}_{hash_parmas}.json"
+        file_name = f"{self.cache_dir}/{traffic_model}/{data_file_name}_{hash_geo}_{hash_params}.json"
         if not os.path.exists(file_name):
             raise FileNotFoundError(f"File not found: {file_name}")
 
@@ -427,11 +476,11 @@ class Plotter:
         
                 
         data = data.filter(pl.col("link_id") != 5) # Filter out link_id 5
-
+        cell_length = self._get_cell_length(hash_geo)
         data = data.with_columns(
             pl.col("link_id")
             .cast(pl.Int64)
-            .map_elements(lambda link_id: list(self.cell_length.get(link_id, {}).values()))
+            .map_elements(lambda link_id: list(cell_length.get(link_id, {}).values()))
             .alias("cell_lengths")
         )
         
@@ -483,12 +532,20 @@ class Plotter:
             next_density = row["next_densities"]
             inflow = row["inflow"]
             outflow = row["new_outflow"]
-            inflow = list(dict(sorted(inflow.items(), key=lambda x: x[0])).values())
+            actual_outflow = row["actual_outflow"]
+            # print(inflow, outflow, actual_outflow)
+            if isinstance(inflow, dict):
+                actual_outflow = list(dict(list(sorted(actual_outflow.items(), key=lambda x: x[0]))).values())
+            # print()
+            # print()
+            # print()
+            # print()
+            # print(actual_data)
             for i in range(len(next_density)):
                 actual_density = next_density[i]
                 predicted_density = max(new_densities[i], 0)
                 squared_error = (actual_density - predicted_density) ** 2
-                squared_flow_error = (inflow[i] - outflow[i]) ** 2
+                squared_flow_error = (actual_outflow[i] - outflow[i])
                 all_rmse_data.append({
                     "link_id": link_id,
                     "trajectory_time": trajectory_time,
@@ -497,7 +554,7 @@ class Plotter:
                     "predicted_cell_density": predicted_density,
                     "cell_id": i + 1,
                     "link_cell_id": f"link {link_id} cell {i+1}",
-                    "actual_flow": inflow[i],
+                    "actual_flow": actual_outflow[i],
                     "predicted_flow": outflow[i],
                     "flow_error": squared_flow_error
                 })
@@ -509,8 +566,8 @@ class Plotter:
                 actual_max = max(actual_max, actual_density)
                 predicted_min = min(predicted_min, predicted_density)
                 predicted_max = max(predicted_max, predicted_density)
-                predicted_min_flow = min([predicted_min_flow, inflow[i], outflow[i]])
-                predicted_max_flow = max(predicted_max_flow, inflow[i], outflow[i])
+                predicted_min_flow = min([predicted_min_flow, actual_outflow[i], outflow[i]])
+                predicted_max_flow = max(predicted_max_flow, actual_outflow[i], outflow[i])
         if not all_rmse_data:
                 print("No error data to plot.")
                 return
@@ -525,16 +582,21 @@ class Plotter:
         error_data = df.pivot(index="trajectory_time", columns="link_cell_id", values="squared_error")
         error_data = error_data[sorted_cols]
         plt.figure(figsize=(15, 8))
+        yticks = df.trajectory_time.unique().tolist()
+
         sns.heatmap(
             error_data,
             cmap="Reds",
             vmin=df["squared_error"].min(),
             vmax=df["squared_error"].max(),
-            cbar_kws={'label': r'Squared Error $\frac{Veh}{m}^2$'}
+            cbar_kws={'label': r'Density Error $\frac{Veh}{m}$'}
         )
         plt.title(f"Error Heatmap for All Links ({traffic_model})", fontsize=16)
         plt.xlabel("")
-        plt.ylabel("Trajectory Time", fontsize=14)
+        plt.ylabel("Trajectory Time (s)", fontsize=14)
+        tick_positions = np.arange(0, len(yticks), 50)
+        tick_labels = [yticks[i] for i in tick_positions]
+        plt.yticks(ticks=tick_positions, labels=tick_labels, rotation=0)
         plt.xticks(rotation=45, ha='right', fontsize=12)
         plt.tight_layout()
         plt.savefig(figure_path + "error_density.png")
@@ -552,8 +614,11 @@ class Plotter:
             cbar_kws={'label': r'Actual Density $(Veh/m)$'}
         )
         plt.title(f"Actual Density Heatmap ({traffic_model})", fontsize=16)
+        tick_positions = np.arange(0, len(yticks), 50)
+        tick_labels = [yticks[i] for i in tick_positions]
+        plt.yticks(ticks=tick_positions, labels=tick_labels, rotation=0)
         plt.xlabel("")
-        plt.ylabel("Trajectory Time", fontsize=14)
+        plt.ylabel("Trajectory Time (s)", fontsize=14)
         plt.xticks(rotation=45, ha='right', fontsize=12)
         plt.tight_layout()
         plt.savefig(figure_path + "actual_density.png")
@@ -571,13 +636,16 @@ class Plotter:
             cbar_kws={'label': r'Predicted Density $(Veh/m)$'}
         )
         plt.title(f"Predicted Density Heatmap ({traffic_model})")
+        tick_positions = np.arange(0, len(yticks), 50)
+        tick_labels = [yticks[i] for i in tick_positions]
+        plt.yticks(ticks=tick_positions, labels=tick_labels, rotation=0)
         plt.xlabel("")
-        plt.ylabel("Trajectory Time")
-        plt.xticks(rotation=45, ha='right')
+        plt.ylabel("Trajectory Time (s)", fontsize=14)
+        plt.xticks(rotation=45, ha='right', fontsize=12)
         plt.tight_layout()
         plt.savefig(figure_path + "predicted_density.png")
         plt.close()
-
+        
         # --- Save error if params provided ---
         if params is not None:
             if traffic_model not in self.errors:
@@ -598,12 +666,16 @@ class Plotter:
             cbar_kws={'label': 'Flow Error'}
         )
         plt.title(f"Flow Error Heatmap ({traffic_model})")
+        tick_positions = np.arange(0, len(yticks), 50)
+        tick_labels = [yticks[i] for i in tick_positions]
+        plt.yticks(ticks=tick_positions, labels=tick_labels, rotation=0)
         plt.xlabel("")
-        plt.ylabel("Trajectory Time")
+        plt.ylabel("Trajectory Time (s)")
         plt.xticks(rotation=45, ha='right')
         plt.tight_layout()
         plt.savefig(figure_path + "flow_error.png")
         plt.close()
+        
 
         # Actual Flow
         actual_flow_data = df.pivot(index="trajectory_time", columns="link_cell_id", values="actual_flow")
@@ -617,8 +689,11 @@ class Plotter:
             cbar_kws={'label': 'Actual Flow (Veh/s)'}
         )
         plt.title(f"Actual Flow Heatmap ({traffic_model})")
+        tick_positions = np.arange(0, len(yticks), 50)
+        tick_labels = [yticks[i] for i in tick_positions]
+        plt.yticks(ticks=tick_positions, labels=tick_labels, rotation=0)
         plt.xlabel("")
-        plt.ylabel("Trajectory Time")
+        plt.ylabel("Trajectory Time (s)")
         plt.xticks(rotation=45, ha='right')
         plt.tight_layout()
         plt.savefig(figure_path + "actual_flow.png")
@@ -636,7 +711,7 @@ class Plotter:
         )
         plt.title(f"Predicted Flow Heatmap ({traffic_model})")
         plt.xlabel("")
-        plt.ylabel("Trajectory Time")
+        plt.ylabel("Trajectory Time (s)")
         plt.xticks(rotation=45, ha='right')
         plt.tight_layout()
         plt.savefig(figure_path + "predicted_flow.png")
@@ -673,18 +748,18 @@ class Plotter:
     
     def plot_sns_heatmap_point_queue_spatial_queue(self,
                                                    data_file_name: str,
-                                                   hash_parmas: str,
+                                                   hash_params: str,
                                                    hash_geo: str,
                                                    traffic_model: str):
         """
         Plotting the heatmap using seaborn.
         Args:
             data_file_name (str): The name of the file to plot.
-            hash_parmas (str): The hash of the parameters.
+            hash_params (str): The hash of the parameters.
             hash_geo (str): The hash of the geo.
             traffic_model (str): The name of the traffic model.
         """
-        file_name = f"{self.cache_dir}/{traffic_model}/{data_file_name}_{hash_geo}_{hash_parmas}.json"
+        file_name = f"{self.cache_dir}/{traffic_model}/{data_file_name}_{hash_geo}_{hash_params}.json"
         data = pl.read_json(
             file_name
         )
@@ -725,7 +800,7 @@ class Plotter:
         
     def plot_ltm(self,
                        data_file_name,
-                       hash_parmas: str,
+                       hash_params: str,
                        hash_geo: str,
                        traffic_model: str,
                        params: Optional[tuple] = None):
@@ -733,11 +808,11 @@ class Plotter:
         Plotting the error in LTM.
         Args:
             data_file_name (str): The name of the file to plot.
-            hash_parmas (str): The hash of the parameters.
+            hash_params (str): The hash of the parameters.
             hash_geo (str): The hash of the geo.
             traffic_model (str): The name of the traffic model.
         """
-        file_name = f"{self.cache_dir}/{traffic_model}/{data_file_name}_{hash_geo}_{hash_parmas}.json"
+        file_name = f"{self.cache_dir}/{traffic_model}/{data_file_name}_{hash_geo}_{hash_params}.json"
         if not os.path.exists(file_name):
             raise FileNotFoundError(f"File not found: {file_name}")
         data = pl.read_json(
@@ -746,9 +821,10 @@ class Plotter:
         data = data.filter(
             pl.col("link_id") != 5
         )
+        cell_length = self._get_cell_length(hash_geo)
         data = data.with_columns(
             pl.struct(["link_id", "cell_id"])
-            .map_elements(lambda row: self.cell_length[int(row["link_id"])][int(row["cell_id"])], return_dtype=pl.Float64)
+            .map_elements(lambda row: cell_length[int(row["link_id"])][int(row["cell_id"])], return_dtype=pl.Float64)
             .alias("cell_length")
         )
 
@@ -816,11 +892,11 @@ class Plotter:
             vmin=min_errors, # type: ignore
             vmax=max_errors, # type: ignore
             annot=False,
-            cbar_kws={'label': 'Squared Error'}
+            cbar_kws={'label': r'Density Error $\frac{Veh}{m}$'}
         )
         plt.title(f"Density Error Heatmap ({traffic_model})")
         #plt.xlabel("X (m, shifted)")
-        plt.ylabel("Trajectory Time")
+        plt.ylabel("Trajectory Time (s)", fontsize=14)
         plt.tight_layout()
         plt.xticks(rotation=45, ha='right')
 
@@ -843,7 +919,7 @@ class Plotter:
             vmin=_min,
             vmax=_max,
             annot=False,
-            cbar_kws={'label': 'Squared Error'}
+            cbar_kws={'label': 'Density Error'}
         )
         plt.title(f"Actual Density Heatmap ({traffic_model})")
         #plt.xlabel("X (m, shifted)")
@@ -869,7 +945,7 @@ class Plotter:
             vmin=_min,
             vmax=_max,
             annot=False,
-            cbar_kws={'label': 'Squared Error'}
+            cbar_kws={'label': 'Density Error'}
         )
         plt.title(f"Predicted Density Heatmap ({traffic_model})")
         #plt.xlabel("X (m, shifted)")
@@ -905,14 +981,14 @@ class Plotter:
     def plot_error_pw(
             self,
             data_file_name: str,
-            hash_parmas: str,
+            hash_params: str,
             hash_geo: str,
             traffic_model: str,
             params: Optional[tuple] = None
         ):
             # TODO: next_densities is actually next_occupancy. if you go about making this correct you should also
             # take care of pw.py in model folder.
-            file_name = f"{self.cache_dir}/{traffic_model}/{data_file_name}_{hash_geo}_{hash_parmas}.json"
+            file_name = f"{self.cache_dir}/{traffic_model}/{data_file_name}_{hash_geo}_{hash_params}.json"
             if not os.path.exists(file_name):
                 raise FileNotFoundError(f"File not found: {file_name}")
 
@@ -995,7 +1071,7 @@ class Plotter:
                 cmap="Reds",
                 vmin=df["squared_error"].min(),
                 vmax=df["squared_error"].max(),
-                cbar_kws={'label': r'Squared Error $\frac{Veh}{m}^2$'}
+                cbar_kws={'label': r'Density Error $\frac{Veh}{m}$'}
             )
             plt.title(f"Error Heatmap for All Links ({traffic_model})")
             #plt.xlabel("Link_ID and Cell_ID")
@@ -1113,7 +1189,7 @@ class Plotter:
 
     def plot(self,
              data_file_name: str,
-            hash_parmas: str,
+            hash_params: str,
             hash_geo: str,
             traffic_model: str,
             params: Optional[tuple] = None):
@@ -1123,7 +1199,7 @@ class Plotter:
         if traffic_model == "LTM":
             # self.plot_error_ltm(
             #     data_file_name=data_file_name,
-            #     hash_parmas=hash_parmas,
+            #     hash_params=hash_params,
             #     hash_geo=hash_geo,
             #     traffic_model=traffic_model,
             #     params=params
@@ -1132,7 +1208,7 @@ class Plotter:
         elif traffic_model == "CTM":
             self.plot_ctm(
                 data_file_name=data_file_name,
-                hash_parmas=hash_parmas,
+                hash_params=hash_params,
                 hash_geo=hash_geo,
                 traffic_model=traffic_model,
                 params=params
@@ -1140,21 +1216,21 @@ class Plotter:
         elif traffic_model == "PointQueue" or traffic_model == "SpatialQueue":
             self.plot_point_queue_spatial_queue(
                 data_file_name=data_file_name,
-                hash_parmas=hash_parmas,
+                hash_params=hash_params,
                 hash_geo=hash_geo,
                 traffic_model=traffic_model,
                 params=params
             )
             # self.plot_actual_predicted_point_queue_spatial_queue(
             #     data_file_name=data_file_name,
-            #     hash_parmas=hash_parmas,
+            #     hash_params=hash_params,
             #     hash_geo=hash_geo,
             #     traffic_model=traffic_model,
             # )
         elif traffic_model == "PW":
             self.plot_error_pw(
                 data_file_name=data_file_name,
-                hash_parmas=hash_parmas,
+                hash_params=hash_params,
                 hash_geo=hash_geo,
                 traffic_model=traffic_model,
                 params=params
@@ -1217,7 +1293,8 @@ class Plotter:
         if not os.path.exists(file_name):
             raise FileNotFoundError(f"File not found: {file_name}")
         df = pd.read_csv(file_name)
-        links = self.geo_loader.get_links()
+        geo_loader = self._get_geo_loader(hash_geo)
+        links = geo_loader.get_links()
         
         df = df[df["trajectory_time"] >= min_time] if min_time is not None else df
         df = df[df["trajectory_time"] <= max_time] if max_time is not None else df
@@ -1273,37 +1350,50 @@ class Plotter:
         all_errors_path = f"{self.cache_dir}/all_errors.json"
         with open(all_errors_path, "r") as f:
             self.errors = json.load(f)
+    def plot_all(self):
+        """
+        Plot all the existing models results.
+        """
+        for folder in os.listdir(self.cache_dir):
+            # If the first characters of the folder name are capital letters, it is a traffic model
+            if folder[0].isupper():
+                traffic_model = folder
+                for file_name in os.listdir(f"{self.cache_dir}/{traffic_model}"):
+                    if file_name.endswith(".json"):
+                        data_file_name = "_".join(file_name.split("_")[:4])
+                        hash_geo = file_name.split("_")[4].split(".")[0]
+                        hash_params = file_name.split("_")[5].split(".")[0]
+                        with open(f"{self.cache_dir}/params/{hash_params}.json", "r") as f:
+                            params = json.load(f)
+                            free_flow_speed = params["free_flow_speed"].split(" ")[0]
+                            wave_speed = params["wave_speed"].split(" ")[0]
+                            dt = params["dt"].split(" ")[0]
+                            jam_density_link = params["jam_density_link"].split(" ")[0]
+                            q_max = params["q_max"].split(" ")[0]
+                            
+                        self.plot(
+                            data_file_name=data_file_name,
+                            hash_params=hash_params,
+                            hash_geo=hash_geo,
+                            traffic_model=traffic_model,
+                            params=(free_flow_speed, wave_speed, dt, jam_density_link, q_max)
+                        )
+                        
 
 if __name__ == "__main__":
-    intersection_locations = (
-        pl.read_csv("traffic_lights.csv")
-        .to_numpy()
-        .tolist()
-    )
-    intersection_locations = [
-        POINT(loc[1], loc[0])
-        for loc in intersection_locations
-    ]
-    model_geo_loader = GeoLoader(
-        locations=intersection_locations,
-        cell_length=20.0
-        )
+    
     data_file_name = "d1_20181029_0800_0830"
     params_hash = "0a043bb9c51bc73349c36a052764479b"
     geo_hash = "682a48de"
     traffic_model_name = "PW"
-    plotter = Plotter(cache_dir=".cache_dt10s", geo_loader=model_geo_loader)
+    plotter = Plotter(cache_dir=".cache_dt5s")
+    plotter.plot_all()
     # plotter.animation(f".cache/{data_file_name}_fully_process_vehicles_{geo_hash}.csv")
     # print("Heatmap generated and saved successfully.")
-    plotter.plot_trajectory(
-        data_file_name = data_file_name,
-        hash_geo=geo_hash,
-        min_time=200,
-        max_time=300
-    )
+    
     # plotter.plot(
     #     data_file_name=data_file_name,
-    #     hash_parmas=params_hash,
+    #     hash_params=params_hash,
     #     hash_geo=geo_hash,
     #     traffic_model=traffic_model_name
     # )
