@@ -2233,7 +2233,7 @@ class DataLoader:
                 self.tasks[index]["k_j"] = self.tasks[index]["k_j"] * Units.PER_KM
                 self.tasks[index]["link_length"] = self.tasks[index]["link_length"] * Units.M
                 self.tasks[index]["inflow"] = {cell_id: inflow * Units.PER_SEC for cell_id, inflow in self.tasks[index]["inflow"].items()}
-                self.tasks[index]["next_exit"] = {cell_id: exit * Units.PER_SEC for cell_id, exit in self.tasks[index]["next_exit"].items()}
+                self.tasks[index]["actual_outflow"] = {cell_id: exit * Units.PER_SEC for cell_id, exit in self.tasks[index]["actual_outflow"].items()}
             return
         tasks = []
         for link_id, cell_dict in self.cumulative_counts_dict.items(): # type: ignore
@@ -2269,7 +2269,7 @@ class DataLoader:
                 copy_tasks[index]["k_j"] = copy_tasks[index]["k_j"].to(Units.PER_KM).value
                 copy_tasks[index]["link_length"] = copy_tasks[index]["link_length"].to(Units.M).value
                 copy_tasks[index]["inflow"] = {cell_id: inflow.to(Units.PER_SEC).value for cell_id, inflow in copy_tasks[index]["inflow"].items()}
-                copy_tasks[index]["next_exit"] = {cell_id: exit.to(Units.PER_SEC).value for cell_id, exit in copy_tasks[index]["next_exit"].items()}
+                copy_tasks[index]["actual_outflow"] = {cell_id: exit.to(Units.PER_SEC).value for cell_id, exit in copy_tasks[index]["actual_outflow"].items()}
             json.dump(copy_tasks, f, indent=4)
         self.destruct
 
