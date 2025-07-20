@@ -18,6 +18,9 @@ from src.preprocessing.geo_loader import GeoLoader
 from src.common_utility.units import Units
 from collections import defaultdict
 from pyproj import Geod
+import matplotlib.cm as cm
+color_map = plt.get_cmap('tab20')
+
 GEOD = Geod(ellps="WGS84")
 matplotlib.set_loglevel("warning")
 class Plotter:
@@ -1365,12 +1368,12 @@ class Plotter:
                         hash_params = file_name.split("_")[5].split(".")[0]
                         with open(f"{self.cache_dir}/params/{hash_params}.json", "r") as f:
                             params = json.load(f)
-                            free_flow_speed = params["free_flow_speed"].split(" ")[0]
-                            wave_speed = params["wave_speed"].split(" ")[0]
-                            dt = params["dt"].split(" ")[0]
-                            jam_density_link = params["jam_density_link"].split(" ")[0]
-                            q_max = params["q_max"].split(" ")[0]
-                            
+                            free_flow_speed = float(params["free_flow_speed"].split(" ")[0])
+                            wave_speed = float(params["wave_speed"].split(" ")[0])
+                            dt = float(params["dt"].split(" ")[0])
+                            jam_density_link = float(params["jam_density_link"].split(" ")[0])
+                            q_max = float(params["q_max"].split(" ")[0])
+
                         self.plot(
                             data_file_name=data_file_name,
                             hash_params=hash_params,
@@ -1378,7 +1381,65 @@ class Plotter:
                             traffic_model=traffic_model,
                             params=(free_flow_speed, wave_speed, dt, jam_density_link, q_max)
                         )
-                        
+    def plot_fundamental_diagram(self):
+        """
+        Plot the fundamental diagram.
+        """
+        folder = f"{self.cache_dir}/params"
+        if not os.path.exists(folder):
+            raise FileNotFoundError(f"Folder not found: {folder}")
+        
+        plt.figure(figsize=(12, 7), dpi=300)  # higher resolution and larger figure
+        color_map = cm.get_cmap('tab20')  # or 'Set1', 'hsv', etc.
+        param_files = [f for f in os.listdir(folder) if f.endswith(".json")]
+        np.random.seed(42)  # for reproducibility
+        param_files = np.random.choice(param_files, size=8, replace=False)
+        colors = color_map(np.linspace(0, 1, len(param_files)))
+
+        for i, file_name in enumerate(param_files):
+            with open(f"{folder}/{file_name}", "r") as f:
+                params = json.load(f)
+                free_flow_speed = float(params["free_flow_speed"].split(" ")[0]) * Units.KM_PER_HR
+                wave_speed = float(params["wave_speed"].split(" ")[0]) * Units.KM_PER_HR
+                jam_density_link = float(params["jam_density_link"].split(" ")[0]) * Units.PER_KM
+                q_max = float(params["q_max"].split(" ")[0]) * Units.PER_HR
+
+                x_intercept_ffs = (q_max / free_flow_speed).to(Units.PER_KM).value
+                x_intercept_ws = (((jam_density_link * wave_speed) - q_max) / wave_speed).to(Units.PER_KM).value
+                last_x = jam_density_link.to(Units.PER_KM).value
+                y_intercept = q_max.to(Units.PER_HR).value
+                label = rf"FFS: {free_flow_speed.to(Units.KM_PER_HR).value:.1f} $\frac{{\mathrm{{km}}}}{{\mathrm{{hr}}}}$, " \
+                rf"WS: {wave_speed.to(Units.KM_PER_HR).value:.1f} $\frac{{\mathrm{{km}}}}{{\mathrm{{hr}}}}$, " \
+                rf"$K_j$: {jam_density_link.to(Units.PER_KM).value:.1f} $\frac{{\mathrm{{veh}}}}{{\mathrm{{km}}}}$, " \
+                rf"$Q_{{\max}}$: {q_max.to(Units.PER_HR).value:.1f} $\frac{{\mathrm{{veh}}}}{{\mathrm{{hr}}}}$"
+                # Plot the free-flow segment with the label
+                plt.plot([0, x_intercept_ffs], [0, y_intercept], color=colors[i], linewidth=1.5, label=label)
+
+                # Plot the congested side
+                if x_intercept_ws < x_intercept_ffs:
+                    # Triangle FD
+                    plt.plot([x_intercept_ffs, last_x], [y_intercept, 0], color=colors[i], linewidth=1.5)
+                else:
+                    # Trapezoidal FD
+                    plt.plot([x_intercept_ffs, x_intercept_ws], [y_intercept, y_intercept], color=colors[i], linewidth=1.5)
+                    plt.plot([x_intercept_ws, last_x], [y_intercept, 0], color=colors[i], linewidth=1.5)
+        
+        # === Axis labels with LaTeX formatting ===
+        plt.xlabel(r"$K$ (jam density) $\left(\frac{\mathrm{veh}}{\mathrm{km}}\right)$", fontsize=14)
+        plt.ylabel(r"$Q_{\max}$ $\left(\frac{\mathrm{veh}}{\mathrm{hr}}\right)$", fontsize=14)
+        plt.title("Fundamental Diagrams", fontsize=16)
+        plt.grid(True, linestyle='--', alpha=0.5)
+        plt.tight_layout()
+        plt.legend(loc='upper left', fontsize=10)
+
+        # Optional: save in higher-quality formats
+        output_path = f"{self.cache_dir}/results/fundamental_diagram"
+        os.makedirs(os.path.dirname(output_path), exist_ok=True)
+        plt.savefig(output_path + ".png", dpi=300)
+        plt.savefig(output_path + ".pdf", dpi=300)
+        plt.close()
+
+
 
 if __name__ == "__main__":
     
@@ -1387,7 +1448,8 @@ if __name__ == "__main__":
     geo_hash = "682a48de"
     traffic_model_name = "PW"
     plotter = Plotter(cache_dir=".cache_dt5s")
-    plotter.plot_all()
+    # plotter.plot_all()
+    plotter.plot_fundamental_diagram()
     # plotter.animation(f".cache/{data_file_name}_fully_process_vehicles_{geo_hash}.csv")
     # print("Heatmap generated and saved successfully.")
     
