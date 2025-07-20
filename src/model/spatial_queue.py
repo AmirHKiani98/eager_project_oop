@@ -125,7 +125,7 @@ class SpatialQueue(TrafficModel):
         new_occupancy = next_occupancy + outflow - sending_flow
         actual_outflow = args["actual_outflow"]
         return {
-            "outflow": outflow,  # corrected to reflect the actual outflow
+            "outflow": outflow.to(Units.PER_HR).value, # already applied filteration on sending flow so it became outflow
             "receiving_flow": receiving_flow,
             "next_occupancy": next_occupancy,
             "trajectory_time": trajectory_time,

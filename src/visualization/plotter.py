@@ -264,7 +264,7 @@ class Plotter:
             actual_density = next_occupancy / cells_dict[link_id]["link_length"]
             squared_error = (actual_density - predicted_density) ** 2
             outflow = max(0, row["outflow"])
-            sum_actual_outflow = max(0, sum(row["actual_outflow"]))
+            sum_actual_outflow = max(0, row["actual_outflow"][0])
             sum_outflow = outflow
             flow_error = (sum_actual_outflow - sum_outflow)
 

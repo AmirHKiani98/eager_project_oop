@@ -2271,7 +2271,7 @@ class DataLoader:
                 copy_tasks[index]["inflow"] = {cell_id: inflow.to(Units.PER_SEC).value for cell_id, inflow in copy_tasks[index]["inflow"].items()}
                 copy_tasks[index]["actual_outflow"] = {cell_id: exit.to(Units.PER_SEC).value for cell_id, exit in copy_tasks[index]["actual_outflow"].items()}
             json.dump(copy_tasks, f, indent=4)
-        self.destruct
+        self.destruct()
 
 
 
