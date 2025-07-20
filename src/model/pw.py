@@ -135,7 +135,7 @@ class PW(TrafficModel):
             "cell_lengths": [length.to(Units.M).value for length in cell_lengths],
             "link_id": args["link_id"],
             "trajectory_time": float(trajectory_time) if isinstance(trajectory_time, Units.Quantity) else trajectory_time,
-            "outflow": [(outflow*dt).to(1).value if isinstance(outflow, Units.Quantity) else outflow for outflow in new_outflows],
+            "outflow": [(outflow).to(Units.PER_HR).value if isinstance(outflow, Units.Quantity) else outflow for outflow in new_outflows],
             "inflow": {cell_id: inflow.to(Units.PER_HR).value for cell_id, inflow in actual_inflow.items()},
             "next_inflow": [],
             "actual_outflow": {cell_id: value.to(Units.PER_HR).value for cell_id, value in actual_outflow.items()}

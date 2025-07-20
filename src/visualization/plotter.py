@@ -262,7 +262,7 @@ class Plotter:
             next_occupancy = max(0, row["next_occupancy"])
             predicted_density = new_occupancy / cells_dict[link_id]["link_length"]
             actual_density = next_occupancy / cells_dict[link_id]["link_length"]
-            squared_error = (actual_density - predicted_density) ** 2
+            squared_error = (actual_density - predicted_density)
             outflow = max(0, row["outflow"])
             sum_actual_outflow = max(0, row["actual_outflow"][0])
             sum_outflow = outflow
@@ -377,7 +377,7 @@ class Plotter:
             vmin=predicted_min_flow,
             vmax=predicted_max_flow,
             cmap="Reds",
-            cbar_kws={'label': 'Flow Error (Veh/s)'}
+            cbar_kws={'label': r'Flow Error $(Veh/s)$'}
         )
         plt.title(f"Flow Error Heatmap ({traffic_model})", fontsize=16)
         plt.xlabel("")
@@ -396,7 +396,7 @@ class Plotter:
             cmap="Reds",
             vmin=predicted_min_flow,
             vmax=predicted_max_flow,
-            cbar_kws={'label': 'Actual Flow (Veh/s)'}
+            cbar_kws={'label': r'Actual Flow $(Veh/s)$'}
         )
         plt.title(f"Actual Flow Heatmap ({traffic_model})", fontsize=16)
         plt.xlabel("")
@@ -414,7 +414,7 @@ class Plotter:
             cmap="Reds",
             vmin=predicted_min_flow,
             vmax=predicted_max_flow,
-            cbar_kws={'label': 'Predicted Flow (Veh/s)'}
+            cbar_kws={'label': r'Predicted Flow $(Veh/s)$'}
         )
         plt.title(f"Predicted Flow Heatmap ({traffic_model})", fontsize=16)
         plt.xlabel("")
@@ -686,7 +686,7 @@ class Plotter:
             cmap="Reds",
             vmin=predicted_min_flow,
             vmax=predicted_max_flow,
-            cbar_kws={'label': 'Actual Flow (Veh/s)'}
+            cbar_kws={'label': r'Actual Flow $(Veh/s)$'}
         )
         plt.title(f"Actual Flow Heatmap ({traffic_model})")
         tick_positions = np.arange(0, len(yticks), 50)
@@ -707,7 +707,7 @@ class Plotter:
             cmap="Reds",
             vmin=predicted_min_flow,
             vmax=predicted_max_flow,
-            cbar_kws={'label': 'Predicted Flow (Veh/s)'}
+            cbar_kws={'label': r'Predicted Flow $(Veh/s)$'}
         )
         plt.title(f"Predicted Flow Heatmap ({traffic_model})")
         plt.xlabel("")
@@ -1025,10 +1025,10 @@ class Plotter:
                 for i in range(len(next_density)):
                     actual_density = next_density[i]
                     predicted_density = max(new_densities[i], 0)
-                    squared_error = (actual_density - predicted_density) ** 2
-                    inflow_i = inflow[i]/3600 
-                    outflow_i = outflow[i]/3600
-                    squared_flow_error = (inflow_i - outflow_i) ** 2
+                    squared_error = (actual_density - predicted_density)
+                    inflow_i = inflow[i]
+                    outflow_i = outflow[i]
+                    squared_flow_error = (inflow_i - outflow_i)
 
                     all_rmse_data.append({
                         "link_id": link_id,
@@ -1155,7 +1155,7 @@ class Plotter:
                 cmap="Reds",
                 vmin=actual_min,
                 vmax=actual_max,
-                cbar_kws={'label': 'Actual Flow (Veh/s)'}
+                cbar_kws={'label': r'Actual Flow $(Veh/s)$'}
             )
             plt.title(f"Actual Flow Heatmap ({traffic_model})")
             #plt.xlabel("Link_ID and Cell_ID")
@@ -1173,7 +1173,7 @@ class Plotter:
                 cmap="Reds",
                 vmin=predicted_min_flow,
                 vmax=predicted_max_flow,
-                cbar_kws={'label': 'Predicted Flow (Veh/s)'}
+                cbar_kws={'label': r'Predicted Flow $(Veh/s)$'}
             )
             plt.title(f"Predicted Flow Heatmap ({traffic_model})")
             #plt.xlabel("Link_ID and Cell_ID")

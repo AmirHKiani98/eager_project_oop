@@ -96,7 +96,7 @@ class PointQueue(TrafficModel):
         if tl_status != 1:
             sending_flow = 0
         receiving_flow = PointQueue.receiving_flow(q_max_up, dt)
-        
+
         link_id = args["link_id"]
         trajectory_time = args["trajectory_time"]
         entry_count = args["entry_count"]
@@ -108,16 +108,16 @@ class PointQueue(TrafficModel):
         current_number_of_vehicles = args["current_number_of_vehicles"]
         if sending_flow > 0:
             sending_flow = sending_flow
-        outflow = sending_flow/dt
+        # outflow = sending_flow/dt
         new_occupancy = next_occupancy + outflow - sending_flow
         actual_outflow = args["actual_outflow"]
         return {
-            "outflow": outflow.to(Units.PER_HR).value, # already applied filteration on sending flow so it became outflow
+            # "outflow": outflow.to(Units.PER_HR).value, # already applied filteration on sending flow so it became outflow
             "receiving_flow": receiving_flow,
             "next_occupancy": next_occupancy,
             "trajectory_time": trajectory_time,
             "link_id": link_id,
-            "outflow": outflow,
+            "outflow": (outflow/dt).to(Units.PER_HR).value,  # corrected to reflect the actual outflow
             "current_number_of_vehicles": current_number_of_vehicles,
             "new_occupancy": new_occupancy,
             "inflow": {cell_id: inflow.to(Units.PER_HR).value for cell_id, inflow in args["inflow"].items()},

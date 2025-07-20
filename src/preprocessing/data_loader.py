@@ -2470,7 +2470,7 @@ class DataLoader:
                 self.tasks[index]["speeds"] = [speed * Units.KM_PER_HR for speed in self.tasks[index]["speeds"]]
                 self.tasks[index]["free_flow_speed"] = self.tasks[index]["free_flow_speed"] * Units.KM_PER_HR
                 self.tasks[index]["inflow"] = {cell_id: inflow * Units.PER_SEC for cell_id, inflow in self.tasks[index]["inflow"].items()}
-                self.tasks[index]["outflow"] = {cell_id: outflow * Units.PER_SEC for cell_id, outflow in self.tasks[index]["outflow"].items()}
+                self.tasks[index]["actual_outflow"] = {cell_id: outflow * Units.PER_SEC for cell_id, outflow in self.tasks[index]["actual_outflow"].items()}
             return
         
         self.tasks = []
@@ -2505,7 +2505,7 @@ class DataLoader:
                         "speeds": speeds_unit,
                         "dt": self.params.dt,
                         "inflow": {cell_id: inflow * Units.PER_SEC for cell_id, inflow in self.first_cell_inflow_dict[link_id].get(trajectory_time, 0).items()},
-                        "outflow": {cell_id: outflow * Units.PER_SEC for cell_id, outflow in self.first_cell_outflow_dict[link_id].get(trajectory_time, 0).items()},
+                        "actual_outflow": {cell_id: outflow * Units.PER_SEC for cell_id, outflow in self.first_cell_outflow_dict[link_id].get(trajectory_time, 0).items()},
                         "jam_density_link": self.params.jam_density_link,
                         "tl_status": tl_status,
                         "free_flow_speed": self.params.free_flow_speed,
@@ -2522,7 +2522,7 @@ class DataLoader:
                 copy_tasks[index]["speeds"] = [speed.to(Units.KM_PER_HR).value for speed in copy_tasks[index]["speeds"]]
                 copy_tasks[index]["free_flow_speed"] = copy_tasks[index]["free_flow_speed"].to(Units.KM_PER_HR).value
                 copy_tasks[index]["inflow"] = {cell_id: inflow.to(Units.PER_SEC).value for cell_id, inflow in copy_tasks[index]["inflow"].items()}
-                copy_tasks[index]["outflow"] = {cell_id: outflow.to(Units.PER_SEC).value for cell_id, outflow in copy_tasks[index]["outflow"].items()}
+                copy_tasks[index]["actual_outflow"] = {cell_id: outflow.to(Units.PER_SEC).value for cell_id, outflow in copy_tasks[index]["actual_outflow"].items()}
             json.dump(copy_tasks, f, indent=4)
         self.destruct()
         
