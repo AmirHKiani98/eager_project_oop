@@ -49,7 +49,19 @@ class Plotter:
         if os.path.exists(all_errors_path):
             with open(all_errors_path, "r") as f:
                 self.errors = json.load(f)
-    
+        self.max_density = float("-inf")
+        self.min_density = float("inf")
+        self.max_flow = float("-inf")
+        self.min_flow = float("inf")
+        min_max_path = f"{self.cache_dir}/maxes_mins.json"
+        if os.path.exists(min_max_path):
+            with open(min_max_path, "r") as f:
+                data = json.load(f)
+                self.max_density = data.get("max_density")
+                self.min_density = data.get("min_density")
+                self.max_flow = data.get("max_flow")
+                self.min_flow = data.get("min_flow")
+
     def _get_geo_loader(self, geo_loader_hash: str):
 
         return GeoLoader(
@@ -299,7 +311,10 @@ class Plotter:
         if not all_rmse_data:
                 print("No error data to plot.")
                 return
-
+        self.max_density = max(self.max_density, predicted_max)
+        self.min_density = min(self.min_density, predicted_min)
+        self.max_flow = max(self.max_flow, predicted_max_flow)
+        self.min_flow = min(self.min_flow, predicted_min_flow)
         df = pd.DataFrame(all_rmse_data)
         sorted_cols = sorted(df["link_cell_id"].unique(), key=lambda x: (int(x.split()[1]), int(x.split()[3])))
 
@@ -332,8 +347,8 @@ class Plotter:
         sns.heatmap(
             actual_data,
             cmap="Reds",
-            vmin=actual_min,
-            vmax=actual_max,
+            vmin=self.min_density,
+            vmax=self.max_density,
             cbar_kws={'label': r'Actual Density $(Veh/m)$'}
         )
         plt.title(f"Actual Density Heatmap ({traffic_model})", fontsize=16)
@@ -351,8 +366,8 @@ class Plotter:
         sns.heatmap(
             predicted_data,
             cmap="Reds",
-            vmin=predicted_min,
-            vmax=predicted_max,
+            vmin=self.min_density,
+            vmax=self.max_density,
             cbar_kws={'label': r'Predicted Density $(Veh/m)$'}
         )
         plt.title(f"Predicted Density Heatmap ({traffic_model})", fontsize=16)
@@ -377,8 +392,8 @@ class Plotter:
         plt.figure(figsize=(15, 8))
         sns.heatmap(
             flow_error_data,
-            vmin=predicted_min_flow,
-            vmax=predicted_max_flow,
+            vmin=self.min_flow,
+            vmax=self.max_flow,
             cmap="Reds",
             cbar_kws={'label': r'Flow Error $(Veh/s)$'}
         )
@@ -397,8 +412,8 @@ class Plotter:
         sns.heatmap(
             actual_flow_data,
             cmap="Reds",
-            vmin=predicted_min_flow,
-            vmax=predicted_max_flow,
+            vmin=self.min_flow,
+            vmax=self.max_flow,
             cbar_kws={'label': r'Actual Flow $(Veh/s)$'}
         )
         plt.title(f"Actual Flow Heatmap ({traffic_model})", fontsize=16)
@@ -415,8 +430,8 @@ class Plotter:
         sns.heatmap(
             predicted_flow_data,
             cmap="Reds",
-            vmin=predicted_min_flow,
-            vmax=predicted_max_flow,
+            vmin=self.min_flow,
+            vmax=self.max_flow,
             cbar_kws={'label': r'Predicted Flow $(Veh/s)$'}
         )
         plt.title(f"Predicted Flow Heatmap ({traffic_model})", fontsize=16)
@@ -574,7 +589,10 @@ class Plotter:
         if not all_rmse_data:
                 print("No error data to plot.")
                 return
-
+        self.max_density = max(self.max_density, predicted_max)
+        self.min_density = min(self.min_density, predicted_min)
+        self.max_flow = max(self.max_flow, predicted_max_flow)
+        self.min_flow = min(self.min_flow, predicted_min_flow)
         df = pd.DataFrame(all_rmse_data)
         sorted_cols = sorted(df["link_cell_id"].unique(), key=lambda x: (int(x.split()[1]), int(x.split()[3])))
 
@@ -597,9 +615,9 @@ class Plotter:
         plt.title(f"Error Heatmap for All Links ({traffic_model})", fontsize=16)
         plt.xlabel("")
         plt.ylabel("Trajectory Time (s)", fontsize=14)
-        tick_positions = np.arange(0, len(yticks), 50)
-        tick_labels = [yticks[i] for i in tick_positions]
-        plt.yticks(ticks=tick_positions, labels=tick_labels, rotation=0)
+        #tick_positions = np.arange(0, len(yticks), 50)
+        #tick_labels = [yticks[i] for i in tick_positions]
+       #plt.yticks(ticks=tick_positions, labels=tick_labels, rotation=0)
         plt.xticks(rotation=45, ha='right', fontsize=12)
         plt.tight_layout()
         plt.savefig(figure_path + "error_density.png")
@@ -612,14 +630,14 @@ class Plotter:
         sns.heatmap(
             actual_data,
             cmap="Reds",
-            vmin=actual_min,
-            vmax=actual_max,
+            vmin=self.min_density,
+            vmax=self.max_density,
             cbar_kws={'label': r'Actual Density $(Veh/m)$'}
         )
         plt.title(f"Actual Density Heatmap ({traffic_model})", fontsize=16)
-        tick_positions = np.arange(0, len(yticks), 50)
-        tick_labels = [yticks[i] for i in tick_positions]
-        plt.yticks(ticks=tick_positions, labels=tick_labels, rotation=0)
+        #tick_positions = np.arange(0, len(yticks), 50)
+        #tick_labels = [yticks[i] for i in tick_positions]
+       #plt.yticks(ticks=tick_positions, labels=tick_labels, rotation=0)
         plt.xlabel("")
         plt.ylabel("Trajectory Time (s)", fontsize=14)
         plt.xticks(rotation=45, ha='right', fontsize=12)
@@ -634,14 +652,14 @@ class Plotter:
         sns.heatmap(
             predicted_data,
             cmap="Reds",
-            vmin=predicted_min,
-            vmax=predicted_max,
+            vmin=self.min_density,
+            vmax=self.max_density,
             cbar_kws={'label': r'Predicted Density $(Veh/m)$'}
         )
         plt.title(f"Predicted Density Heatmap ({traffic_model})")
-        tick_positions = np.arange(0, len(yticks), 50)
-        tick_labels = [yticks[i] for i in tick_positions]
-        plt.yticks(ticks=tick_positions, labels=tick_labels, rotation=0)
+        #tick_positions = np.arange(0, len(yticks), 50)
+        #tick_labels = [yticks[i] for i in tick_positions]
+       #plt.yticks(ticks=tick_positions, labels=tick_labels, rotation=0)
         plt.xlabel("")
         plt.ylabel("Trajectory Time (s)", fontsize=14)
         plt.xticks(rotation=45, ha='right', fontsize=12)
@@ -663,15 +681,15 @@ class Plotter:
         plt.figure(figsize=(15, 8))
         sns.heatmap(
             flow_error_data,
-            vmin=predicted_min_flow,
-            vmax=predicted_max_flow,
+            vmin=self.min_flow,
+            vmax=self.max_flow,
             cmap="Reds",
             cbar_kws={'label': 'Flow Error'}
         )
         plt.title(f"Flow Error Heatmap ({traffic_model})")
-        tick_positions = np.arange(0, len(yticks), 50)
-        tick_labels = [yticks[i] for i in tick_positions]
-        plt.yticks(ticks=tick_positions, labels=tick_labels, rotation=0)
+        #tick_positions = np.arange(0, len(yticks), 50)
+        #tick_labels = [yticks[i] for i in tick_positions]
+       #plt.yticks(ticks=tick_positions, labels=tick_labels, rotation=0)
         plt.xlabel("")
         plt.ylabel("Trajectory Time (s)")
         plt.xticks(rotation=45, ha='right')
@@ -687,14 +705,14 @@ class Plotter:
         sns.heatmap(
             actual_flow_data,
             cmap="Reds",
-            vmin=predicted_min_flow,
-            vmax=predicted_max_flow,
+            vmin=self.min_flow,
+            vmax=self.max_flow,
             cbar_kws={'label': r'Actual Flow $(Veh/s)$'}
         )
         plt.title(f"Actual Flow Heatmap ({traffic_model})")
-        tick_positions = np.arange(0, len(yticks), 50)
-        tick_labels = [yticks[i] for i in tick_positions]
-        plt.yticks(ticks=tick_positions, labels=tick_labels, rotation=0)
+        #tick_positions = np.arange(0, len(yticks), 50)
+        #tick_labels = [yticks[i] for i in tick_positions]
+       #plt.yticks(ticks=tick_positions, labels=tick_labels, rotation=0)
         plt.xlabel("")
         plt.ylabel("Trajectory Time (s)")
         plt.xticks(rotation=45, ha='right')
@@ -708,8 +726,8 @@ class Plotter:
         sns.heatmap(
             predicted_flow_data,
             cmap="Reds",
-            vmin=predicted_min_flow,
-            vmax=predicted_max_flow,
+            vmin=self.min_flow,
+            vmax=self.max_flow,
             cbar_kws={'label': r'Predicted Flow $(Veh/s)$'}
         )
         plt.title(f"Predicted Flow Heatmap ({traffic_model})")
@@ -1019,6 +1037,11 @@ class Plotter:
                 trajectory_time = row["trajectory_time"]
                 new_densities = row["new_densities"]
                 next_density = row["next_densities"]
+                actual_outflow = row["actual_outflow"]
+                if isinstance(actual_outflow, dict):
+                    actual_outflow = dict(sorted(actual_outflow.items(), key=lambda x: x[0]))
+                    actual_outflow = list(actual_outflow.values())
+                
                 inflow = row["inflow"]
                 if isinstance(inflow, dict):
                     inflow = dict(sorted(inflow.items(), key=lambda x: x[0]))
@@ -1029,10 +1052,14 @@ class Plotter:
                     actual_density = next_density[i]
                     predicted_density = max(new_densities[i], 0)
                     squared_error = (actual_density - predicted_density)
-                    inflow_i = inflow[i]
                     outflow_i = outflow[i]
-                    squared_flow_error = (inflow_i - outflow_i)
-
+                    if outflow_i > 7000:
+                        continue
+                    actual_outflow_i = actual_outflow[i]
+                    if actual_outflow_i > 7000:
+                        continue
+                    squared_flow_error = (actual_outflow_i - outflow_i)
+                    
                     all_rmse_data.append({
                         "link_id": link_id,
                         "trajectory_time": trajectory_time,
@@ -1041,7 +1068,7 @@ class Plotter:
                         "predicted_cell_density": predicted_density,
                         "cell_id": i + 1,
                         "link_cell_id": f"link {link_id} cell {i+1}",
-                        "actual_flow": inflow[i],
+                        "actual_flow": actual_outflow_i,
                         "predicted_flow": outflow[i],
                         "flow_error": squared_flow_error
                     })
@@ -1053,12 +1080,15 @@ class Plotter:
                     actual_max = max(actual_max, actual_density)
                     predicted_min = min(predicted_min, predicted_density)
                     predicted_max = max(predicted_max, predicted_density)
-                    predicted_min_flow = min([predicted_min_flow, inflow_i, outflow_i])
-                    predicted_max_flow = max(predicted_max_flow, inflow_i, outflow_i)
+                    predicted_min_flow = min([predicted_min_flow, actual_outflow_i, outflow_i])
+                    predicted_max_flow = max(predicted_max_flow, actual_outflow_i, outflow_i)
             if not all_rmse_data:
                     print("No error data to plot.")
                     return
-
+            self.max_density = max(self.max_density, predicted_max)
+            self.min_density = min(self.min_density, predicted_min)
+            self.max_flow = max(self.max_flow, predicted_max_flow)
+            self.min_flow = min(self.min_flow, predicted_min_flow)
             df = pd.DataFrame(all_rmse_data)
             sorted_cols = sorted(df["link_cell_id"].unique(), key=lambda x: (int(x.split()[1]), int(x.split()[3])))
 
@@ -1091,8 +1121,8 @@ class Plotter:
             sns.heatmap(
                 actual_data,
                 cmap="Reds",
-                vmin=actual_min,
-                vmax=actual_max,
+                vmin=self.min_density,
+                vmax=self.max_density,
                 cbar_kws={'label': r'Actual Density $(Veh/m)$'}
             )
             plt.title(f"Actual Density Heatmap ({traffic_model})")
@@ -1110,8 +1140,8 @@ class Plotter:
             sns.heatmap(
                 predicted_data,
                 cmap="Reds",
-                vmin=predicted_min,
-                vmax=predicted_max,
+                vmin=self.min_density,
+                vmax=self.max_density,
                 cbar_kws={'label': r'Predicted Density $(Veh/m)$'}
             )
             plt.title(f"Predicted Density Heatmap ({traffic_model})")
@@ -1136,8 +1166,8 @@ class Plotter:
             plt.figure(figsize=(15, 8))
             sns.heatmap(
                 flow_error_data,
-                vmin=predicted_min_flow,
-                vmax=predicted_max_flow,
+                vmin=self.min_flow,
+                vmax=self.max_flow,
                 cmap="Reds",
                 cbar_kws={'label': 'Flow Error'}
             )
@@ -1156,8 +1186,8 @@ class Plotter:
             sns.heatmap(
                 actual_flow_data,
                 cmap="Reds",
-                vmin=actual_min,
-                vmax=actual_max,
+                vmin=self.min_flow,
+                vmax=self.max_flow,
                 cbar_kws={'label': r'Actual Flow $(Veh/s)$'}
             )
             plt.title(f"Actual Flow Heatmap ({traffic_model})")
@@ -1174,8 +1204,8 @@ class Plotter:
             sns.heatmap(
                 predicted_flow_data,
                 cmap="Reds",
-                vmin=predicted_min_flow,
-                vmax=predicted_max_flow,
+                vmin=self.min_flow,
+                vmax=self.max_flow,
                 cbar_kws={'label': r'Predicted Flow $(Veh/s)$'}
             )
             plt.title(f"Predicted Flow Heatmap ({traffic_model})")
@@ -1381,6 +1411,13 @@ class Plotter:
                             traffic_model=traffic_model,
                             params=(free_flow_speed, wave_speed, dt, jam_density_link, q_max)
                         )
+        with open(f"{self.cache_dir}/maxes_mins.json", "w") as f:
+            json.dump({
+                "max_density": self.max_density,
+                "min_density": self.min_density,
+                "max_flow": self.max_flow,
+                "min_flow": self.min_flow
+            }, f, indent=4)
     def plot_fundamental_diagram(self):
         """
         Plot the fundamental diagram.
@@ -1392,7 +1429,7 @@ class Plotter:
         plt.figure(figsize=(12, 7), dpi=300)  # higher resolution and larger figure
         color_map = cm.get_cmap('tab20')  # or 'Set1', 'hsv', etc.
         param_files = [f for f in os.listdir(folder) if f.endswith(".json")]
-        np.random.seed(42)  # for reproducibility
+        np.random.seed(40)  # for reproducibility
         param_files = np.random.choice(param_files, size=8, replace=False)
         colors = color_map(np.linspace(0, 1, len(param_files)))
 
@@ -1408,8 +1445,8 @@ class Plotter:
                 x_intercept_ws = (((jam_density_link * wave_speed) - q_max) / wave_speed).to(Units.PER_KM).value
                 last_x = jam_density_link.to(Units.PER_KM).value
                 y_intercept = q_max.to(Units.PER_HR).value
-                label = rf"FFS: {free_flow_speed.to(Units.KM_PER_HR).value:.1f} $\frac{{\mathrm{{km}}}}{{\mathrm{{hr}}}}$, " \
-                rf"WS: {wave_speed.to(Units.KM_PER_HR).value:.1f} $\frac{{\mathrm{{km}}}}{{\mathrm{{hr}}}}$, " \
+                label = rf"$u_f$: {free_flow_speed.to(Units.KM_PER_HR).value:.1f} $\frac{{\mathrm{{km}}}}{{\mathrm{{hr}}}}$, " \
+                rf"$w$: {wave_speed.to(Units.KM_PER_HR).value:.1f} $\frac{{\mathrm{{km}}}}{{\mathrm{{hr}}}}$, " \
                 rf"$K_j$: {jam_density_link.to(Units.PER_KM).value:.1f} $\frac{{\mathrm{{veh}}}}{{\mathrm{{km}}}}$, " \
                 rf"$Q_{{\max}}$: {q_max.to(Units.PER_HR).value:.1f} $\frac{{\mathrm{{veh}}}}{{\mathrm{{hr}}}}$"
                 # Plot the free-flow segment with the label
@@ -1439,17 +1476,177 @@ class Plotter:
         plt.savefig(output_path + ".pdf", dpi=300)
         plt.close()
 
+    def get_max_mins(self):
+        """
+        Get the max and min values of the errors.
+        """
+        min_flow = float("inf")
+        max_flow = float("-inf")
+        min_density = float("inf")
+        max_density = float("-inf")
+        for folder in os.listdir(self.cache_dir):
+            # If the first characters of the folder name are capital letters, it is a traffic model
+            if folder[0].isupper():
+                traffic_model = folder
+                for file_name in os.listdir(f"{self.cache_dir}/{traffic_model}"):
+                    if file_name.endswith(".json"):
+                        data_file_name = "_".join(file_name.split("_")[:4])
+                        hash_geo = file_name.split("_")[4].split(".")[0]
+                        hash_params = file_name.split("_")[5].split(".")[0]
+                        file_name = f"{self.cache_dir}/{traffic_model}/{data_file_name}_{hash_geo}_{hash_params}.json"
+
+                        with open(file_name, "r") as f:
+                            data = json.load(f)
+    def plot_sensitivity(self):
+        """
+        Plot senstivity analysis results.
+        """            
+
+        all_errors_path = f"{self.cache_dir}/all_errors.json"
+        if not os.path.exists(all_errors_path):
+            raise FileNotFoundError(f"File not found: {all_errors_path}")
+        
+        with open(all_errors_path, "r") as f:
+            errors = json.load(f)
+        
+        # plt.figure(figsize=(12, 7), dpi=300)
+        # color_map = cm.get_cmap('tab20')  # or 'Set1', 'hsv', etc.
+        traffic_models = list(errors.keys())
+        # colors = color_map(np.linspace(0, 1, len(traffic_models)))
+        
+        # for i, traffic_model in enumerate(traffic_models):
+        #     model_errors = errors[traffic_model]
+        #     if not model_errors:
+        #         continue
+        #     params = list(model_errors.keys())
+        #     values = list(model_errors.values())
+        #     params = list(map(lambda x: x.replace("(", "").replace(")", ""), params))  # remove quotes from keys
+        #     plt.plot(params, values, marker='o', linestyle='-', color=colors[i], label=traffic_model)
+        # plt.xlabel(r"Parameters ($u_f$ as $\frac{\mathrm{km}}{\mathrm{hr}}$, $w$ as $\frac{\mathrm{km}}{\mathrm{hr}}$, $K_j$ as $\frac{\mathrm{veh}}{\mathrm{km}}$, $Q_{\max}$ as $\frac{\mathrm{veh}}{\mathrm{hr}}$)")
+        # plt.ylabel(r"Average Density Error $\frac{\mathrm{veh}}{\mathrm{m}}$")
+        # plt.title("Sensitivity Analysis of Traffic Models")
+        # plt.xticks(rotation=45, ha='right')
+        # plt.legend()
+        # plt.tight_layout()
+        # output_path = f"{self.cache_dir}/results/sensitivity_analysis.png"
+        # os.makedirs(os.path.dirname(output_path), exist_ok=True)
+        # plt.savefig(output_path, dpi=300)
+        # plt.close()
+        data_dict = {
+            "traffic_models": [],
+            "error": [],
+            "u_f": [],
+            "w": [],
+            "K_j": [],
+            "Q": [],
+        }
+        for i, traffic_model in enumerate(traffic_models):
+            model_errors = errors[traffic_model]
+            if not model_errors:
+                continue
+            for params, value in model_errors.items():
+                params = params.replace("(", "").replace(")", "")
+                params_list = params.split(", ")
+                params_list = [float(p.replace("'", "")) for p in params_list]
+                free_flow_speed, wave_speed, dt, jam_density_link, q_max = params_list
+                data_dict["traffic_models"].append(traffic_model)
+                data_dict["error"].append(value)
+                data_dict["u_f"].append(free_flow_speed)
+                data_dict["w"].append(wave_speed)
+                data_dict["K_j"].append(jam_density_link)
+                data_dict["Q"].append(q_max)
+        df = pd.DataFrame(data_dict)
+        params = ["u_f", "w", "K_j", "Q"]
+        units = {
+            "u_f": r"\frac{veh}{hr}",
+            "w": r"\frac{veh}{hr}",
+            "K_j": r"\frac{veh}{km}",
+            "Q": r"\frac{veh}{hr}"
+        }
+
+        # cmap
+        color_map = cm.get_cmap('tab20')
+        colors = color_map(np.linspace(0, 1, df["traffic_models"].nunique()))
+        colors = dict(zip(df["traffic_models"].unique(), colors))
+        for param in params:
+            grouped = df.groupby(param)
+            
+            for name, group in grouped:
+                second_grouped = group.groupby("traffic_models")
+                x_params = [p for p in params if p != param]
+                plt.figure(figsize=(12, 7), dpi=300)
+                print(x_params)
+                for second_name, second_group in second_grouped:
+                    # Build the x-axis label by excluding the current param
+                    second_group = second_group.sort_values(by=x_params)
+                    # Create a string label for each row combining the other parameters
+                    x = second_group[x_params[0]].astype(str) + ", " + \
+                        second_group[x_params[1]].astype(str) + ", " + \
+                        second_group[x_params[2]].astype(str)
+                    y = second_group["error"]
+                    plt.plot(x, y, marker='o', linestyle='-', label=f"{second_name}", color=colors[second_name])
+                plt.ylabel(f"Error")
+                xlabel = ", ".join([f"${p}$ (${units[p]})$" for p in x_params])
+                plt.xlabel(f"{xlabel}", fontsize=16)
+                plt.title(f"Sensitivity Analysis for {param} ({name})")
+                plt.xticks(rotation=45, ha='right', fontsize=14)
+                plt.grid()
+                plt.legend()
+                plt.tight_layout()
+                if param == "K_j":
+                    naming = "K_"
+                elif param == "Q":
+                    naming = "q_\\{max}"
+                else:
+                    naming = param
+                output_path = f"{self.cache_dir}/sensitivity/{param}_{name}.png"
+                os.makedirs(os.path.dirname(output_path), exist_ok=True)
+                plt.savefig(output_path, dpi=300)
+                plt.close()
+
+
+        df.to_csv(f"{self.cache_dir}/results/sensitivity_analysis.csv", index=False)
+        groupby_model = df.groupby("traffic_models")
+        plt.figure(figsize=(15, 7), dpi=300)
+
+        for name, group in groupby_model:
+            group = group.sort_values(by=params)
+
+            x_labels = group[params[0]].astype(str) + ", " + \
+                    group[params[1]].astype(str) + ", " + \
+                    group[params[2]].astype(str) + ", " + \
+                    group[params[3]].astype(str)
+            x_indices = np.arange(len(x_labels))  # Now matches this group's size
+            y = group["error"].values  # Make sure it's a NumPy array
+
+            plt.plot(x_indices, y, linestyle='-', label=name, color=colors[name])
+
+        # Use ticks from the largest group (or just the last one, assuming all equal)
+        max_labels = 20
+        step = max(1, len(x_labels) // max_labels)
+        tick_positions = x_indices[::step]
+        tick_labels = x_labels.tolist()[::step]
+
+        plt.xticks(ticks=tick_positions, labels=tick_labels, rotation=45, ha='right', fontsize=14)
+        
+        xlabel = ", ".join([f"${p}$ (${units[p]})$" for p in params])
+        plt.xlabel(xlabel, fontsize=16)
+        plt.ylabel("Error")
+        plt.grid()
+        plt.title("Sensitivity Analysis")
+        plt.legend()
+        plt.tight_layout()
+        plt.savefig(f"{self.cache_dir}/sensitivity/sensitivity_analysis_all.png", dpi=300)
+        plt.close()
+
 
 
 if __name__ == "__main__":
     
-    data_file_name = "d1_20181029_0800_0830"
-    params_hash = "0a043bb9c51bc73349c36a052764479b"
-    geo_hash = "682a48de"
-    traffic_model_name = "PW"
     plotter = Plotter(cache_dir=".cache_dt5s")
     # plotter.plot_all()
-    plotter.plot_fundamental_diagram()
+    plotter.plot_sensitivity()
+    # plotter.plot_fundamental_diagram()
     # plotter.animation(f".cache/{data_file_name}_fully_process_vehicles_{geo_hash}.csv")
     # print("Heatmap generated and saved successfully.")
     
