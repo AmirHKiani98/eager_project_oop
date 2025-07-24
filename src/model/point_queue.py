@@ -101,21 +101,26 @@ class PointQueue(TrafficModel):
         trajectory_time = args["trajectory_time"]
         entry_count = args["entry_count"]
         # todo not sure if this is correct
-        outflow = min(
+        new_inflow = min(
             entry_count,
             receiving_flow
+        )
+        outflow = min(
+            sending_flow,
+            (q_max_down * dt).to(1).value
         )
         current_number_of_vehicles = args["current_number_of_vehicles"]
         if sending_flow > 0:
             sending_flow = sending_flow
         # outflow = sending_flow/dt
-        new_occupancy = next_occupancy + outflow - sending_flow
+        new_occupancy = current_number_of_vehicles + outflow - sending_flow
         actual_outflow = args["actual_outflow"]
         return {
             # "outflow": outflow.to(Units.PER_HR).value, # already applied filteration on sending flow so it became outflow
             "receiving_flow": receiving_flow,
             "next_occupancy": next_occupancy,
             "trajectory_time": trajectory_time,
+            "new_inflow": new_inflow/dt,
             "link_id": link_id,
             "outflow": (outflow/dt).to(Units.PER_HR).value,  # corrected to reflect the actual outflow
             "current_number_of_vehicles": current_number_of_vehicles,
