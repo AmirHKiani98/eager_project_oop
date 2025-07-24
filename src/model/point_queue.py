@@ -120,12 +120,12 @@ class PointQueue(TrafficModel):
             "receiving_flow": receiving_flow,
             "next_occupancy": next_occupancy,
             "trajectory_time": trajectory_time,
-            "new_inflow": new_inflow/dt,
+            "new_inflow": (new_inflow/dt).to(Units.PER_HR).value,
             "link_id": link_id,
             "new_outflow": (new_outflow/dt).to(Units.PER_HR).value,  # corrected to reflect the actual outflow
             "current_number_of_vehicles": current_number_of_vehicles,
             "new_occupancy": new_occupancy,
-            "inflow": {cell_id: inflow.to(Units.PER_HR).value for cell_id, inflow in args["inflow"].items()},
+            "actual_inflow": {cell_id: inflow.to(Units.PER_HR).value for cell_id, inflow in args["inflow"].items()},
             "actual_outflow": {cell_id: value.to(Units.PER_HR).value for cell_id, value in actual_outflow.items()}
         }
 
