@@ -67,7 +67,7 @@ class SpatialQueue(TrafficModel):
                 raise ValueError(f"Missing required argument: {arg}")
         # Placeholder for running the point queue model
         q_max_up = args["q_max_up"]
-        inflow = args["inflow"]
+        actual_inflow = args["inflow"]
         if not isinstance(q_max_up, Units.Quantity):
             raise TypeError(
                 f"q_max_up should be a Units.Quantity (Per time), got {type(q_max_up)}"
@@ -117,22 +117,27 @@ class SpatialQueue(TrafficModel):
         link_id = args["link_id"]
         entry_count = args["entry_count"]
         # todo not sure if this is correct
-        outflow = min(
+        new_inflow = min(
             entry_count,
             receiving_flow
         )
+        new_outflow = min(
+            sending_flow,
+            (q_max_down * dt).to(1).value # type: ignore
+        )
         current_number_of_vehicles = args["current_number_of_vehicles"]
-        new_occupancy = next_occupancy + outflow - sending_flow
+        new_occupancy = next_occupancy + new_inflow - new_outflow
         actual_outflow = args["actual_outflow"]
         return {
-            "outflow": (outflow/dt).to(Units.PER_HR).value, # already applied filteration on sending flow so it became outflow
+            "new_outflow": (new_outflow/dt).to(Units.PER_HR).value, # already applied filteration on sending flow so it became outflow
             "receiving_flow": receiving_flow,
             "next_occupancy": next_occupancy,
             "trajectory_time": trajectory_time,
             "link_id": link_id,
             "current_number_of_vehicles": current_number_of_vehicles,
             "new_occupancy": new_occupancy,
-            "inflow": {cell_id: value.to(Units.PER_HR).value for cell_id, value in inflow.items()},  # re-adding inflow to the return statement
+            "new_inflow": new_inflow/dt,
+            "actual_inflow": {cell_id: value.to(Units.PER_HR).value for cell_id, value in actual_inflow.items()},  # re-adding inflow to the return statement
             "actual_outflow": {cell_id: value.to(Units.PER_HR).value for cell_id, value in actual_outflow.items()},  # re-adding actual_outflow to the return statement
         }
 

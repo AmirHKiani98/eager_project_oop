@@ -107,7 +107,7 @@ class PointQueue(TrafficModel):
         )
         new_outflow = min(
             sending_flow,
-            (q_max_down * dt).to(1).value
+            (q_max_down * dt).to(1).value # type: ignore
         )
         current_number_of_vehicles = args["current_number_of_vehicles"]
         if sending_flow > 0:
