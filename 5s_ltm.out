@@ -1,0 +1,22 @@
+Calibrating traffic model:   0%|          | 0/81 [00:00<?, ?it/s]Loading the files:   0%|          | 0/1 [00:00<?, ?it/s]Loading the files: 100%|██████████| 1/1 [00:01<00:00,  1.08s/it]Loading the files: 100%|██████████| 1/1 [00:01<00:00,  1.08s/it]
+Writing density entry exit file to .cache_dt5s/d1_20181029_0800_0830_density_entry_exit_623b00c4.csv
+get_next_timestamp_occupancy File address: .cache_dt5s/d1_20181029_0800_0830_next_timestamp_occupancy_623b00c4_fbe2d6d001be4986dc0a952e3037aa2d.json
+
+Processing traffic model:   0%|          | 0/11 [00:00<?, ?it/s][A
+Processing traffic model:   9%|▉         | 1/11 [00:07<01:14,  7.44s/it][A
+Processing traffic model:  18%|█▊        | 2/11 [00:08<00:35,  3.93s/it][A
+Processing traffic model:  27%|██▋       | 3/11 [00:10<00:22,  2.79s/it][A
+Processing traffic model:  36%|███▋      | 4/11 [00:12<00:18,  2.59s/it][A
+Processing traffic model:  45%|████▌     | 5/11 [00:13<00:12,  2.13s/it][A
+Processing traffic model:  55%|█████▍    | 6/11 [00:15<00:09,  1.87s/it][A
+Processing traffic model:  64%|██████▎   | 7/11 [00:17<00:07,  1.95s/it][A
+Processing traffic model:  73%|███████▎  | 8/11 [00:18<00:05,  1.71s/it][A
+Processing traffic model:  82%|████████▏ | 9/11 [00:19<00:03,  1.60s/it][A
+Processing traffic model:  91%|█████████ | 10/11 [00:21<00:01,  1.56s/it][A
+Processing traffic model: 100%|██████████| 11/11 [00:21<00:00,  1.25s/it][AProcessing traffic model: 100%|██████████| 11/11 [00:21<00:00,  2.00s/it]
+Calibrating traffic model:   1%|          | 1/81 [00:45<1:00:17, 45.22s/it]Saving results to .cache_dt5s/LTM/d1_20181029_0800_0830_623b00c4_40801c7aeb5c78bae6905f944efb3e3e.json
+Loading the files:   0%|          | 0/1 [00:00<?, ?it/s]Loading the files: 100%|██████████| 1/1 [00:00<00:00,  1.33it/s]Loading the files: 100%|██████████| 1/1 [00:00<00:00,  1.33it/s]
+Writing density entry exit file to .cache_dt5s/d1_20181029_0800_0830_density_entry_exit_623b00c4.csv
+get_next_timestamp_occupancy File address: .cache_dt5s/d1_20181029_0800_0830_next_timestamp_occupancy_623b00c4_fbe2d6d001be4986dc0a952e3037aa2d.json
+
+Processing traffic model:   0%|          | 0/11 [00:00<?, ?it/s][A

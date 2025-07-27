@@ -93,6 +93,7 @@ class DataLoader:
         self.current_file_running = {}
         self.density_exit_entry_files_dict = {}
         self.traffic_light_status_file_dict = {}
+        self.cell_cummulative_counts_file = {}
         self.test_files = defaultdict(list)
         self.traffic_light_status_dict = {}
         self.cell_vector_occupancy_or_density_dict = {}
@@ -310,6 +311,9 @@ class DataLoader:
                                 what_test="link_cumulative_counts"
                             )
                         )
+                        self.cell_cummulative_counts_file[(location, date, time)] = self.get_cell_cummulative_counts_file(location, date, time)
+                        
+                        # TODO: Test should be added
                         unprocessed_traffic_file = self._get_traffic_light_status(
                             removed_vehicles_on_minor_roads, location, date, time
                         )
@@ -1203,7 +1207,7 @@ class DataLoader:
             ["link_id", "trajectory_time"]
         ).unique().height
         cumulative_counts_data = []
-        for name, group in tqdm(groups, total=group_length, desc="Summing entries and exits"):
+        for name, group in tqdm(groups, total=group_length, desc="Getting the god damn summations for exit and entry"):
             # We are only interested in the first and last cell of each link
             link_id, trajectory_time = name[0], name[1]
             trajectory_time = round(float(str(trajectory_time)), 2)
@@ -1263,6 +1267,66 @@ class DataLoader:
         ])
         cumulative_cumulative_counts_df.write_csv(file_address)
         return file_address
+    
+    def get_cell_cummulative_counts_file(self, location, date, time):
+        # nbbi: Needs test
+        """
+        Returns the cumulative counts for the specified location, date, and time.
+        """
+        file_address = (
+            self.params.cache_dir + "/" + self._get_filename(location, date, time) +
+            "_cell_cumulative_counts_" + "_" + self.params.get_hash_str(["dt", "free_flow_speed", "jam_density_link"]) + "_" +
+            self.geo_loader.get_hash_str() + ".csv"
+        )
+        
+        if os.path.isfile(file_address):
+            with open(file_address, "r") as f:
+                return convert_keys_to_float(json.load(f))
+
+        occupanct_exit_entry_df = self.density_exit_entry_files_dict.get(
+            (location, date, time), None
+        )
+        
+        if occupanct_exit_entry_df is None:
+            raise ValueError(
+                f"File not found for {location}, {date}, {time}, "
+                "for processing cumulative count"
+            )
+
+        occupancy_exit_entry_df = pl.read_csv(occupanct_exit_entry_df)
+        df = occupancy_exit_entry_df.sort(["link_id", "cell_id", "trajectory_time"])
+        cum_entry_counts = {}
+        groups= df.group_by(["link_id", "cell_id"])
+        groups_length = df.select(["link_id", "cell_id"]).unique().height
+        min_time = occupancy_exit_entry_df["trajectory_time"].min()
+        max_time = occupancy_exit_entry_df["trajectory_time"].max()
+        for (link_id, cell_id), group in tqdm(groups, desc="Getting cell cummulative counts", total=groups_length):
+            group = fill_missing_timestamps(
+                group,
+                "trajectory_time",
+                self.time_interval,
+                min_time, # type: ignore
+                max_time # type: ignore
+            )
+            group = group.sort("trajectory_time")
+            times = group["trajectory_time"].to_numpy()
+            counts = group["entry_count"].to_numpy()
+            exit_counts = group["exit_count"].to_numpy()
+            # TODO: we should extend for those times that might not exist here
+            
+            cumsum = counts.cumsum()
+            exit_cumsum = exit_counts.cumsum()
+            if link_id not in cum_entry_counts:
+                cum_entry_counts[link_id] = {}
+            for index, time in enumerate(times):
+                if time not in cum_entry_counts[link_id]:
+                    cum_entry_counts[link_id][time] = {}
+                cum_entry_counts[link_id][time][cell_id] = {"cum_entry" : int(cumsum[index]), "cum_exit": int(exit_cumsum[index])}
+        
+        with open(file_address, "w") as f:
+            json.dump(cum_entry_counts, f, indent=4)
+        return convert_keys_to_float(cum_entry_counts)
+            
 
     def activate_tl_status_dict(self, location, date, time):
         """
@@ -1605,66 +1669,182 @@ class DataLoader:
             
         return cumulative_counts_dict
 
-    def get_cumulative_count_ltm(self, location, date, time, epsilon = 0.01):
+    def get_cumulative_count_ltm(self, location, date, time, time_epsilon = 1 * Units.S, x_epsilon=1 * Units.M):
         """
         Returns the cumulative counts for the specified location, date, and time.
         """
         # nbbi: Needs test
         # nbbi: This can be more time efficient
-        cumulative_counts_file = self.link_cumulative_counts_file.get((location, date, time), None)
-        if not isinstance(cumulative_counts_file, str):
-            raise ValueError(f"File not found for {location}, {date}, {time}")
         
         output_file_address = (
             self.params.cache_dir + "/" +
             self._get_filename(location, date, time) +
-            f"_cumulative_count_ltm_epsilon_{epsilon}_" + self.params.get_hash_str(["dt", "free_flow_speed", "wave_speed"]) + "_" +
+            f"_cumulative_count_ltm_epsilon_" + self.params.get_hash_str(["dt", "free_flow_speed", "wave_speed", "jam_density_link"]) + "_" +
             self.geo_loader.get_hash_str() + ".json"
         )
+
         if os.path.isfile(output_file_address):
-            with open(output_file_address, "r", encoding="utf-8") as f:
-                cumulative_counts_dict = json.load(f)
-            return convert_keys_to_float(cumulative_counts_dict)
+            with open(output_file_address, 'r') as f:
+                results = convert_keys_to_float(json.load(f))
+                return results
+
         
-        cummulative_counts_df = pl.read_csv(cumulative_counts_file)
-        cummulative_counts_df = cummulative_counts_df
-        args = []
-        self.temp_df = {}
-        self.ltm_epsilon = epsilon
-        for link_id, link in tqdm(self.geo_loader.links.items(), desc="Preparing args for", total=len(self.geo_loader.links)):
-            link_df = cummulative_counts_df.filter(
-                pl.col("link_id") == link_id
-            ).sort(["trajectory_time"])
-            self.temp_df[link_id] = link_df
-            trajectory_time = link_df["trajectory_time"].unique().to_numpy()
-            for raw_time in tqdm(trajectory_time, total=len(trajectory_time), desc=f"Preparing args for for link {link_id}"):
-                x = 0
-                for cell_id, cell in link.cells.items():
-                    x += cell.get_length().to(Units.M).value
-                    args.append({
-                        "x": x,
-                        "time": raw_time,
-                        "link_id": link_id,
-                        "cell_id": cell_id,
-                        "link_length": link.get_length().to(Units.M).value
-                    })
-        # Multiprocessing with batch
-        batch_size = 10000
-        cumulative_counts_result = []
-        with Pool(processes=int(cpu_count() / 2)) as pool:
-            for batch in tqdm(
-                chunked(args, batch_size),
-                total=(len(args) // batch_size) + 1,
-                desc="Finding cumulative counts for LTM"
-            ):
-                results = pool.map(self._get_cumulative_count_ltm_for_multiprocessing, batch)
-                cumulative_counts_result.extend(results)
+        cell_cummulative_counts_data = self.get_cell_cummulative_counts_file(location, date, time)
         
+
+        occupanct_exit_entry_file_address = self.density_exit_entry_files_dict.get(
+            (location, date, time), None
+        )
         
-        cumulative_counts_dict = self._cumulative_count_ltm_list_to_dict(cumulative_counts_result)
+        if occupanct_exit_entry_file_address is None:
+            raise ValueError(
+                f"File not found for {location}, {date}, {time}, "
+                "for processing cumulative count"
+            )
+
+        occupancy_exit_entry_df = pl.read_csv(occupanct_exit_entry_file_address)
+        groups = occupancy_exit_entry_df.group_by(
+            ["link_id", "trajectory_time"]
+        )
+        group_length = occupancy_exit_entry_df.select(
+            ["link_id", "trajectory_time"]
+        ).unique().height
+        results = {}
+        for name, group in tqdm(groups, total=group_length, desc="Summing entries and exits"):
+            # We are only interested in the first and last cell of each link
+            link_id, trajectory_time = name[0], name[1]
+            trajectory_time += self.params.dt.to(Units.S).value
+            trajectory_time = round(float(str(trajectory_time)), 2)
+            cells = list(self.geo_loader.links[link_id].cells.keys())
+            number_of_cells = len(cells)
+            link_length = self.geo_loader.links[link_id].get_length()
+            if link_id not in results:
+                results[link_id] = {}
+            if trajectory_time not in results[link_id]:
+                results[link_id][trajectory_time] = {}
+            for row in group.iter_rows(named=True):
+                cell_id = row["cell_id"]
+                x = self.geo_loader.links[link_id].cells[cell_id].get_length()
+                t_x_over_uf = trajectory_time - ((x/self.params.free_flow_speed).to(Units.S).value)
+                t_linklength_minus_x_over_wave = trajectory_time - ((link_length-x)/self.params.wave_speed).to(Units.S).value
+                
+                # TODO Make sure if the time isl less than 0 the following values are zero
+                link_cumsum_data = cell_cummulative_counts_data[link_id]
+                times = list(link_cumsum_data.keys())
+                index = np.searchsorted(times, t_x_over_uf, side="left")
+                if index == 0:
+                    N_t_x_over_uf_0 = 0
+                elif index >= len(times):
+                    cells_cumsum_data = link_cumsum_data[times[len(times) - 1]]
+                    N_t_x_over_uf_0 = cells_cumsum_data.get(1)["cum_entry"]
+                else:
+                    cells_cumsum_data = link_cumsum_data[times[index]]
+                    N_t_x_over_uf_0 = cells_cumsum_data.get(1)["cum_entry"]
+
+                index = np.searchsorted(times, t_linklength_minus_x_over_wave, side="left")
+                if index == 0:
+                    N_t_linklength_minus_x_over_wave_L = 0
+                elif index >= len(times):
+                    cells_cumsum_data = link_cumsum_data[times[len(times) - 1]]
+                    N_t_linklength_minus_x_over_wave_L = cells_cumsum_data.get(number_of_cells)["cum_exit"]
+                    N_t_linklength_minus_x_over_wave_L += (self.params.jam_density_link * (link_length - x)).to(1).value
+                else:
+                    cells_cumsum_data = link_cumsum_data[times[index]]
+                    N_t_linklength_minus_x_over_wave_L = cells_cumsum_data.get(number_of_cells)["cum_exit"]
+                    N_t_linklength_minus_x_over_wave_L += (self.params.jam_density_link * (link_length - x)).to(1).value
+
+            
+
+
+                
+                teps = trajectory_time + time_epsilon.to(Units.S).value
+                # t_xeps_over_uf = trajectory_time - ((xeps/self.params.free_flow_speed).to(Units.S).value)
+                teps_x_over_uf = teps - (x/self.params.free_flow_speed).to(Units.S).value
+                teps_linklength_minus_x_over_wave = teps - ((link_length-x)/self.params.wave_speed).to(Units.S).value
+                
+                index = np.searchsorted(times, teps_x_over_uf, side="left")
+                if index == 0:
+                    N_teps_x_over_uf_0 = 0
+                elif index >= len(times):
+                    cells_cumsum_data = link_cumsum_data[times[len(times) - 1]]
+                    N_teps_x_over_uf_0 = cells_cumsum_data.get(1)["cum_entry"]
+                else:
+                    cells_cumsum_data = link_cumsum_data[times[index]]
+                    N_teps_x_over_uf_0 = cells_cumsum_data.get(1)["cum_entry"]
+
+                index = np.searchsorted(times, teps_linklength_minus_x_over_wave, side="left")
+                if index == 0:
+                    N_tpes_linklength_minus_x_over_wave_L = 0
+                elif index >= len(times):
+                    cells_cumsum_data = link_cumsum_data[times[len(times) - 1]]
+                    N_tpes_linklength_minus_x_over_wave_L = cells_cumsum_data.get(number_of_cells)["cum_exit"]
+                    N_tpes_linklength_minus_x_over_wave_L += (self.params.jam_density_link * (link_length - x)).to(1).value
+                else:
+                    cells_cumsum_data = link_cumsum_data[times[index]]
+                    N_tpes_linklength_minus_x_over_wave_L = cells_cumsum_data.get(number_of_cells)["cum_exit"]
+                    N_tpes_linklength_minus_x_over_wave_L += (self.params.jam_density_link * (link_length - x)).to(1).value
+
+                
+                xeps = x + x_epsilon
+                t_xeps_over_uf = trajectory_time - (xeps/self.params.free_flow_speed).to(Units.S).value
+                t_linklength_minus_xeps_over_wave = trajectory_time - ((link_length-xeps)/self.params.wave_speed).to(Units.S).value
+
+
+                index = np.searchsorted(times, t_xeps_over_uf, side="left")
+                if index == 0:
+                    N_t_xeps_over_uf_0 = 0
+                elif index >= len(times):
+                    cells_cumsum_data = link_cumsum_data[times[len(times) - 1]]
+                    N_t_xeps_over_uf_0 = cells_cumsum_data.get(1)["cum_entry"]
+                else:
+                    cells_cumsum_data = link_cumsum_data[times[index]]
+                    N_t_xeps_over_uf_0 = cells_cumsum_data.get(1)["cum_entry"]
+
+                index = np.searchsorted(times, t_linklength_minus_xeps_over_wave, side="left")
+                if index == 0:
+                    N_t_linklength_minus_xeps_over_wave_L = 0
+                elif index >= len(times):
+                    cells_cumsum_data = link_cumsum_data[times[len(times) - 1]]
+                    N_t_linklength_minus_xeps_over_wave_L = cells_cumsum_data.get(number_of_cells)["cum_exit"]
+                    N_t_linklength_minus_xeps_over_wave_L += (self.params.jam_density_link * (link_length - x)).to(1).value
+                else:
+                    cells_cumsum_data = link_cumsum_data[times[index]]
+                    N_t_linklength_minus_xeps_over_wave_L = cells_cumsum_data.get(number_of_cells)["cum_exit"]
+                    N_t_linklength_minus_xeps_over_wave_L += (self.params.jam_density_link * (link_length - x)).to(1).value
+
+                results[link_id][trajectory_time][cell_id] = {
+                    "N_t_x_over_uf_0": N_t_x_over_uf_0,  
+                    "N_t_linklength_minus_x_over_wave_L": N_t_linklength_minus_x_over_wave_L,
+                    "N_teps_x_over_uf_0": N_teps_x_over_uf_0,
+                    "N_tpes_linklength_minus_x_over_wave_L": N_tpes_linklength_minus_x_over_wave_L,
+                    "N_t_xeps_over_uf_0": N_t_xeps_over_uf_0,
+                    "N_t_linklength_minus_xeps_over_wave_L": N_t_linklength_minus_xeps_over_wave_L
+                }
+            captured_length = 0
+            for cell_id in sorted(cells, key=lambda x: float(x)):
+                if cell_id not in results[link_id][trajectory_time]:
+                    results[link_id][trajectory_time][cell_id] = {
+                        "N_t_x_over_uf_0": 0,
+                        "N_t_linklength_minus_x_over_wave_L": 0,
+                        "N_teps_x_over_uf_0": 0,
+                        "N_tpes_linklength_minus_x_over_wave_L": 0,
+                        "N_t_xeps_over_uf_0": 0,
+                        "N_t_linklength_minus_xeps_over_wave_L": 0
+                    }
+                captured_length += self.geo_loader.links[link_id][cell_id].get_length()
+                results[link_id][trajectory_time][cell_id]["x"] = captured_length.to(Units.M).value
+                results[link_id][trajectory_time][cell_id]["eps_x"] = x_epsilon.to(Units.M).value
+                results[link_id][trajectory_time][cell_id]["eps_t"] = time_epsilon.to(Units.S).value
+
+        
+
+                
+                
+                
+
         with open(output_file_address, "w", encoding="utf-8") as f:
-            json.dump(cumulative_counts_dict, f, indent=4)
-        return cumulative_counts_dict
+            json.dump(results, f, indent=4)
+        return convert_keys_to_float(results)
 
     def get_next_cell_exit_file(self, location, date, time):
         """
@@ -2282,9 +2462,7 @@ class DataLoader:
         self.activate_cummulative_counts_ltm(location, date, time)
         self.activate_tl_status_dict(location, date, time)
         self.activate_next_timestamp_occupancy(location, date, time)
-        self.activate_next_exit_link(location, date, time)
-        self.activate_first_cell_inflow_dict(location, date, time)
-        self.activate_first_cell_outflow_dict(location, date, time)
+        self.activate_next_exit_cell(location, date, time)
         self.current_file_running = {
             "location": location,
             "date": date,
@@ -2299,45 +2477,43 @@ class DataLoader:
             self.tasks = json.load(open(file_address, "r", encoding="utf-8"))
             for index in range(len(self.tasks)):
                 self.tasks[index]["dt"] = self.tasks[index]["dt"] * Units.S
-                self.tasks[index]["wave_speed"] = self.tasks[index]["wave_speed"] * Units.KM_PER_HR
                 self.tasks[index]["link_length"] = self.tasks[index]["link_length"] * Units.M
+                self.tasks[index]["cell_length"] = self.tasks[index]["cell_length"] * Units.M
                 self.tasks[index]["x"] = self.tasks[index]["x"] * Units.M
+                self.tasks[index]["eps_x"]= self.tasks[index]["eps_x"] * Units.M
+                self.tasks[index]["eps_t"]= self.tasks[index]["eps_t"] * Units.S
                 self.tasks[index]["jam_density_link"] = self.tasks[index]["jam_density_link"] * Units.PER_KM
             return
         tasks = []
         for link_id, cell_dict in self.cumulative_counts_dict.items(): # type: ignore
             for trajectory_time, data in cell_dict.items():
-                for cell_id, cell in self.geo_loader.links[link_id].cells.items():
-                    if cell_id - 1 >= len(self.next_timestamp_occupancy_dict[link_id][trajectory_time]["next_occupancy"]):
-                        continue
 
+                for cell_id, cell in self.geo_loader.links[link_id].cells.items():
+                    if trajectory_time not in self.next_timestamp_occupancy_dict[link_id]:
+                        continue
+                    if cell_id - 1 >= len(self.next_timestamp_occupancy_dict[link_id][trajectory_time]["next_occupancy"]):
+                        print("Continuing because cell_id - 1 is bigger than the length of next_occupancy")
+                        continue
                     tasks.append(
                         {
                             "link_id": link_id,
-                            "trajectory_time": trajectory_time,
-                            "upstream_value_freeflow_with_eps_x": self.cumulative_counts_dict[link_id][trajectory_time][cell_id]["upstream_value_freeflow_with_eps_x"],
-                            "downstream_value_freeflow_with_eps_x": self.cumulative_counts_dict[link_id][trajectory_time][cell_id]["downstream_value_freeflow_with_eps_x"],
-                            "upstream_value_freeflow_with_eps_t": self.cumulative_counts_dict[link_id][trajectory_time][cell_id]["upstream_value_freeflow_with_eps_t"],
-                            "downstream_value_freeflow_with_eps_t": self.cumulative_counts_dict[link_id][trajectory_time][cell_id]["downstream_value_freeflow_with_eps_t"],
-                            "upstream_value_freeflow": self.cumulative_counts_dict[link_id][trajectory_time][cell_id]["upstream_value_freeflow"],
-                            "downstream_value_freeflow": self.cumulative_counts_dict[link_id][trajectory_time][cell_id]["downstream_value_freeflow"],
-                            "inflow": self.first_cell_inflow_dict[link_id].get(trajectory_time, 0),
-                            "upstream_value_wavespeed_with_eps_x": self.cumulative_counts_dict[link_id][trajectory_time][cell_id]["upstream_value_wavespeed_with_eps_x"],
-                            "downstream_value_wavespeed_with_eps_x": self.cumulative_counts_dict[link_id][trajectory_time][cell_id]["downstream_value_wavespeed_with_eps_x"],
-                            "upstream_value_wavespeed_with_eps_t": self.cumulative_counts_dict[link_id][trajectory_time][cell_id]["upstream_value_wavespeed_with_eps_t"],
-                            "downstream_value_wavespeed_with_eps_t": self.cumulative_counts_dict[link_id][trajectory_time][cell_id]["downstream_value_wavespeed_with_eps_t"],
-                            "upstream_value_wavespeed": self.cumulative_counts_dict[link_id][trajectory_time][cell_id]["upstream_value_wavespeed"],
-                            "downstream_value_wavespeed": self.cumulative_counts_dict[link_id][trajectory_time][cell_id]["downstream_value_wavespeed"],
-                            "cell_id": cell_id,
-                            "link_id": link_id,
-                            "wave_speed": self.params.wave_speed,
-                            "jam_density_link": self.params.jam_density_link,
-                            "trajectory_time": trajectory_time,
-                            "x": self.cumulative_counts_dict[link_id][trajectory_time][cell_id]["x"] * Units.M,
-                            "link_length": self.cumulative_counts_dict[link_id][trajectory_time][cell_id]["link_length"] * Units.M,
                             "dt": self.params.dt,
-                            "next_occupancy": self.next_timestamp_occupancy_dict[link_id][trajectory_time]["next_occupancy"][cell_id-1],
-                            "next_exit": self.next_exit_link_values[link_id][trajectory_time]
+                            "cell_id": cell_id,
+                            "cell_length": self.geo_loader.links[link_id][cell_id].get_length(),
+                            "link_length": self.geo_loader.links[link_id].get_length(),
+                            "trajectory_time": trajectory_time,
+                            "N_t_x_over_uf_0": self.cumulative_counts_dict[link_id][trajectory_time][cell_id]["N_t_x_over_uf_0"],
+                            "N_t_linklength_minus_x_over_wave_L": self.cumulative_counts_dict[link_id][trajectory_time][cell_id]["N_t_linklength_minus_x_over_wave_L"],
+                            "N_teps_x_over_uf_0":self.cumulative_counts_dict[link_id][trajectory_time][cell_id]["N_teps_x_over_uf_0"],
+                            "N_tpes_linklength_minus_x_over_wave_L":self.cumulative_counts_dict[link_id][trajectory_time][cell_id]["N_tpes_linklength_minus_x_over_wave_L"],
+                            "N_t_xeps_over_uf_0":self.cumulative_counts_dict[link_id][trajectory_time][cell_id]["N_t_xeps_over_uf_0"],
+                            "N_t_linklength_minus_xeps_over_wave_L": self.cumulative_counts_dict[link_id][trajectory_time][cell_id]["N_t_linklength_minus_xeps_over_wave_L"],
+                            "x": self.cumulative_counts_dict[link_id][trajectory_time][cell_id]["x"] * Units.M,
+                            "eps_x": self.cumulative_counts_dict[link_id][trajectory_time][cell_id]["eps_x"] * Units.M,
+                            "eps_t": self.cumulative_counts_dict[link_id][trajectory_time][cell_id]["eps_t"] * Units.S,
+                            "next_occupancy": self.next_timestamp_occupancy_dict[link_id][trajectory_time]["next_occupancy"][int(cell_id)-1],
+                            "jam_density_link": self.params.jam_density_link,
+                            "next_exit": self.next_exit_cell_values[link_id][trajectory_time][cell_id]
                         }
                     )
         self.tasks = tasks
@@ -2345,9 +2521,11 @@ class DataLoader:
             copy_tasks = deepcopy(tasks)
             for index in range(len(copy_tasks)):
                 copy_tasks[index]["dt"] = copy_tasks[index]["dt"].to(Units.S).value
-                copy_tasks[index]["wave_speed"] = copy_tasks[index]["wave_speed"].to(Units.KM_PER_HR).value
                 copy_tasks[index]["link_length"] = copy_tasks[index]["link_length"].to(Units.M).value
+                copy_tasks[index]["cell_length"] = copy_tasks[index]["cell_length"].to(Units.M).value
                 copy_tasks[index]["x"] = copy_tasks[index]["x"].to(Units.M).value
+                copy_tasks[index]["eps_x"] = copy_tasks[index]["eps_x"].to(Units.M).value
+                copy_tasks[index]["eps_t"] = copy_tasks[index]["eps_t"].to(Units.S).value
                 copy_tasks[index]["jam_density_link"] = copy_tasks[index]["jam_density_link"].to(Units.PER_KM).value
             json.dump(copy_tasks, f, indent=4)
         self.destruct()

@@ -20,33 +20,6 @@ class LTM(TrafficModel):
     """
     Class representing a LTM traffic model.
     """
-    @staticmethod
-    def count_ltm(cumulative_upstream, cumulative_downstream, x, wave_speed, dt, link_length, jam_density):
-        """
-        Count the number of vehicles in the LTM model.
-        """
-        if not isinstance(x, Units.Quantity):
-            raise TypeError("x must be a Quantity")
-        if not isinstance(wave_speed, Units.Quantity):
-            raise TypeError("wave_speed must be a Quantity")
-
-        if not isinstance(dt, Units.Quantity):
-            raise TypeError("dt must be a Quantity")
-        if not isinstance(link_length, Units.Quantity):
-            raise TypeError("link_length must be a Quantity")
-
-        if not isinstance(jam_density, Units.Quantity):
-            raise TypeError("jam_density must be a Quantity")
-        target1 = cumulative_upstream
-        congestion_intersect_x1 = x + wave_speed * dt
-        if congestion_intersect_x1>= 0 and congestion_intersect_x1<= link_length:
-            congestion_intersect_x = congestion_intersect_x1
-
-        else:
-            congestion_intersect_x = link_length
-        
-        target2 = jam_density * (congestion_intersect_x - x) + cumulative_downstream
-        return min(target1, target2)
 
 
         
@@ -59,74 +32,73 @@ class LTM(TrafficModel):
         # Required arguments
         required_args = [
             "link_id",
-            "trajectory_time",
-            "upstream_value_freeflow_with_eps_x",
-            "downstream_value_freeflow_with_eps_x",
-            "upstream_value_freeflow_with_eps_t",
-            "downstream_value_freeflow_with_eps_t",
-            "upstream_value_freeflow",
-            "downstream_value_freeflow",
-            "upstream_value_wavespeed_with_eps_x",
-            "downstream_value_wavespeed_with_eps_x",
-            "upstream_value_wavespeed_with_eps_t",
-            "downstream_value_wavespeed_with_eps_t",
-            "upstream_value_wavespeed",
-            "downstream_value_wavespeed",
             "cell_id",
-            "link_length",
             "x",
-            "wave_speed",
-            "jam_density_link"
+            "dt",
+            "trajectory_time",
+            "N_t_x_over_uf_0",
+            "N_t_linklength_minus_x_over_wave_L",
+            "N_teps_x_over_uf_0",
+            "N_tpes_linklength_minus_x_over_wave_L",
+            "N_t_xeps_over_uf_0",
+            "N_t_linklength_minus_xeps_over_wave_L",
+            "next_occupancy",
+            "jam_density_link",
+            "link_length",
+            "eps_x",
+            "eps_t",
+            "next_exit"
         ]
         for arg in required_args:
             if arg not in args:
                 raise ValueError(f"Missing required argument: {arg}")
+        trajectory_time = args["trajectory_time"]
+        N_t_x_over_uf_0 = args["N_t_x_over_uf_0"]
+        N_t_linklength_minus_x_over_wave_L = args["N_t_linklength_minus_x_over_wave_L"]
+        N_teps_x_over_uf_0 = args["N_teps_x_over_uf_0"]
+        N_tpes_linklength_minus_x_over_wave_L = args["N_tpes_linklength_minus_x_over_wave_L"]
+        N_t_xeps_over_uf_0 = args["N_t_xeps_over_uf_0"]
+        N_t_linklength_minus_xeps_over_wave_L = args["N_t_linklength_minus_xeps_over_wave_L"]
+        next_occupancy = args["next_occupancy"]
+        jam_density_link = args["jam_density_link"]
+        link_length = args["link_length"]
+        next_exit = args["next_exit"]
+        cell_length = args["cell_length"]
         x = args["x"]
-        if not isinstance(x, Units.Quantity):
-            raise TypeError("x must be a Quantity")
+        dt = args['dt']
+        eps_t = args["eps_t"]
+        eps_x = args["eps_x"]
         
-        eps_x = 0.01 * Units.M
-        eps_t = 0.01 * Units.S
-        # LTM_count(time, segment_id, entry_flow, location, horizon)
-        n1 = LTM.count_ltm(
-            cumulative_upstream=args["upstream_value_freeflow"],
-            cumulative_downstream=args["downstream_value_freeflow"],
-            x=args["x"],
-            wave_speed=args["wave_speed"],
-            dt=args["dt"],
-            link_length=args["link_length"],
-            jam_density=args["jam_density_link"]
-        )
-        # LTM_count(time, segment_id, entry_flow, location+eps, horizon)
-        n2 = LTM.count_ltm(
-            cumulative_upstream=args["upstream_value_freeflow_with_eps_x"],
-            cumulative_downstream=args["downstream_value_freeflow_with_eps_x"],
-            x=args["x"] + eps_x,
-            wave_speed=args["wave_speed"],
-            dt=args["dt"],
-            link_length=args["link_length"],
-            jam_density=args["jam_density_link"]
+        N_t_x = min(
+            N_t_x_over_uf_0,
+            N_t_linklength_minus_x_over_wave_L
         )
 
-        # LTM_count(time, segment_id, entry_flow, location, horizon+eps)
-        n3 = LTM.count_ltm(
-            cumulative_upstream=args["upstream_value_freeflow_with_eps_t"],
-            cumulative_downstream=args["downstream_value_freeflow_with_eps_t"],
-            x=args["x"],
-            wave_speed=args["wave_speed"],
-            dt=args["dt"] + eps_t,
-            link_length=args["link_length"],
-            jam_density=args["jam_density_link"]
+        N_teps_x = min(
+            N_teps_x_over_uf_0,
+            N_tpes_linklength_minus_x_over_wave_L
         )
-        density = (n1 - n2)/eps_x
-        flow = -(n1 - n3)/eps_t
+
+        N_t_xeps = min(
+            N_t_xeps_over_uf_0,
+            N_t_linklength_minus_xeps_over_wave_L
+        )
+        cell_id = args["cell_id"]
+        link_id = args["link_id"]
+        q = ((N_teps_x - N_t_x)/(eps_t)).to(Units.PER_HR)
+        k = -1*((N_t_xeps - N_t_x)/(eps_x)).to(Units.PER_KM)
+
         return {
-            "new_occupancy": (density * eps_x).to(1).value,
-            "outflow": flow.to(Units.PER_SEC).value,
-            "link_id": args["link_id"],
-            "trajectory_time": args["trajectory_time"],
-            "cell_id": args["cell_id"],
-            "link_length": args["link_length"].to(Units.M).value,
-            "x": args["x"].to(Units.M).value,
-            "next_occupancy": args["next_occupancy"],
+            "q": q.value,
+            "k": k.value,
+            "next_occupancy": next_occupancy,
+            "next_k": (next_occupancy/cell_length).to(Units.PER_KM).value,
+            "next_q": (next_exit/dt).to(Units.PER_HR).value,
+            "link_id": link_id,
+            "cell_id": cell_id,
+            "x": x.to(Units.M).value
         }
+
+
+
+        

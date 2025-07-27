@@ -275,10 +275,10 @@ class Plotter:
             trajectory_time = row["trajectory_time"]
             new_occupancy = max(0, row["new_occupancy"])
             next_occupancy = max(0, row["next_occupancy"])
-            predicted_density = new_occupancy / cells_dict[link_id]["link_length"]
-            actual_density = next_occupancy / cells_dict[link_id]["link_length"]
+            predicted_density = new_occupancy / row["link_length"]
+            actual_density = next_occupancy / row["link_length"]
             squared_error = (actual_density - predicted_density) ** 2
-            outflow = max(0, row["outflow"])
+            outflow = max(0, row["new_outflow"])
             sum_actual_outflow = max(0, row["actual_outflow"][0])
             sum_outflow = outflow
             flow_error = abs(sum_actual_outflow - sum_outflow)
@@ -1108,8 +1108,8 @@ class Plotter:
             )
             plt.title(f"Error Heatmap for All Links ({traffic_model})")
             #plt.xlabel("Link_ID and Cell_ID")
-            plt.ylabel("Trajectory Time")
-            plt.xticks(rotation=45, ha='right')
+            plt.ylabel("Trajectory Time", fontsize=16)
+            plt.xticks(rotation=45, ha='right', fontsize=16)
             plt.tight_layout()
             plt.savefig(figure_path + "error_density.png")
             plt.close()
@@ -1128,8 +1128,8 @@ class Plotter:
             )
             plt.title(f"Actual Density Heatmap ({traffic_model})")
             #plt.xlabel("Link_ID and Cell_ID")
-            plt.ylabel("Trajectory Time")
-            plt.xticks(rotation=45, ha='right')
+            plt.ylabel("Trajectory Time", fontsize=16)
+            plt.xticks(rotation=45, ha='right', fontsize=16)
             plt.tight_layout()
             plt.savefig(figure_path + "actual_density.png")
             plt.close()
@@ -1147,8 +1147,8 @@ class Plotter:
             )
             plt.title(f"Predicted Density Heatmap ({traffic_model})")
             #plt.xlabel("Link_ID and Cell_ID")
-            plt.ylabel("Trajectory Time")
-            plt.xticks(rotation=45, ha='right')
+            plt.ylabel("Trajectory Time", fontsize=16)
+            plt.xticks(rotation=45, ha='right', fontsize=16)
             plt.tight_layout()
             plt.savefig(figure_path + "predicted_density.png")
             plt.close()
@@ -1174,8 +1174,8 @@ class Plotter:
             )
             plt.title(f"Flow Error Heatmap ({traffic_model})")
             #plt.xlabel("Link_ID and Cell_ID")
-            plt.ylabel("Trajectory Time")
-            plt.xticks(rotation=45, ha='right')
+            plt.ylabel("Trajectory Time", fontsize=16)
+            plt.xticks(rotation=45, ha='right', fontsize=16)
             plt.tight_layout()
             plt.savefig(figure_path + "flow_error.png")
             plt.close()
@@ -1191,6 +1191,7 @@ class Plotter:
                 vmax=self.max_flow,
                 cbar_kws={'label': r'Actual Flow $(Veh/s)$'}
             )
+            
             plt.title(f"Actual Flow Heatmap ({traffic_model})")
             #plt.xlabel("Link_ID and Cell_ID")
             plt.ylabel("Trajectory Time")
@@ -1589,6 +1590,7 @@ class Plotter:
                         second_group[x_params[1]].astype(str) + ", " + \
                         second_group[x_params[2]].astype(str)
                     y = second_group["error"]
+                    plt.ylim([0, 0.01])
                     plt.plot(x, y, linestyle='-', label=f"{second_name}", linewidth=linewidth, color=colors[second_name], alpha=0.8)
                 plt.ylabel(f"Error")
                 xlabel = ", ".join([f"${p}$ (${units[p]})$" for p in x_params])
@@ -1628,7 +1630,7 @@ class Plotter:
             x_indices = np.arange(len(x_labels))  # Now matches this group's size
             y = group["error"].values  # Make sure it's a NumPy array
 
-            plt.plot(x_indices, y, linestyle='-', label=name, linewidth=linewidth, color=colors[name], alpha=0.8)
+            plt.plot(x_indices, y, linestyle='-', label=name, linewidth=linewidth, color=colors[name], alpha=0.8) # type: ignore
 
         # Use ticks from the largest group (or just the last one, assuming all equal)
         max_labels = 20
