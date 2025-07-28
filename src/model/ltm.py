@@ -20,10 +20,6 @@ class LTM(TrafficModel):
     """
     Class representing a LTM traffic model.
     """
-
-
-        
-
     @staticmethod
     def run(args):
         """
@@ -52,7 +48,6 @@ class LTM(TrafficModel):
         for arg in required_args:
             if arg not in args:
                 raise ValueError(f"Missing required argument: {arg}")
-        trajectory_time = args["trajectory_time"]
         N_t_x_over_uf_0 = args["N_t_x_over_uf_0"]
         N_t_linklength_minus_x_over_wave_L = args["N_t_linklength_minus_x_over_wave_L"]
         N_teps_x_over_uf_0 = args["N_teps_x_over_uf_0"]
@@ -60,9 +55,8 @@ class LTM(TrafficModel):
         N_t_xeps_over_uf_0 = args["N_t_xeps_over_uf_0"]
         N_t_linklength_minus_xeps_over_wave_L = args["N_t_linklength_minus_xeps_over_wave_L"]
         next_occupancy = args["next_occupancy"]
-        jam_density_link = args["jam_density_link"]
-        link_length = args["link_length"]
         next_exit = args["next_exit"]
+        trajectory_time = args["trajectory_time"]
         cell_length = args["cell_length"]
         x = args["x"]
         dt = args['dt']
@@ -96,9 +90,7 @@ class LTM(TrafficModel):
             "next_q": (next_exit/dt).to(Units.PER_HR).value,
             "link_id": link_id,
             "cell_id": cell_id,
-            "x": x.to(Units.M).value
+            "x": x.to(Units.M).value,
+            "trajectory_time": trajectory_time
         }
-
-
-
         

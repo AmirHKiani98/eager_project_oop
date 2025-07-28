@@ -395,7 +395,7 @@ class Plotter:
             vmin=self.min_flow,
             vmax=self.max_flow,
             cmap="Reds",
-            cbar_kws={'label': r'Flow Error $(Veh/s)$'}
+            cbar_kws={'label': r'Flow Error $(Veh/hr)$'}
         )
         plt.title(f"Flow Error Heatmap ({traffic_model})", fontsize=16)
         plt.xlabel("")
@@ -414,7 +414,7 @@ class Plotter:
             cmap="Reds",
             vmin=self.min_flow,
             vmax=self.max_flow,
-            cbar_kws={'label': r'Actual Flow $(Veh/s)$'}
+            cbar_kws={'label': r'Actual Flow $(Veh/hr)$'}
         )
         plt.title(f"Actual Flow Heatmap ({traffic_model})", fontsize=16)
         plt.xlabel("")
@@ -432,7 +432,7 @@ class Plotter:
             cmap="Reds",
             vmin=self.min_flow,
             vmax=self.max_flow,
-            cbar_kws={'label': r'Predicted Flow $(Veh/s)$'}
+            cbar_kws={'label': r'Predicted Flow $(Veh/hr)$'}
         )
         plt.title(f"Predicted Flow Heatmap ({traffic_model})", fontsize=16)
         plt.xlabel("")
@@ -707,7 +707,7 @@ class Plotter:
             cmap="Reds",
             vmin=self.min_flow,
             vmax=self.max_flow,
-            cbar_kws={'label': r'Actual Flow $(Veh/s)$'}
+            cbar_kws={'label': r'Actual Flow $(Veh/hr)$'}
         )
         plt.title(f"Actual Flow Heatmap ({traffic_model})")
         #tick_positions = np.arange(0, len(yticks), 50)
@@ -728,7 +728,7 @@ class Plotter:
             cmap="Reds",
             vmin=self.min_flow,
             vmax=self.max_flow,
-            cbar_kws={'label': r'Predicted Flow $(Veh/s)$'}
+            cbar_kws={'label': r'Predicted Flow $(Veh/hr)$'}
         )
         plt.title(f"Predicted Flow Heatmap ({traffic_model})")
         plt.xlabel("")
@@ -833,151 +833,230 @@ class Plotter:
             hash_geo (str): The hash of the geo.
             traffic_model (str): The name of the traffic model.
         """
+        average_error = 0
+        n = 0
         file_name = f"{self.cache_dir}/{traffic_model}/{data_file_name}_{hash_geo}_{hash_params}.json"
         if not os.path.exists(file_name):
             raise FileNotFoundError(f"File not found: {file_name}")
-        data = pl.read_json(
-            file_name
-        )
-        data = data.filter(
-            pl.col("link_id") != 5
-        )
+
+        try:
+            # Try with increased schema length
+            data = pl.read_json(file_name, infer_schema_length=1000)
+        except Exception:
+            # Manual fallback for complex nested JSON
+            import json
+            with open(file_name, 'r') as f:
+                json_data = json.load(f)
+            
+            # Flatten the nested structures if needed
+            flattened_data = []
+            for record in json_data:
+                flat_record = {}
+                for key, value in record.items():
+                    if isinstance(value, (list, dict)):
+                        # Convert complex types to string for visualization
+                        if isinstance(value, list):
+                            flat_record[key] = value
+                        elif isinstance(value, dict):
+                            v = dict(sorted(value.items(), key=lambda x: x[0]))
+                            flat_record[key] = list(v.values())
+                    else:
+                        flat_record[key] = value
+                flattened_data.append(flat_record)
+            
+            data = pl.DataFrame(flattened_data, strict=False)
+        
+        data = data.filter(pl.col("link_id") != 5) # Filter out link_id 5
         cell_length = self._get_cell_length(hash_geo)
         data = data.with_columns(
-            pl.struct(["link_id", "cell_id"])
-            .map_elements(lambda row: cell_length[int(row["link_id"])][int(row["cell_id"])], return_dtype=pl.Float64)
-            .alias("cell_length")
+            pl.col("link_id")
+            .cast(pl.Int64)
+            .map_elements(lambda link_id: list(cell_length.get(link_id, {}).values()))
+            .alias("cell_lengths")
         )
+        
+        data = data.with_columns(
+            pl.struct("next_occupancy", "cell_lengths")
+            .map_elements(lambda x: ((np.array(x["next_occupancy"]) / np.array(x["cell_lengths"])) * Units.PER_M).to(Units.PER_KM), return_dtype=pl.List(pl.Float64))
+            .alias("next_densities")
+        )
+        
 
-        data = data.with_columns(
-            ((pl.col("new_occupancy") - pl.col("next_occupancy")) /
-            pl.col("cell_length")).pow(2).alias("squared_error")
+
+        all_rmse_data = []
+        average_error = 0
+        n = 0
+        for row in tqdm(data.iter_rows(named=True), desc="Collecting error data for all links"):
+            link_id = int(row["link_id"])
+            trajectory_time = row["trajectory_time"]
+            outflow = row["q"]
+            actual_outflow = row["next_q"]
+            cell_id = row["cell_id"]
+            link_id = row["link_id"]
+            actual_density = row["next_k"]
+            predicted_density = row["k"]
+            squared_error = (actual_density - predicted_density) ** 2
+            squared_flow_error = abs(outflow - actual_outflow)
+            all_rmse_data.append({
+                "trajectory_time": trajectory_time,
+                "squared_error": squared_error,
+                "actual_cell_density": actual_density,
+                "predicted_cell_density": predicted_density,
+                "cell_id": cell_id,
+                "link_id": link_id,
+                "link_cell_id": f"link {link_id} cell {cell_id}",
+                "actual_flow": actual_outflow,
+                "predicted_flow": outflow,
+                "flow_error": squared_flow_error
+            })
+            average_error += squared_error
+            n += 1
+
+        if not all_rmse_data:
+                print("No error data to plot.")
+                return
+        
+        df = pd.DataFrame(all_rmse_data)
+
+        sorted_cols = sorted(df["link_cell_id"].unique(), key=lambda x: (int(float(x.split()[1])), int(float(x.split()[3]))))
+
+        figure_path = f"{self.cache_dir}/results/{self.get_base_name_without_extension(file_name)}/{traffic_model}/"
+        os.makedirs(figure_path, exist_ok=True)
+
+        # --- Error Heatmap ---
+        error_data = df.pivot(index="trajectory_time", columns="link_cell_id", values="squared_error")
+        error_data = error_data[sorted_cols]
+        plt.figure(figsize=(15, 8))
+        yticks = df.trajectory_time.unique().tolist()
+
+        sns.heatmap(
+            error_data,
+            cmap="Reds",
+            vmin=self.min_density,
+            vmax=self.max_density,
+            cbar_kws={'label': r'Density Error ${\frac{Veh}{m}}^2$'}
         )
-        data = data.with_columns(
-            pl.col("x").map_elements(lambda x: round(x, 2)
-                                     ).alias("x")                                     
+        plt.title(f"Error Heatmap for All Links ({traffic_model})", fontsize=16)
+        plt.xlabel("")
+        plt.ylabel("Trajectory Time (s)", fontsize=14)
+        plt.xticks(rotation=45, ha='right', fontsize=12)
+        plt.tight_layout()
+        plt.savefig(figure_path + "error_density.png")
+        plt.close()
+
+        # --- Actual Density Heatmap ---
+        actual_data = df.pivot(index="trajectory_time", columns="link_cell_id", values="actual_cell_density")
+        actual_data = actual_data[sorted_cols]
+        plt.figure(figsize=(15, 8))
+        sns.heatmap(
+            actual_data,
+            cmap="Reds",
+            vmin=self.min_density,
+            vmax=self.max_density,
+            cbar_kws={'label': r'Actual Density $(Veh/m)$'}
         )
-        error_info = data.select(
-            ["link_id", "trajectory_time", "squared_error", "x", "new_occupancy", "next_occupancy", "cell_lengths"]
+        plt.title(f"Actual Density Heatmap ({traffic_model})", fontsize=16)
+        #tick_positions = np.arange(0, len(yticks), 50)
+        #tick_labels = [yticks[i] for i in tick_positions]
+        # plt.yticks(ticks=tick_positions, labels=tick_labels, rotation=0)
+        plt.xlabel("")
+        plt.ylabel("Trajectory Time (s)", fontsize=14)
+        plt.xticks(rotation=45, ha='right', fontsize=12)
+        plt.tight_layout()
+        plt.savefig(figure_path + "actual_density.png")
+        plt.close()
+
+        # --- Predicted Density Heatmap ---
+        predicted_data = df.pivot(index="trajectory_time", columns="link_cell_id", values="predicted_cell_density")
+        predicted_data = predicted_data[sorted_cols]
+        plt.figure(figsize=(15, 8))
+        sns.heatmap(
+            predicted_data,
+            cmap="Reds",
+            vmin=self.min_density,
+            vmax=self.max_density,
+            cbar_kws={'label': r'Predicted Density $(Veh/m)$'}
         )
-        average_error = data["squared_error"].mean()
+        plt.title(f"Predicted Density Heatmap ({traffic_model})")
+        #tick_positions = np.arange(0, len(yticks), 50)
+        #tick_labels = [yticks[i] for i in tick_positions]
+        # plt.yticks(ticks=tick_positions, labels=tick_labels, rotation=0)
+        plt.xlabel("")
+        plt.ylabel("Trajectory Time (s)", fontsize=14)
+        plt.xticks(rotation=45, ha='right', fontsize=12)
+        plt.tight_layout()
+        plt.savefig(figure_path + "predicted_density.png")
+        plt.close()
+        
+        # --- Save error if params provided ---
         if params is not None:
             if traffic_model not in self.errors:
                 self.errors[traffic_model] = {}
             str_key = str(params)
-            self.errors[traffic_model][str_key] = average_error
+            self.errors[traffic_model][str_key] = average_error / n
             self.save_errors()
-        groups = error_info.group_by(["link_id"])
-        figure_path = f"{self.cache_dir}/results/{self.get_base_name_without_extension(file_name)}/{traffic_model}/"
-        if not os.path.exists(figure_path):
-            os.makedirs(figure_path)
-        min_errors = error_info["squared_error"].cast(pl.Float64).min()
-        max_errors = error_info["squared_error"].max()
-        # Step 1: Prepare a list to hold all error data
-        all_rmse_data = []
-        offset = 0.0
 
-        for name, group in groups:
-            link_id = int(name[0])  # type: ignore
-            group = group.sort("trajectory_time")
-            group = group.with_columns(
-                (pl.col("x") + offset).alias("x")
-            )
-            max_x = float(group["x"].max()) # type: ignore
-            offset += max_x  # update for next link
+        # Flow
+        flow_error_data = df.pivot(index="trajectory_time", columns="link_cell_id", values="flow_error")
 
-            group = group.to_pandas()
-            for _, row in group.iterrows():
-                all_rmse_data.append({
-                    "trajectory_time": row["trajectory_time"],
-                    "x": row["x"],
-                    "squared_error": row["squared_error"],
-                    "predicted_density": row["new_occupancy"] / row["cell_lengths"],
-                    "actual_density": row["next_occupancy"] / row["cell_lengths"]
-
-                })
-        if not all_rmse_data:
-            print("No error data to plot.")
-            return
-
-        # Step 2: Convert to DataFrame and pivot
-        df_all = pd.DataFrame(all_rmse_data)
-        heatmap_data = df_all.pivot(index="trajectory_time", columns="x", values="squared_error")
-        heatmap_data = heatmap_data.sort_index(axis=1)
-
-        # Step 3: Plot single heatmap
         plt.figure(figsize=(15, 8))
         sns.heatmap(
-            heatmap_data,
+            flow_error_data,
+            vmin=self.min_flow,
+            vmax=self.max_flow,
             cmap="Reds",
-            vmin=min_errors, # type: ignore
-            vmax=max_errors, # type: ignore
-            annot=False,
-            cbar_kws={'label': r'Density Error $\frac{Veh}{m}$'}
+            cbar_kws={'label': 'Flow Error'}
         )
-        plt.title(f"Density Error Heatmap ({traffic_model})")
-        #plt.xlabel("X (m, shifted)")
-        plt.ylabel("Trajectory Time (s)", fontsize=14)
-        plt.tight_layout()
+        plt.title(f"Flow Error Heatmap ({traffic_model})")
+        #tick_positions = np.arange(0, len(yticks), 50)
+        #tick_labels = [yticks[i] for i in tick_positions]
+        # plt.yticks(ticks=tick_positions, labels=tick_labels, rotation=0)
+        plt.xlabel("")
+        plt.ylabel("Trajectory Time (s)")
         plt.xticks(rotation=45, ha='right')
-
-        figure_path = f"{self.cache_dir}/results/{self.get_base_name_without_extension(file_name)}/{traffic_model}/"
-        if not os.path.exists(figure_path):
-            os.makedirs(figure_path)
-        plt.savefig(figure_path + "error_density.png")
+        plt.tight_layout()
+        plt.savefig(figure_path + "flow_error.png")
         plt.close()
+        
 
-
-        heatmap_data_actual_density = df_all.pivot(index="trajectory_time", columns="x", values="actual_density")
-        heatmap_data_actual_density = heatmap_data_actual_density.sort_index(axis=1)
-        _min = df_all["actual_density"].min()
-        _max = df_all["actual_density"].max()
-        # Step 3: Plot single heatmap
+        # Actual Flow
+        actual_flow_data = df.pivot(index="trajectory_time", columns="link_cell_id", values="actual_flow")
+        actual_flow_data = actual_flow_data[sorted_cols]
         plt.figure(figsize=(15, 8))
         sns.heatmap(
-            heatmap_data_actual_density,
+            actual_flow_data,
             cmap="Reds",
-            vmin=_min,
-            vmax=_max,
-            annot=False,
-            cbar_kws={'label': 'Density Error'}
+            vmin=self.min_flow,
+            vmax=self.max_flow,
+            cbar_kws={'label': r'Actual Flow $(Veh/hr)$'}
         )
-        plt.title(f"Actual Density Heatmap ({traffic_model})")
-        #plt.xlabel("X (m, shifted)")
-        plt.ylabel("Trajectory Time")
-        plt.tight_layout()
+        plt.title(f"Actual Flow Heatmap ({traffic_model})")
+        #tick_positions = np.arange(0, len(yticks), 50)
+        #tick_labels = [yticks[i] for i in tick_positions]
+        # plt.yticks(ticks=tick_positions, labels=tick_labels, rotation=0)
+        plt.xlabel("")
+        plt.ylabel("Trajectory Time (s)")
         plt.xticks(rotation=45, ha='right')
-
-        figure_path = f"{self.cache_dir}/results/{self.get_base_name_without_extension(file_name)}/{traffic_model}/"
-        if not os.path.exists(figure_path):
-            os.makedirs(figure_path)
-        plt.savefig(figure_path + "actual_density.png")
+        plt.tight_layout()
+        plt.savefig(figure_path + "actual_flow.png")
         plt.close()
-
-        heatmap_data_actual_density = df_all.pivot(index="trajectory_time", columns="x", values="predicted_density")
-        heatmap_data_actual_density = heatmap_data_actual_density.sort_index(axis=1)
-        _min = df_all["predicted_density"].min()
-        _max = df_all["predicted_density"].max()
-        # Step 3: Plot single heatmap
+        # Predicted Flow
+        predicted_flow_data = df.pivot(index="trajectory_time", columns="link_cell_id", values="predicted_flow")
+        predicted_flow_data = predicted_flow_data[sorted_cols]
         plt.figure(figsize=(15, 8))
         sns.heatmap(
-            heatmap_data_actual_density,
+            predicted_flow_data,
             cmap="Reds",
-            vmin=_min,
-            vmax=_max,
-            annot=False,
-            cbar_kws={'label': 'Density Error'}
+            vmin=self.min_flow,
+            vmax=self.max_flow,
+            cbar_kws={'label': r'Predicted Flow $(Veh/hr)$'}
         )
-        plt.title(f"Predicted Density Heatmap ({traffic_model})")
-        #plt.xlabel("X (m, shifted)")
-        plt.ylabel("Trajectory Time")
-        plt.tight_layout()
+        plt.title(f"Predicted Flow Heatmap ({traffic_model})")
+        plt.xlabel("")
+        plt.ylabel("Trajectory Time (s)")
         plt.xticks(rotation=45, ha='right')
-
-        figure_path = f"{self.cache_dir}/results/{self.get_base_name_without_extension(file_name)}/{traffic_model}/"
-        if not os.path.exists(figure_path):
-            os.makedirs(figure_path)
-        plt.savefig(figure_path + "predicted_density.png")
+        plt.tight_layout()
+        plt.savefig(figure_path + "predicted_flow.png")
         plt.close()
 
 
@@ -1189,7 +1268,7 @@ class Plotter:
                 cmap="Reds",
                 vmin=self.min_flow,
                 vmax=self.max_flow,
-                cbar_kws={'label': r'Actual Flow $(Veh/s)$'}
+                cbar_kws={'label': r'Actual Flow $(Veh/hr)$'}
             )
             
             plt.title(f"Actual Flow Heatmap ({traffic_model})")
@@ -1208,7 +1287,7 @@ class Plotter:
                 cmap="Reds",
                 vmin=self.min_flow,
                 vmax=self.max_flow,
-                cbar_kws={'label': r'Predicted Flow $(Veh/s)$'}
+                cbar_kws={'label': r'Predicted Flow $(Veh/hr)$'}
             )
             plt.title(f"Predicted Flow Heatmap ({traffic_model})")
             #plt.xlabel("Link_ID and Cell_ID")
@@ -1232,14 +1311,13 @@ class Plotter:
         Plotting the data
         """
         if traffic_model == "LTM":
-            # self.plot_error_ltm(
-            #     data_file_name=data_file_name,
-            #     hash_params=hash_params,
-            #     hash_geo=hash_geo,
-            #     traffic_model=traffic_model,
-            #     params=params
-            # )
-            pass
+            self.plot_ltm(
+                data_file_name=data_file_name,
+                hash_params=hash_params,
+                hash_geo=hash_geo,
+                traffic_model=traffic_model,
+                params=params
+            )
         elif traffic_model == "CTM":
             self.plot_ctm(
                 data_file_name=data_file_name,
@@ -1392,6 +1470,8 @@ class Plotter:
         for folder in os.listdir(self.cache_dir):
             # If the first characters of the folder name are capital letters, it is a traffic model
             if folder[0].isupper():
+                if folder != "LTM":
+                    continue
                 traffic_model = folder
                 for file_name in os.listdir(f"{self.cache_dir}/{traffic_model}"):
                     if file_name.endswith(".json"):
@@ -1655,8 +1735,8 @@ class Plotter:
 if __name__ == "__main__":
     
     plotter = Plotter(cache_dir=".cache_dt5s")
-    # plotter.plot_all()
-    plotter.plot_sensitivity()
+    plotter.plot_all()
+    # plotter.plot_sensitivity()
 
     # plotter.plot_fundamental_diagram()
     # plotter.animation(f".cache/{data_file_name}_fully_process_vehicles_{geo_hash}.csv")
