@@ -15,6 +15,7 @@ from shapely.geometry import Point as POINT
 from src.model.params import Parameters
 from src.preprocessing.spatial_line import SpatialLine
 from src.preprocessing.link import Link
+from src.common_utility.units import Units
 class Cell(SpatialLine):
     """
     Class representing a cell in a transportation network.
@@ -44,6 +45,7 @@ class Cell(SpatialLine):
         if not isinstance(link, Link):
             raise TypeError("link must be an instance of Link")
         self.link = link
+        self.x_from_begining = self._from_metric.distance(link._from_metric) * Units.M
 
 
     def __str__(self):

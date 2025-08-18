@@ -185,13 +185,21 @@ class DataLoader:
             "Accept": "*/*"
         }
 
-        response = requests.post(
-            self.base_url,
-            headers=headers,
-            data=self._build_payload(location, date, time),
-            stream=True,
-            timeout=10  # Set timeout to 10 seconds
-        )
+        try:
+            response = requests.post(
+                self.base_url,
+                headers=headers,
+                data=self._build_payload(location, date, time),
+                stream=True,
+                timeout=10
+                )
+        except requests.exceptions.RequestException as e:
+            logger.warning(f"[Download Skipped] Could not reach server: {e}")
+            cached_path = self.get_cached_filepath(location, date, time)
+            if os.path.isfile(cached_path):
+                return cached_path
+            else:
+                raise RuntimeError(f"File not cached and download failed: {e}")
 
         if response.status_code == 200:
             total_size = int(response.headers.get('Content-Length', 0))
@@ -1669,7 +1677,7 @@ class DataLoader:
             
         return cumulative_counts_dict
 
-    def get_cumulative_count_ltm(self, location, date, time, time_epsilon = 1 * Units.S, x_epsilon=1 * Units.M):
+    def get_cumulative_count_ltm(self, location, date, time, time_epsilon = 5 * Units.S, x_epsilon= 5 * Units.M):
         """
         Returns the cumulative counts for the specified location, date, and time.
         """
@@ -1724,7 +1732,9 @@ class DataLoader:
                 results[link_id][trajectory_time] = {}
             for row in group.iter_rows(named=True):
                 cell_id = row["cell_id"]
-                x = self.geo_loader.links[link_id].cells[cell_id].get_length()
+                if self.geo_loader.links[link_id].cells[cell_id].get_length().to(Units.M).value < self.geo_loader.links[link_id].average_cell_length:
+                    continue
+                x = self.geo_loader.links[link_id].cells[cell_id].x_from_begining
                 t_x_over_uf = trajectory_time - ((x/self.params.free_flow_speed).to(Units.S).value)
                 t_linklength_minus_x_over_wave = trajectory_time - ((link_length-x)/self.params.wave_speed).to(Units.S).value
                 
@@ -1820,6 +1830,7 @@ class DataLoader:
                     "N_t_xeps_over_uf_0": N_t_xeps_over_uf_0,
                     "N_t_linklength_minus_xeps_over_wave_L": N_t_linklength_minus_xeps_over_wave_L
                 }
+
             captured_length = 0
             for cell_id in sorted(cells, key=lambda x: float(x)):
                 if cell_id not in results[link_id][trajectory_time]:
@@ -2463,6 +2474,7 @@ class DataLoader:
         self.activate_tl_status_dict(location, date, time)
         self.activate_next_timestamp_occupancy(location, date, time)
         self.activate_next_exit_cell(location, date, time)
+        self.activate_first_cell_outflow_dict(location, date, time)
         self.current_file_running = {
             "location": location,
             "date": date,
@@ -2483,6 +2495,7 @@ class DataLoader:
                 self.tasks[index]["eps_x"]= self.tasks[index]["eps_x"] * Units.M
                 self.tasks[index]["eps_t"]= self.tasks[index]["eps_t"] * Units.S
                 self.tasks[index]["jam_density_link"] = self.tasks[index]["jam_density_link"] * Units.PER_KM
+                self.tasks[index]["actual_outflow"] = self.tasks[index]["actual_outflow"] * Units.PER_SEC
             return
         tasks = []
         for link_id, cell_dict in self.cumulative_counts_dict.items(): # type: ignore
@@ -2506,6 +2519,7 @@ class DataLoader:
                             "N_t_linklength_minus_x_over_wave_L": self.cumulative_counts_dict[link_id][trajectory_time][cell_id]["N_t_linklength_minus_x_over_wave_L"],
                             "N_teps_x_over_uf_0":self.cumulative_counts_dict[link_id][trajectory_time][cell_id]["N_teps_x_over_uf_0"],
                             "N_tpes_linklength_minus_x_over_wave_L":self.cumulative_counts_dict[link_id][trajectory_time][cell_id]["N_tpes_linklength_minus_x_over_wave_L"],
+                            "actual_outflow": self.first_cell_outflow_dict[link_id][trajectory_time][cell_id] * Units.PER_SEC,
                             "N_t_xeps_over_uf_0":self.cumulative_counts_dict[link_id][trajectory_time][cell_id]["N_t_xeps_over_uf_0"],
                             "N_t_linklength_minus_xeps_over_wave_L": self.cumulative_counts_dict[link_id][trajectory_time][cell_id]["N_t_linklength_minus_xeps_over_wave_L"],
                             "x": self.cumulative_counts_dict[link_id][trajectory_time][cell_id]["x"] * Units.M,
@@ -2527,6 +2541,7 @@ class DataLoader:
                 copy_tasks[index]["eps_x"] = copy_tasks[index]["eps_x"].to(Units.M).value
                 copy_tasks[index]["eps_t"] = copy_tasks[index]["eps_t"].to(Units.S).value
                 copy_tasks[index]["jam_density_link"] = copy_tasks[index]["jam_density_link"].to(Units.PER_KM).value
+                copy_tasks[index]["actual_outflow"] = copy_tasks[index]["actual_outflow"].to(Units.PER_SEC).value
             json.dump(copy_tasks, f, indent=4)
         self.destruct()
         self.tasks = tasks

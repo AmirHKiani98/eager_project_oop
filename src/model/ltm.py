@@ -43,7 +43,8 @@ class LTM(TrafficModel):
             "link_length",
             "eps_x",
             "eps_t",
-            "next_exit"
+            "next_exit",
+            "actual_outflow"
         ]
         for arg in required_args:
             if arg not in args:
@@ -55,11 +56,10 @@ class LTM(TrafficModel):
         N_t_xeps_over_uf_0 = args["N_t_xeps_over_uf_0"]
         N_t_linklength_minus_xeps_over_wave_L = args["N_t_linklength_minus_xeps_over_wave_L"]
         next_occupancy = args["next_occupancy"]
-        next_exit = args["next_exit"]
         trajectory_time = args["trajectory_time"]
         cell_length = args["cell_length"]
+        actual_outflow = args["actual_outflow"]
         x = args["x"]
-        dt = args['dt']
         eps_t = args["eps_t"]
         eps_x = args["eps_x"]
         
@@ -80,14 +80,13 @@ class LTM(TrafficModel):
         cell_id = args["cell_id"]
         link_id = args["link_id"]
         q = ((N_teps_x - N_t_x)/(eps_t)).to(Units.PER_HR)
-        k = -1*((N_t_xeps - N_t_x)/(eps_x)).to(Units.PER_KM)
-
+        k = -1 * ((N_t_xeps - N_t_x)/(eps_x)).to(Units.PER_KM)
         return {
             "q": q.value,
             "k": k.value,
             "next_occupancy": next_occupancy,
             "next_k": (next_occupancy/cell_length).to(Units.PER_KM).value,
-            "next_q": (next_exit/dt).to(Units.PER_HR).value,
+            "next_q": actual_outflow.to(Units.PER_HR).value,
             "link_id": link_id,
             "cell_id": cell_id,
             "x": x.to(Units.M).value,

@@ -116,8 +116,8 @@ class SpatialLine:
         """
         Returns the distance from the beginning of the link to the specified cell.
         """
-        if point.x > 180 or point.x < -180 or point.y > 90 or point.y < -90:
-            raise ValueError("Point must be within valid latitude and longitude ranges.")
+        # if point.x > 180 or point.x < -180 or point.y > 90 or point.y < -90:
+        #     raise ValueError("Point must be within valid latitude and longitude ranges.")
         # Ensure the distance is calculated in meters
         point = transform(self._transformer_to_metric.transform, point)
         return self._from_metric.distance(point) * Units.M

@@ -19,6 +19,8 @@ from src.common_utility.units import Units
 from collections import defaultdict
 from pyproj import Geod
 import matplotlib.cm as cm
+
+import matplotlib.lines as mlines
 color_map = plt.get_cmap('tab20')
 
 GEOD = Geod(ellps="WGS84")
@@ -61,6 +63,51 @@ class Plotter:
                 self.min_density = data.get("min_density")
                 self.max_flow = data.get("max_flow")
                 self.min_flow = data.get("min_flow")
+    
+    def format_colorbar(self, ax, data, label_fontsize=20, tick_fontsize=15, ytick_modulo=50, tick_fontsize_x=18):
+        """
+        Format the colorbar and axis tick labels for a heatmap.
+
+        Args:
+            ax (matplotlib.Axes): The Axes object returned by seaborn heatmap.
+            data (pd.DataFrame): The data used to generate the heatmap, to access index for y-axis ticks.
+            label_fontsize (int): Font size for the colorbar label.
+            tick_fontsize (int): Font size for the colorbar tick labels.
+            ytick_modulo (int): Only show y-axis tick labels where the corresponding index value % ytick_modulo == 0.
+            tick_fontsize_x (int): Font size for the x-axis tick labels.
+        """
+        # Ensure data index is available
+        data_index = data.index
+
+        # Format the colorbar label and tick size
+        try:
+            colorbar = ax.collections[0].colorbar
+            colorbar.ax.set_ylabel(colorbar.ax.get_ylabel(), fontsize=label_fontsize)
+            colorbar.ax.tick_params(labelsize=tick_fontsize)
+        except (AttributeError, IndexError):
+            print("Warning: Colorbar formatting skipped — no colorbar found.")
+        
+        # Format y-axis ticks based on data index
+        tick_positions = []
+        tick_labels = []
+
+        for i, val in enumerate(data_index):
+            try:
+                numeric_val = float(val)
+                if numeric_val % ytick_modulo == 0:
+                    tick_positions.append(i)
+                    tick_labels.append(str(int(numeric_val)) if numeric_val.is_integer() else str(numeric_val))
+            except (ValueError, TypeError):
+                continue
+
+        ax.set_yticks(tick_positions)
+        ax.set_yticklabels(tick_labels, fontsize=tick_fontsize)
+
+        # Format x-axis tick labels
+        ax.set_xticklabels(ax.get_xticklabels(), fontsize=tick_fontsize_x)
+
+
+
 
     def _get_geo_loader(self, geo_loader_hash: str):
 
@@ -183,7 +230,7 @@ class Plotter:
 
         # Plot the heatmap using seaborn
         plt.figure(figsize=(10, 8))
-        sns.heatmap(
+        ax = sns.heatmap(
             heatmap_data,
             cmap="Reds",
             vmin=rmse_data_min,
@@ -325,17 +372,19 @@ class Plotter:
         error_data = df.pivot(index="trajectory_time", columns="link_cell_id", values="squared_error")
         error_data = error_data[sorted_cols]
         plt.figure(figsize=(15, 8))
-        sns.heatmap(
+        ax = sns.heatmap(
             error_data,
             cmap="Reds",
             vmin=self.min_density,
             vmax=self.max_density,
             cbar_kws={'label': r'Density Error ${\frac{Veh}{m}}^2$'}
         )
-        plt.title(f"Error Heatmap for All Links ({traffic_model})", fontsize=16)
         plt.xlabel("")
-        plt.ylabel("Trajectory Time", fontsize=14)
-        plt.xticks(rotation=45, ha='right', fontsize=12)
+        self.format_colorbar(ax, error_data)
+        plt.title(f"Error Heatmap for All Links ({traffic_model})", fontsize=24)
+        plt.xlabel("")
+        plt.ylabel("Trajectory Time", fontsize=21)
+        plt.xticks(rotation=45, ha='right', fontsize=19)
         plt.tight_layout()
         plt.savefig(figure_path + "error_density.png")
         plt.close()
@@ -344,17 +393,19 @@ class Plotter:
         actual_data = df.pivot(index="trajectory_time", columns="link_cell_id", values="actual_cell_density")
         actual_data = actual_data[sorted_cols]
         plt.figure(figsize=(15, 8))
-        sns.heatmap(
+        ax = sns.heatmap(
             actual_data,
             cmap="Reds",
             vmin=self.min_density,
             vmax=self.max_density,
             cbar_kws={'label': r'Actual Density $(Veh/m)$'}
         )
-        plt.title(f"Actual Density Heatmap ({traffic_model})", fontsize=16)
         plt.xlabel("")
-        plt.ylabel("Trajectory Time", fontsize=14)
-        plt.xticks(rotation=45, ha='right', fontsize=12)
+        self.format_colorbar(ax, actual_data)
+        plt.title(f"Actual Density Heatmap ({traffic_model})", fontsize=24)
+        plt.xlabel("")
+        plt.ylabel("Trajectory Time", fontsize=21)
+        plt.xticks(rotation=45, ha='right', fontsize=19)
         plt.tight_layout()
         plt.savefig(figure_path + "actual_density.png")
         plt.close()
@@ -363,17 +414,19 @@ class Plotter:
         predicted_data = df.pivot(index="trajectory_time", columns="link_cell_id", values="predicted_cell_density")
         predicted_data = predicted_data[sorted_cols]
         plt.figure(figsize=(15, 8))
-        sns.heatmap(
+        ax = sns.heatmap(
             predicted_data,
             cmap="Reds",
             vmin=self.min_density,
             vmax=self.max_density,
             cbar_kws={'label': r'Predicted Density $(Veh/m)$'}
         )
-        plt.title(f"Predicted Density Heatmap ({traffic_model})", fontsize=16)
         plt.xlabel("")
-        plt.ylabel("Trajectory Time", fontsize=14)
-        plt.xticks(rotation=45, ha='right', fontsize=12)
+        self.format_colorbar(ax, actual_data)
+        plt.title(f"Predicted Density Heatmap ({traffic_model})", fontsize=24)
+        plt.xlabel("")
+        plt.ylabel("Trajectory Time", fontsize=21)
+        plt.xticks(rotation=45, ha='right', fontsize=19)
         plt.tight_layout()
         plt.savefig(figure_path + "predicted_density.png")
         plt.close()
@@ -390,17 +443,19 @@ class Plotter:
         flow_error_data = df.pivot(index="trajectory_time", columns="link_cell_id", values="flow_error")
 
         plt.figure(figsize=(15, 8))
-        sns.heatmap(
+        ax = sns.heatmap(
             flow_error_data,
             vmin=self.min_flow,
             vmax=self.max_flow,
             cmap="Reds",
             cbar_kws={'label': r'Flow Error $(Veh/hr)$'}
         )
-        plt.title(f"Flow Error Heatmap ({traffic_model})", fontsize=16)
         plt.xlabel("")
-        plt.ylabel("Trajectory Time", fontsize=14)
-        plt.xticks(rotation=45, ha='right', fontsize=12)
+        self.format_colorbar(ax, actual_data)
+        plt.title(f"Flow Error Heatmap ({traffic_model})", fontsize=24)
+        plt.xlabel("")
+        plt.ylabel("Trajectory Time", fontsize=21)
+        plt.xticks(rotation=45, ha='right', fontsize=19)
         plt.tight_layout()
         plt.savefig(figure_path + "flow_error.png")
         plt.close()
@@ -409,17 +464,19 @@ class Plotter:
         actual_flow_data = df.pivot(index="trajectory_time", columns="link_cell_id", values="actual_flow")
         actual_flow_data = actual_flow_data[sorted_cols]
         plt.figure(figsize=(15, 8))
-        sns.heatmap(
+        ax = sns.heatmap(
             actual_flow_data,
             cmap="Reds",
             vmin=self.min_flow,
             vmax=self.max_flow,
             cbar_kws={'label': r'Actual Flow $(Veh/hr)$'}
         )
-        plt.title(f"Actual Flow Heatmap ({traffic_model})", fontsize=16)
         plt.xlabel("")
-        plt.ylabel("Trajectory Time", fontsize=14)
-        plt.xticks(rotation=45, ha='right', fontsize=12)
+        self.format_colorbar(ax, actual_data)
+        plt.title(f"Actual Flow Heatmap ({traffic_model})", fontsize=24)
+        plt.xlabel("")
+        plt.ylabel("Trajectory Time", fontsize=21)
+        plt.xticks(rotation=45, ha='right', fontsize=19)
         plt.tight_layout()
         plt.savefig(figure_path + "actual_flow.png")
         plt.close()
@@ -427,17 +484,19 @@ class Plotter:
         predicted_flow_data = df.pivot(index="trajectory_time", columns="link_cell_id", values="predicted_flow")
         predicted_flow_data = predicted_flow_data[sorted_cols]
         plt.figure(figsize=(15, 8))
-        sns.heatmap(
+        ax = sns.heatmap(
             predicted_flow_data,
             cmap="Reds",
             vmin=self.min_flow,
             vmax=self.max_flow,
             cbar_kws={'label': r'Predicted Flow $(Veh/hr)$'}
         )
-        plt.title(f"Predicted Flow Heatmap ({traffic_model})", fontsize=16)
         plt.xlabel("")
-        plt.ylabel("Trajectory Time", fontsize=14)
-        plt.xticks(rotation=45, ha='right', fontsize=12)
+        self.format_colorbar(ax, actual_data)
+        plt.title(f"Predicted Flow Heatmap ({traffic_model})", fontsize=24)
+        plt.xlabel("")
+        plt.ylabel("Trajectory Time", fontsize=21)
+        plt.xticks(rotation=45, ha='right', fontsize=19)
         plt.tight_layout()
         plt.savefig(figure_path + "predicted_flow.png")
         plt.close()
@@ -603,22 +662,23 @@ class Plotter:
         error_data = df.pivot(index="trajectory_time", columns="link_cell_id", values="squared_error")
         error_data = error_data[sorted_cols]
         plt.figure(figsize=(15, 8))
-        yticks = df.trajectory_time.unique().tolist()
 
-        sns.heatmap(
+        ax = sns.heatmap(
             error_data,
             cmap="Reds",
             vmin=self.min_density,
             vmax=self.max_density,
             cbar_kws={'label': r'Density Error ${\frac{Veh}{m}}^2$'}
         )
-        plt.title(f"Error Heatmap for All Links ({traffic_model})", fontsize=16)
         plt.xlabel("")
-        plt.ylabel("Trajectory Time (s)", fontsize=14)
+        self.format_colorbar(ax, error_data)
+        plt.title(f"Error Heatmap for All Links ({traffic_model})", fontsize=24)
+        plt.xlabel("")
+        plt.ylabel("Trajectory Time (s)", fontsize=21)
         #tick_positions = np.arange(0, len(yticks), 50)
         #tick_labels = [yticks[i] for i in tick_positions]
        #plt.yticks(ticks=tick_positions, labels=tick_labels, rotation=0)
-        plt.xticks(rotation=45, ha='right', fontsize=12)
+        plt.xticks(rotation=45, ha='right', fontsize=19)
         plt.tight_layout()
         plt.savefig(figure_path + "error_density.png")
         plt.close()
@@ -627,20 +687,22 @@ class Plotter:
         actual_data = df.pivot(index="trajectory_time", columns="link_cell_id", values="actual_cell_density")
         actual_data = actual_data[sorted_cols]
         plt.figure(figsize=(15, 8))
-        sns.heatmap(
+        ax = sns.heatmap(
             actual_data,
             cmap="Reds",
             vmin=self.min_density,
             vmax=self.max_density,
             cbar_kws={'label': r'Actual Density $(Veh/m)$'}
         )
-        plt.title(f"Actual Density Heatmap ({traffic_model})", fontsize=16)
+        plt.xlabel("")
+        self.format_colorbar(ax, actual_data)
+        plt.title(f"Actual Density Heatmap ({traffic_model})", fontsize=24)
         #tick_positions = np.arange(0, len(yticks), 50)
         #tick_labels = [yticks[i] for i in tick_positions]
-       #plt.yticks(ticks=tick_positions, labels=tick_labels, rotation=0)
+        #plt.yticks(ticks=tick_positions, labels=tick_labels, rotation=0)
         plt.xlabel("")
-        plt.ylabel("Trajectory Time (s)", fontsize=14)
-        plt.xticks(rotation=45, ha='right', fontsize=12)
+        plt.ylabel("Trajectory Time (s)", fontsize=21)
+        plt.xticks(rotation=45, ha='right', fontsize=19)
         plt.tight_layout()
         plt.savefig(figure_path + "actual_density.png")
         plt.close()
@@ -649,20 +711,22 @@ class Plotter:
         predicted_data = df.pivot(index="trajectory_time", columns="link_cell_id", values="predicted_cell_density")
         predicted_data = predicted_data[sorted_cols]
         plt.figure(figsize=(15, 8))
-        sns.heatmap(
+        ax = sns.heatmap(
             predicted_data,
             cmap="Reds",
             vmin=self.min_density,
             vmax=self.max_density,
             cbar_kws={'label': r'Predicted Density $(Veh/m)$'}
         )
-        plt.title(f"Predicted Density Heatmap ({traffic_model})")
+        plt.xlabel("")
+        self.format_colorbar(ax, actual_data)
+        plt.title(f"Predicted Density Heatmap ({traffic_model})", fontsize=24)
         #tick_positions = np.arange(0, len(yticks), 50)
         #tick_labels = [yticks[i] for i in tick_positions]
-       #plt.yticks(ticks=tick_positions, labels=tick_labels, rotation=0)
+        #plt.yticks(ticks=tick_positions, labels=tick_labels, rotation=0)
         plt.xlabel("")
-        plt.ylabel("Trajectory Time (s)", fontsize=14)
-        plt.xticks(rotation=45, ha='right', fontsize=12)
+        plt.ylabel("Trajectory Time (s)", fontsize=21)
+        plt.xticks(rotation=45, ha='right', fontsize=19)
         plt.tight_layout()
         plt.savefig(figure_path + "predicted_density.png")
         plt.close()
@@ -679,20 +743,19 @@ class Plotter:
         flow_error_data = df.pivot(index="trajectory_time", columns="link_cell_id", values="flow_error")
 
         plt.figure(figsize=(15, 8))
-        sns.heatmap(
+        ax = sns.heatmap(
             flow_error_data,
             vmin=self.min_flow,
             vmax=self.max_flow,
             cmap="Reds",
-            cbar_kws={'label': 'Flow Error'}
+            cbar_kws={'label': r'Flow Error $(Veh/hr)$'}
         )
-        plt.title(f"Flow Error Heatmap ({traffic_model})")
-        #tick_positions = np.arange(0, len(yticks), 50)
-        #tick_labels = [yticks[i] for i in tick_positions]
-       #plt.yticks(ticks=tick_positions, labels=tick_labels, rotation=0)
         plt.xlabel("")
-        plt.ylabel("Trajectory Time (s)")
-        plt.xticks(rotation=45, ha='right')
+        self.format_colorbar(ax, actual_data)
+        plt.title(f"Flow Error Heatmap ({traffic_model})", fontsize=24)
+        plt.xlabel("")
+        plt.ylabel("Trajectory Time (s)", fontsize=21)
+        plt.xticks(rotation=45, ha='right', fontsize=19)
         plt.tight_layout()
         plt.savefig(figure_path + "flow_error.png")
         plt.close()
@@ -702,20 +765,22 @@ class Plotter:
         actual_flow_data = df.pivot(index="trajectory_time", columns="link_cell_id", values="actual_flow")
         actual_flow_data = actual_flow_data[sorted_cols]
         plt.figure(figsize=(15, 8))
-        sns.heatmap(
+        ax = sns.heatmap(
             actual_flow_data,
             cmap="Reds",
             vmin=self.min_flow,
             vmax=self.max_flow,
             cbar_kws={'label': r'Actual Flow $(Veh/hr)$'}
         )
-        plt.title(f"Actual Flow Heatmap ({traffic_model})")
+        plt.xlabel("")
+        self.format_colorbar(ax, actual_data)
+        plt.title(f"Actual Flow Heatmap ({traffic_model})", fontsize=24)
         #tick_positions = np.arange(0, len(yticks), 50)
         #tick_labels = [yticks[i] for i in tick_positions]
        #plt.yticks(ticks=tick_positions, labels=tick_labels, rotation=0)
         plt.xlabel("")
-        plt.ylabel("Trajectory Time (s)")
-        plt.xticks(rotation=45, ha='right')
+        plt.ylabel("Trajectory Time (s)", fontsize=21)
+        plt.xticks(rotation=45, ha='right', fontsize=19)
         plt.tight_layout()
         plt.savefig(figure_path + "actual_flow.png")
         plt.close()
@@ -723,102 +788,25 @@ class Plotter:
         predicted_flow_data = df.pivot(index="trajectory_time", columns="link_cell_id", values="predicted_flow")
         predicted_flow_data = predicted_flow_data[sorted_cols]
         plt.figure(figsize=(15, 8))
-        sns.heatmap(
+        ax = sns.heatmap(
             predicted_flow_data,
             cmap="Reds",
             vmin=self.min_flow,
             vmax=self.max_flow,
             cbar_kws={'label': r'Predicted Flow $(Veh/hr)$'}
         )
-        plt.title(f"Predicted Flow Heatmap ({traffic_model})")
         plt.xlabel("")
-        plt.ylabel("Trajectory Time (s)")
-        plt.xticks(rotation=45, ha='right')
+        self.format_colorbar(ax, actual_data)
+        plt.title(f"Predicted Flow Heatmap ({traffic_model})", fontsize=24)
+        plt.xlabel("")
+        plt.ylabel("Trajectory Time (s)", fontsize=21)
+        plt.xticks(rotation=45, ha='right', fontsize=19)
         plt.tight_layout()
         plt.savefig(figure_path + "predicted_flow.png")
         plt.close()
 
-
-    def plot_sns_heatmap_ctm(self, 
-                             file_name: str,
-                            traffic_model: str):
-        """
-        Plotting the heatmap using seaborn.
-
-        Args:
-            file_name (str): The name of the file to plot.
-        """
-        if not os.path.exists(file_name):
-            raise FileNotFoundError(f"File not found: {file_name}")
-        
-        data = pl.read_json(file_name)
-        groups = data.group_by(["link_id"])
-        figure_path = f"{self.cache_dir}/results/{self.get_base_name_without_extension(file_name)}/{traffic_model}.png"
-        if not os.path.exists(os.path.dirname(figure_path)):
-            os.makedirs(os.path.dirname(figure_path))
-        for name, group in groups:
-            link_id = name[0]
-            group = group.sort("trajectory_time")
-            group = group.to_pandas().set_index("trajectory_time")
-
-            plt.figure(figsize=(8, 6))
-            sns.heatmap(group, annot=False, fmt=".1f", cmap="RdYlGn_r", cbar=True)
-            plt.title(f"Heatmap for Link ID: {link_id}")
-            plt.savefig(figure_path)
-            plt.close()
     
-    def plot_sns_heatmap_point_queue_spatial_queue(self,
-                                                   data_file_name: str,
-                                                   hash_params: str,
-                                                   hash_geo: str,
-                                                   traffic_model: str):
-        """
-        Plotting the heatmap using seaborn.
-        Args:
-            data_file_name (str): The name of the file to plot.
-            hash_params (str): The hash of the parameters.
-            hash_geo (str): The hash of the geo.
-            traffic_model (str): The name of the traffic model.
-        """
-        file_name = f"{self.cache_dir}/{traffic_model}/{data_file_name}_{hash_geo}_{hash_params}.json"
-        data = pl.read_json(
-            file_name
-        )
-        
-        figure_path = f"{self.cache_dir}/results/{self.get_base_name_without_extension(file_name)}/{traffic_model}.png"
-        if not os.path.exists(os.path.dirname(figure_path)):
-            os.makedirs(os.path.dirname(figure_path))
-        
-        data = data.with_columns(
-            ((pl.col("receiving_flow") - pl.col("sending_flow")) - pl.col("next_occupancy")).alias("error")
-        )
-        data = data.filter(
-            pl.col("error") > 0
-        )
-        
-        df_pd = data.to_pandas()
-        df_pd["link_id"] = df_pd["link_id"].astype(int)
-
-        # Pivot the table: rows = time, columns = links, values = error
-        heatmap_data = df_pd.pivot(index="trajectory_time", columns="link_id", values="error")
-        
-        # Plot with Seaborn
-
-        plt.figure(figsize=(12, 8))
-        sns.heatmap(
-            heatmap_data,
-            cmap="Reds",
-            cbar=True,
-            cbar_kws={"label": "Error"},
-            linewidths=1
-        )
-        plt.title("Error Heatmap by Link and Trajectory Time")
-        #plt.xlabel("Link ID")
-        plt.ylabel("Trajectory Time")
-        plt.tight_layout()
-        plt.savefig(figure_path)
-            
-        
+    
     def plot_ltm(self,
                        data_file_name,
                        hash_params: str,
@@ -867,6 +855,15 @@ class Plotter:
             data = pl.DataFrame(flattened_data, strict=False)
         
         data = data.filter(pl.col("link_id") != 5) # Filter out link_id 5
+        groups_all_zero = (
+            data.group_by(["link_id", "cell_id"])
+            .agg(pl.col("k").max().alias("max_k"))
+            .filter(pl.col("max_k") == 0)
+            .select(["link_id", "cell_id"])
+        )
+
+        # Step 3: Remove these groups from the main data
+        data = data.join(groups_all_zero, on=["link_id", "cell_id"], how="anti")
         cell_length = self._get_cell_length(hash_geo)
         data = data.with_columns(
             pl.col("link_id")
@@ -877,7 +874,7 @@ class Plotter:
         
         data = data.with_columns(
             pl.struct("next_occupancy", "cell_lengths")
-            .map_elements(lambda x: ((np.array(x["next_occupancy"]) / np.array(x["cell_lengths"])) * Units.PER_M).to(Units.PER_KM), return_dtype=pl.List(pl.Float64))
+            .map_elements(lambda x: ((np.array(x["next_occupancy"]) / np.array(x["cell_lengths"])) * Units.PER_M), return_dtype=pl.List(pl.Float64))
             .alias("next_densities")
         )
         
@@ -893,8 +890,10 @@ class Plotter:
             actual_outflow = row["next_q"]
             cell_id = row["cell_id"]
             link_id = row["link_id"]
-            actual_density = row["next_k"]
-            predicted_density = row["k"]
+            actual_density = row["next_k"] * Units.PER_KM
+            actual_density = actual_density.to(Units.PER_M).value
+            predicted_density = row["k"] * Units.PER_KM
+            predicted_density = predicted_density.to(Units.PER_M).value
             squared_error = (actual_density - predicted_density) ** 2
             squared_flow_error = abs(outflow - actual_outflow)
             all_rmse_data.append({
@@ -927,19 +926,20 @@ class Plotter:
         error_data = df.pivot(index="trajectory_time", columns="link_cell_id", values="squared_error")
         error_data = error_data[sorted_cols]
         plt.figure(figsize=(15, 8))
-        yticks = df.trajectory_time.unique().tolist()
 
-        sns.heatmap(
+        ax = sns.heatmap(
             error_data,
             cmap="Reds",
             vmin=self.min_density,
             vmax=self.max_density,
             cbar_kws={'label': r'Density Error ${\frac{Veh}{m}}^2$'}
         )
-        plt.title(f"Error Heatmap for All Links ({traffic_model})", fontsize=16)
         plt.xlabel("")
-        plt.ylabel("Trajectory Time (s)", fontsize=14)
-        plt.xticks(rotation=45, ha='right', fontsize=12)
+        self.format_colorbar(ax, error_data)
+        plt.title(f"Error Heatmap for All Links ({traffic_model})", fontsize=24)
+        plt.xlabel("")
+        plt.ylabel("Trajectory Time (s)", fontsize=21)
+        plt.xticks(rotation=45, ha='right', fontsize=19)
         plt.tight_layout()
         plt.savefig(figure_path + "error_density.png")
         plt.close()
@@ -948,20 +948,22 @@ class Plotter:
         actual_data = df.pivot(index="trajectory_time", columns="link_cell_id", values="actual_cell_density")
         actual_data = actual_data[sorted_cols]
         plt.figure(figsize=(15, 8))
-        sns.heatmap(
+        ax = sns.heatmap(
             actual_data,
             cmap="Reds",
             vmin=self.min_density,
             vmax=self.max_density,
             cbar_kws={'label': r'Actual Density $(Veh/m)$'}
         )
-        plt.title(f"Actual Density Heatmap ({traffic_model})", fontsize=16)
+        plt.xlabel("")
+        self.format_colorbar(ax, actual_data)
+        plt.title(f"Actual Density Heatmap ({traffic_model})", fontsize=24)
         #tick_positions = np.arange(0, len(yticks), 50)
         #tick_labels = [yticks[i] for i in tick_positions]
         # plt.yticks(ticks=tick_positions, labels=tick_labels, rotation=0)
         plt.xlabel("")
-        plt.ylabel("Trajectory Time (s)", fontsize=14)
-        plt.xticks(rotation=45, ha='right', fontsize=12)
+        plt.ylabel("Trajectory Time (s)", fontsize=21)
+        plt.xticks(rotation=45, ha='right', fontsize=19)
         plt.tight_layout()
         plt.savefig(figure_path + "actual_density.png")
         plt.close()
@@ -970,20 +972,22 @@ class Plotter:
         predicted_data = df.pivot(index="trajectory_time", columns="link_cell_id", values="predicted_cell_density")
         predicted_data = predicted_data[sorted_cols]
         plt.figure(figsize=(15, 8))
-        sns.heatmap(
+        ax = sns.heatmap(
             predicted_data,
             cmap="Reds",
             vmin=self.min_density,
             vmax=self.max_density,
             cbar_kws={'label': r'Predicted Density $(Veh/m)$'}
         )
-        plt.title(f"Predicted Density Heatmap ({traffic_model})")
+        plt.xlabel("")
+        self.format_colorbar(ax, actual_data)
+        plt.title(f"Predicted Density Heatmap ({traffic_model})", fontsize=24)
         #tick_positions = np.arange(0, len(yticks), 50)
         #tick_labels = [yticks[i] for i in tick_positions]
         # plt.yticks(ticks=tick_positions, labels=tick_labels, rotation=0)
         plt.xlabel("")
-        plt.ylabel("Trajectory Time (s)", fontsize=14)
-        plt.xticks(rotation=45, ha='right', fontsize=12)
+        plt.ylabel("Trajectory Time (s)", fontsize=21)
+        plt.xticks(rotation=45, ha='right', fontsize=19)
         plt.tight_layout()
         plt.savefig(figure_path + "predicted_density.png")
         plt.close()
@@ -1000,20 +1004,22 @@ class Plotter:
         flow_error_data = df.pivot(index="trajectory_time", columns="link_cell_id", values="flow_error")
 
         plt.figure(figsize=(15, 8))
-        sns.heatmap(
+        ax = sns.heatmap(
             flow_error_data,
             vmin=self.min_flow,
             vmax=self.max_flow,
             cmap="Reds",
-            cbar_kws={'label': 'Flow Error'}
+            cbar_kws={'label': r'Flow Error $(Veh/hr)$'}
         )
-        plt.title(f"Flow Error Heatmap ({traffic_model})")
+        plt.xlabel("")
+        self.format_colorbar(ax, actual_data)
+        plt.title(f"Flow Error Heatmap ({traffic_model})", fontsize=24)
         #tick_positions = np.arange(0, len(yticks), 50)
         #tick_labels = [yticks[i] for i in tick_positions]
         # plt.yticks(ticks=tick_positions, labels=tick_labels, rotation=0)
         plt.xlabel("")
-        plt.ylabel("Trajectory Time (s)")
-        plt.xticks(rotation=45, ha='right')
+        plt.ylabel("Trajectory Time (s)", fontsize=21)
+        plt.xticks(rotation=45, ha='right', fontsize=19)
         plt.tight_layout()
         plt.savefig(figure_path + "flow_error.png")
         plt.close()
@@ -1023,20 +1029,22 @@ class Plotter:
         actual_flow_data = df.pivot(index="trajectory_time", columns="link_cell_id", values="actual_flow")
         actual_flow_data = actual_flow_data[sorted_cols]
         plt.figure(figsize=(15, 8))
-        sns.heatmap(
+        ax = sns.heatmap(
             actual_flow_data,
             cmap="Reds",
             vmin=self.min_flow,
             vmax=self.max_flow,
             cbar_kws={'label': r'Actual Flow $(Veh/hr)$'}
         )
-        plt.title(f"Actual Flow Heatmap ({traffic_model})")
+        plt.xlabel("")
+        self.format_colorbar(ax, actual_data)
+        plt.title(f"Actual Flow Heatmap ({traffic_model})", fontsize=24)
         #tick_positions = np.arange(0, len(yticks), 50)
         #tick_labels = [yticks[i] for i in tick_positions]
         # plt.yticks(ticks=tick_positions, labels=tick_labels, rotation=0)
         plt.xlabel("")
-        plt.ylabel("Trajectory Time (s)")
-        plt.xticks(rotation=45, ha='right')
+        plt.ylabel("Trajectory Time (s)", fontsize=21)
+        plt.xticks(rotation=45, ha='right', fontsize=19)
         plt.tight_layout()
         plt.savefig(figure_path + "actual_flow.png")
         plt.close()
@@ -1044,17 +1052,19 @@ class Plotter:
         predicted_flow_data = df.pivot(index="trajectory_time", columns="link_cell_id", values="predicted_flow")
         predicted_flow_data = predicted_flow_data[sorted_cols]
         plt.figure(figsize=(15, 8))
-        sns.heatmap(
+        ax = sns.heatmap(
             predicted_flow_data,
             cmap="Reds",
             vmin=self.min_flow,
             vmax=self.max_flow,
             cbar_kws={'label': r'Predicted Flow $(Veh/hr)$'}
         )
-        plt.title(f"Predicted Flow Heatmap ({traffic_model})")
         plt.xlabel("")
-        plt.ylabel("Trajectory Time (s)")
-        plt.xticks(rotation=45, ha='right')
+        self.format_colorbar(ax, actual_data)
+        plt.title(f"Predicted Flow Heatmap ({traffic_model})", fontsize=24)
+        plt.xlabel("")
+        plt.ylabel("Trajectory Time (s)", fontsize=21)
+        plt.xticks(rotation=45, ha='right', fontsize=19)
         plt.tight_layout()
         plt.savefig(figure_path + "predicted_flow.png")
         plt.close()
@@ -1178,17 +1188,19 @@ class Plotter:
             error_data = df.pivot(index="trajectory_time", columns="link_cell_id", values="squared_error")
             error_data = error_data[sorted_cols]
             plt.figure(figsize=(15, 8))
-            sns.heatmap(
+            ax = sns.heatmap(
                 error_data,
                 cmap="Reds",
                 vmin=self.min_density,
                 vmax=self.max_density,
                 cbar_kws={'label': r'Density Error ${\frac{Veh}{m}}^2$'}
             )
-            plt.title(f"Error Heatmap for All Links ({traffic_model})")
+            self.format_colorbar(ax, error_data)
+            plt.title(f"Error Heatmap for All Links ({traffic_model})", fontsize=24)
+            plt.xlabel("")
             #plt.xlabel("Link_ID and Cell_ID")
-            plt.ylabel("Trajectory Time", fontsize=16)
-            plt.xticks(rotation=45, ha='right', fontsize=16)
+            plt.ylabel("Trajectory Time (s)", fontsize=21)
+            plt.xticks(rotation=45, ha='right', fontsize=19)
             plt.tight_layout()
             plt.savefig(figure_path + "error_density.png")
             plt.close()
@@ -1198,17 +1210,19 @@ class Plotter:
             actual_data = actual_data[sorted_cols]
             plt.figure(figsize=(15, 8))
             print(self.min_density, self.max_density)
-            sns.heatmap(
+            ax = sns.heatmap(
                 actual_data,
                 cmap="Reds",
                 vmin=self.min_density,
                 vmax=self.max_density,
                 cbar_kws={'label': r'Actual Density $(Veh/m)$'}
             )
-            plt.title(f"Actual Density Heatmap ({traffic_model})")
+            self.format_colorbar(ax, actual_data)
+            plt.xlabel("")
+            plt.title(f"Actual Density Heatmap ({traffic_model})", fontsize=24)
             #plt.xlabel("Link_ID and Cell_ID")
-            plt.ylabel("Trajectory Time", fontsize=16)
-            plt.xticks(rotation=45, ha='right', fontsize=16)
+            plt.ylabel("Trajectory Time (s)", fontsize=21)
+            plt.xticks(rotation=45, ha='right', fontsize=19)
             plt.tight_layout()
             plt.savefig(figure_path + "actual_density.png")
             plt.close()
@@ -1217,17 +1231,19 @@ class Plotter:
             predicted_data = df.pivot(index="trajectory_time", columns="link_cell_id", values="predicted_cell_density")
             predicted_data = predicted_data[sorted_cols]
             plt.figure(figsize=(15, 8))
-            sns.heatmap(
+            ax = sns.heatmap(
                 predicted_data,
                 cmap="Reds",
                 vmin=self.min_density,
                 vmax=self.max_density,
                 cbar_kws={'label': r'Predicted Density $(Veh/m)$'}
             )
-            plt.title(f"Predicted Density Heatmap ({traffic_model})")
+            self.format_colorbar(ax, actual_data)
+            plt.xlabel("")
+            plt.title(f"Predicted Density Heatmap ({traffic_model})", fontsize=24)
             #plt.xlabel("Link_ID and Cell_ID")
-            plt.ylabel("Trajectory Time", fontsize=16)
-            plt.xticks(rotation=45, ha='right', fontsize=16)
+            plt.ylabel("Trajectory Time (s)", fontsize=21)
+            plt.xticks(rotation=45, ha='right', fontsize=19)
             plt.tight_layout()
             plt.savefig(figure_path + "predicted_density.png")
             plt.close()
@@ -1244,17 +1260,19 @@ class Plotter:
             flow_error_data = df.pivot(index="trajectory_time", columns="link_cell_id", values="flow_error")
 
             plt.figure(figsize=(15, 8))
-            sns.heatmap(
+            ax = sns.heatmap(
                 flow_error_data,
                 vmin=self.min_flow,
                 vmax=self.max_flow,
                 cmap="Reds",
-                cbar_kws={'label': 'Flow Error'}
+                cbar_kws={'label': r'Flow Error $(Veh/hr)$'}
             )
-            plt.title(f"Flow Error Heatmap ({traffic_model})")
+            self.format_colorbar(ax, actual_data)
+            plt.title(f"Flow Error Heatmap ({traffic_model})", fontsize=24)
+            plt.xlabel("")
             #plt.xlabel("Link_ID and Cell_ID")
-            plt.ylabel("Trajectory Time", fontsize=16)
-            plt.xticks(rotation=45, ha='right', fontsize=16)
+            plt.ylabel("Trajectory Time (s)", fontsize=21)
+            plt.xticks(rotation=45, ha='right', fontsize=19)
             plt.tight_layout()
             plt.savefig(figure_path + "flow_error.png")
             plt.close()
@@ -1263,18 +1281,19 @@ class Plotter:
             actual_flow_data = df.pivot(index="trajectory_time", columns="link_cell_id", values="actual_flow")
             actual_flow_data = actual_flow_data[sorted_cols]
             plt.figure(figsize=(15, 8))
-            sns.heatmap(
+            ax = sns.heatmap(
                 actual_flow_data,
                 cmap="Reds",
                 vmin=self.min_flow,
                 vmax=self.max_flow,
                 cbar_kws={'label': r'Actual Flow $(Veh/hr)$'}
             )
-            
-            plt.title(f"Actual Flow Heatmap ({traffic_model})")
+            self.format_colorbar(ax, actual_data)
+            plt.title(f"Actual Flow Heatmap ({traffic_model})", fontsize=24)
+            plt.xlabel("")
             #plt.xlabel("Link_ID and Cell_ID")
-            plt.ylabel("Trajectory Time")
-            plt.xticks(rotation=45, ha='right')
+            plt.ylabel("Trajectory Time (s)", fontsize=21)
+            plt.xticks(rotation=45, ha='right', fontsize=19)
             plt.tight_layout()
             plt.savefig(figure_path + "actual_flow.png")
             plt.close()
@@ -1282,17 +1301,19 @@ class Plotter:
             predicted_flow_data = df.pivot(index="trajectory_time", columns="link_cell_id", values="predicted_flow")
             predicted_flow_data = predicted_flow_data[sorted_cols]
             plt.figure(figsize=(15, 8))
-            sns.heatmap(
+            ax = sns.heatmap(
                 predicted_flow_data,
                 cmap="Reds",
                 vmin=self.min_flow,
                 vmax=self.max_flow,
                 cbar_kws={'label': r'Predicted Flow $(Veh/hr)$'}
             )
-            plt.title(f"Predicted Flow Heatmap ({traffic_model})")
+            self.format_colorbar(ax, actual_data)
+            plt.title(f"Predicted Flow Heatmap ({traffic_model})", fontsize=24)
             #plt.xlabel("Link_ID and Cell_ID")
-            plt.ylabel("Trajectory Time")
-            plt.xticks(rotation=45, ha='right')
+            plt.xlabel("")
+            plt.ylabel("Trajectory Time (s)", fontsize=21)
+            plt.xticks(rotation=45, ha='right', fontsize=19)
             plt.tight_layout()
             plt.savefig(figure_path + "predicted_flow.png")
             plt.close()
@@ -1421,10 +1442,16 @@ class Plotter:
         print("Plotting the trajectory of the vehicles.")
         links = dict(sorted(links.items(), key=lambda x: x[0]))  # sort links by id
         add_link_distance = {}
+        # Plot link boundaries without duplicating legend entries
+        first_boundary = True
         for link_id, link in links.items():
             add_link_distance[link_id] = distance_passed
             distance_passed += link.get_length().value
-            ax.axhline(y=distance_passed, color='r', linestyle='--', linewidth=2)
+            if first_boundary:
+                ax.axhline(y=distance_passed, color='r', linestyle='--', linewidth=2, label="Link boundary")
+                first_boundary = False
+            else:
+                ax.axhline(y=distance_passed, color='r', linestyle='--', linewidth=2)
         print("Distance passed:", distance_passed)
         ax.set_xlabel("Trajectory Time (s)")
         ax.set_ylabel("Distance (m)")
@@ -1440,11 +1467,14 @@ class Plotter:
             axis=1
         )
         df = df.sort_values(by=["trajectory_time", "loc"])
-        ax.plot(df["trajectory_time"], df["loc"], marker='o', linestyle='-', markersize=0.1, linewidth=0.01, label="Vehicle Trajectory")    
-        ax.legend()
+        ax.plot(df["trajectory_time"], df["loc"], marker='o', linestyle='-', markersize=0.1, linewidth=0.01, label="Vehicle Trajectory")
+        vehicle_line = mlines.Line2D([], [], color='steelblue', linewidth=1.5, label='Vehicle Trajectory')
+        link_boundary_line = mlines.Line2D([], [], color='red', linestyle='--', linewidth=2, label='Link boundary')
+        ax.legend(handles=[link_boundary_line, vehicle_line])
         figure_path = f"{self.cache_dir}/results/{self.get_base_name_without_extension(file_name)}/"
         if not os.path.exists(figure_path):
             os.makedirs(figure_path)
+        plt.ylim([0, 600])
         plt.savefig(figure_path + "trajectory_plot.png")
         plt.close()
 
@@ -1470,11 +1500,14 @@ class Plotter:
         for folder in os.listdir(self.cache_dir):
             # If the first characters of the folder name are capital letters, it is a traffic model
             if folder[0].isupper():
-                if folder != "LTM":
-                    continue
+                # if folder != "LTM":
+                #     continue
                 traffic_model = folder
                 for file_name in os.listdir(f"{self.cache_dir}/{traffic_model}"):
                     if file_name.endswith(".json"):
+                        if "2cd8746790625c2e16ac27d3f96ba842" not in file_name:
+                            continue
+                        
                         data_file_name = "_".join(file_name.split("_")[:4])
                         hash_geo = file_name.split("_")[4].split(".")[0]
                         hash_params = file_name.split("_")[5].split(".")[0]
@@ -1544,9 +1577,9 @@ class Plotter:
                     plt.plot([x_intercept_ws, last_x], [y_intercept, 0], color=colors[i], linewidth=1.5)
         
         # === Axis labels with LaTeX formatting ===
-        plt.xlabel(r"$K$ (jam density) $\left(\frac{\mathrm{veh}}{\mathrm{km}}\right)$", fontsize=14)
-        plt.ylabel(r"$Q_{\max}$ $\left(\frac{\mathrm{veh}}{\mathrm{hr}}\right)$", fontsize=14)
-        plt.title("Fundamental Diagrams", fontsize=16)
+        plt.xlabel(r"$K$ (jam density) $\left(\frac{\mathrm{veh}}{\mathrm{km}}\right)$", fontsize=21)
+        plt.ylabel(r"$Q_{\max}$ $\left(\frac{\mathrm{veh}}{\mathrm{hr}}\right)$", fontsize=21)
+        plt.title("Fundamental Diagrams", fontsize=24)
         plt.grid(True, linestyle='--', alpha=0.5)
         plt.tight_layout()
         plt.legend(loc='upper left', fontsize=10)
@@ -1591,29 +1624,7 @@ class Plotter:
         with open(all_errors_path, "r") as f:
             errors = json.load(f)
         
-        # plt.figure(figsize=(12, 7), dpi=300)
-        # color_map = cm.get_cmap('tab20')  # or 'Set1', 'hsv', etc.
         traffic_models = list(errors.keys())
-        # colors = color_map(np.linspace(0, 1, len(traffic_models)))
-        
-        # for i, traffic_model in enumerate(traffic_models):
-        #     model_errors = errors[traffic_model]
-        #     if not model_errors:
-        #         continue
-        #     params = list(model_errors.keys())
-        #     values = list(model_errors.values())
-        #     params = list(map(lambda x: x.replace("(", "").replace(")", ""), params))  # remove quotes from keys
-        #     plt.plot(params, values, marker='o', linestyle='-', color=colors[i], label=traffic_model)
-        # plt.xlabel(r"Parameters ($u_f$ as $\frac{\mathrm{km}}{\mathrm{hr}}$, $w$ as $\frac{\mathrm{km}}{\mathrm{hr}}$, $K_j$ as $\frac{\mathrm{veh}}{\mathrm{km}}$, $Q_{\max}$ as $\frac{\mathrm{veh}}{\mathrm{hr}}$)")
-        # plt.ylabel(r"Average Density Error $\frac{\mathrm{veh}}{\mathrm{m}}$")
-        # plt.title("Sensitivity Analysis of Traffic Models")
-        # plt.xticks(rotation=45, ha='right')
-        # plt.legend()
-        # plt.tight_layout()
-        # output_path = f"{self.cache_dir}/results/sensitivity_analysis.png"
-        # os.makedirs(os.path.dirname(output_path), exist_ok=True)
-        # plt.savefig(output_path, dpi=300)
-        # plt.close()
         data_dict = {
             "traffic_models": [],
             "error": [],
@@ -1640,8 +1651,8 @@ class Plotter:
         df = pd.DataFrame(data_dict)
         params = ["u_f", "w", "K_j", "Q"]
         units = {
-            "u_f": r"\frac{veh}{hr}",
-            "w": r"\frac{veh}{hr}",
+            "u_f": r"\frac{Km}{hr}",
+            "w": r"\frac{Km}{hr}",
             "K_j": r"\frac{veh}{km}",
             "Q": r"\frac{veh}{hr}"
         }
@@ -1656,27 +1667,48 @@ class Plotter:
             for name, group in grouped:
                 second_grouped = group.groupby("traffic_models")
                 x_params = [p for p in params if p != param]
-                plt.figure(figsize=(12, 7), dpi=300)
-                print(x_params)
+                x_params = sorted(x_params)
+                plt.figure(figsize=(20, 6), dpi=300)
+                
                 for second_name, second_group in second_grouped:
                     # Build the x-axis label by excluding the current param
                     if second_name == "SpatialQueue":
                         linewidth = 3
                     else:
                         linewidth = 8
+                    print(second_group)
                     second_group = second_group.sort_values(by=x_params)
+                    print(second_group)
                     # Create a string label for each row combining the other parameters
-                    x = second_group[x_params[0]].astype(str) + ", " + \
-                        second_group[x_params[1]].astype(str) + ", " + \
-                        second_group[x_params[2]].astype(str)
+                    x = []
+                    prev_values = [None, None, None]
+                    for index, row in second_group.iterrows():
+                        values = [row[x_params[0]], row[x_params[1]], row[x_params[2]]]
+                        lines = []
+                        for i, v in enumerate(values):
+                            if v == prev_values[i]:
+                                lines.append("----")  # blank out repeated values
+                            else:
+                                if str(v).endswith(".0"):
+                                    lines.append(str(int(v)))
+                                else:
+                                    lines.append(str(v))
+                                prev_values[i] = v
+                        x_label = "\n".join(reversed(lines))
+                        x.append(x_label)
+                        # x.append((first_item + second_item + third_item).strip(","))
+                    print(x)
                     y = second_group["error"]
-                    plt.ylim([0, 0.01])
-                    plt.plot(x, y, linestyle='-', label=f"{second_name}", linewidth=linewidth, color=colors[second_name], alpha=0.8)
-                plt.ylabel(f"Error")
+                    # plt.ylim([0, 0.07])
+                    x_indices = np.arange(len(x))
+                    plt.scatter(x_indices, y, linestyle='-', label=f"{second_name}", linewidth=linewidth, color=colors[second_name], alpha=0.8)
+                    plt.xticks(ticks=x_indices, labels=x, rotation=0, ha='center', fontsize=17)
+                plt.ylabel(f"Density error $(Veh/m)$", fontsize=24)
+                plt.yticks(fontsize=17)
                 xlabel = ", ".join([f"${p}$ (${units[p]})$" for p in x_params])
-                plt.xlabel(f"{xlabel}", fontsize=16)
-                plt.title(fr"${param}$ ({name} ${units[param]}$)", fontsize=20, pad=20)
-                plt.xticks(rotation=45, ha='right', fontsize=14)
+                plt.xlabel(f"{xlabel}", fontsize=24)
+                plt.title(fr"${param}$ ({name} ${units[param]}$)", fontsize=24, pad=20)
+                plt.xticks(rotation=0, ha='right', fontsize=21)
                 plt.grid()
                 plt.legend()
                 plt.tight_layout()
@@ -1710,7 +1742,7 @@ class Plotter:
             x_indices = np.arange(len(x_labels))  # Now matches this group's size
             y = group["error"].values  # Make sure it's a NumPy array
 
-            plt.plot(x_indices, y, linestyle='-', label=name, linewidth=linewidth, color=colors[name], alpha=0.8) # type: ignore
+            plt.scatter(x_indices, y, linestyle='-', label=name, linewidth=linewidth, color=colors[name], alpha=0.8) # type: ignore
 
         # Use ticks from the largest group (or just the last one, assuming all equal)
         max_labels = 20
@@ -1718,13 +1750,13 @@ class Plotter:
         tick_positions = x_indices[::step]
         tick_labels = x_labels.tolist()[::step]
 
-        plt.xticks(ticks=tick_positions, labels=tick_labels, rotation=45, ha='right', fontsize=14)
+        plt.xticks(ticks=tick_positions, labels=tick_labels, rotation=45, ha='right', fontsize=21)
         
         xlabel = ", ".join([f"${p}$ (${units[p]})$" for p in params])
-        plt.xlabel(xlabel, fontsize=16)
-        plt.ylabel("Error")
+        plt.xlabel(xlabel, fontsize=24)
+        plt.ylabel("Error", fontsize=24)
         plt.grid()
-        plt.title("Sensitivity Analysis")
+        plt.title("Sensitivity Analysis",  fontsize=19)
         plt.legend()
         plt.tight_layout()
         plt.savefig(f"{self.cache_dir}/sensitivity/sensitivity_analysis_all.png", dpi=300)
@@ -1735,6 +1767,9 @@ class Plotter:
 if __name__ == "__main__":
     
     plotter = Plotter(cache_dir=".cache_dt5s")
+    data_file_name = "d1_20181029_0800_0830"
+    geo_hash_str = "623b00c4"
+    # plotter.plot_trajectory(data_file_name, geo_hash_str, min_time=200, max_time=300)
     plotter.plot_all()
     # plotter.plot_sensitivity()
 

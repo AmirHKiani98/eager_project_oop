@@ -100,6 +100,7 @@ class Link(SpatialLine):
             cell.set_link(self)
             self.add_cell(cell)
             cells.append(cell)
+        self.average_cell_length = sum([cell.get_length().to(Units.M).value for cell in self.cells])/len(self.cells)
         return cells
 
     def load_cells_by_number(self, number_of_cells: int):
@@ -123,6 +124,7 @@ class Link(SpatialLine):
             cell.set_link(self)
             self.add_cell(cell)
             cells.append(cell)
+        self.average_cell_length = sum([cell.get_length().to(Units.M).value for cell in self.cells])/len(self.cells)
         return cells
 
     def __str__(self):

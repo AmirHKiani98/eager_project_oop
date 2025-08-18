@@ -104,6 +104,9 @@ class GeoLoader:
                 self._load_cells()
             if not testing:    
                 self._save()
+        for link_id, link in self.links.items():
+            print(link)
+            self.links[link_id].average_cell_length = sum([cell.get_length().to(Units.M).value for cell_id, cell in link.cells.items()])/len(link.cells)
 
     def _load_links(self):
         """
