@@ -1,15 +1,3 @@
-{
-    "python.linting.pylintArgs": [
-        "--extension-pkg-whitelist=astropy.units"
-    ],
-    "github.copilot.enable": {
-        "*": true,
-        "yaml": true,
-        "plaintext": true,
-        "markdown": true,
-        "python": true
-    },
-    "editor.inlineSuggestionsEnabled": true,
-    
-    "python.linting.enabled": true
-}
+version https://git-lfs.github.com/spec/v1
+oid sha256:8e3bc72990f834ae9084851b94c318dea5b20e8f1c7f1bea8ab82230bbefe3f6
+size 335

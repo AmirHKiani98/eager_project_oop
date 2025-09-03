@@ -1648,13 +1648,64 @@ class Plotter:
         plt.savefig(f"{self.cache_dir}/sensitivity/sensitivity_analysis_all.png", dpi=300)
         plt.close()
 
+    def plot_headways(self):
+        """
+        Plot headways with x = "linkid_cellid" and y = headway values.
+        """
+        path = (self.cache_dir +
+                "/d1_20181029_0800_0830_headsway_d5d317cde2fa71d6854db361a3a5f83b_623b00c4.json")
+        with open(path, "r") as f:
+            data = json.load(f)
+
+        space_headways = data["space_headway"]
+        time_headways = data["time_headway"]
+        space = []
+        time = []
+        xs, ys = [], []
+        for link_id, by_time in space_headways.items():
+            for t, by_cell in by_time.items():
+                for cell_id, headways in by_cell.items():
+                    space.append(np.mean(headways))
+                    if link_id in time_headways:
+                        if t in time_headways[link_id]:
+                            if cell_id in time_headways[link_id][t]:
+                                time.append(np.mean(time_headways[link_id][t][cell_id]))
+                            else:
+                                time.append(0)
+                        else:
+                            time.append(0)
+                    else:
+                        time.append(0)
+                    
+        space = np.array(space)
+        time = np.array(time)
+        mask = space < 2
+        space = space[mask]
+        time = time[mask]
+        mask = time < 0.5
+        space = space[mask]
+        time = time[mask]
+        # plot
+        plt.figure(figsize=(12, 6))
+        plt.scatter(1000/space, 3600/time, alpha=0.6)
+        plt.xticks(rotation=90)
+        plt.xlabel("Space headway (m)")
+        plt.ylabel("Time headway (s)")
+        plt.title("Time|Space Headway")
+        plt.tight_layout()
+        plt.savefig("Plots.png")
+        plt.show()
+
+
+        
 
 
 if __name__ == "__main__":
     
-    plotter = Plotter(cache_dir=".cache_dt5s")
+    plotter = Plotter(cache_dir=".cache_dt5")
     # plotter.plot_all()
-    plotter.plot_sensitivity()
+    # plotter.plot_sensitivity()
+    plotter.plot_headways()
 
     # plotter.plot_fundamental_diagram()
     # plotter.animation(f".cache/{data_file_name}_fully_process_vehicles_{geo_hash}.csv")

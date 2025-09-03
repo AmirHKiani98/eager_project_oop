@@ -110,6 +110,7 @@ def main():
         .to_numpy()
         .tolist()
     )
+    print(intersection_locations)
     intersection_locations = [
         POINT(loc[1], loc[0])
         for loc in intersection_locations
