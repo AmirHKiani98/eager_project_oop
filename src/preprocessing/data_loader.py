@@ -290,6 +290,8 @@ class DataLoader:
                             (location, date, time)
                         ] = removed_vehicles_on_minor_roads
 
+                        self.get_headways_per_cell(location, date, time)
+                        
                         self.density_exit_entry_files_dict[
                             (location, date, time)
                         ] = self._write_density_entry_exit_df(
@@ -2545,6 +2547,160 @@ class DataLoader:
         self.destruct()
         self.tasks = tasks
     
+    def get_headways_per_cell(self, location, date, time):
+        """
+        Compute space and time headways per cell and cache to JSON.
+
+        Returns
+        -------
+        str
+            Path to the JSON results file.
+
+        Results schema
+        --------------
+        results = {
+            "space_headway": {
+                link_id: {
+                    trajectory_time: {
+                        cell_id: [0.0, dx12, dx23, ...]      # meters, sorted front-to-back
+                    }, ...
+                }, ...
+            },
+            "time_headway": {
+                link_id: {
+                    trajectory_time: {
+                        cell_id: [dt_to_next, dt_to_next, ...]  # seconds; one or more if multiple arrivals share the same time
+                    }, ...
+                }, ...
+            }
+        }
+        """
+        import os, json
+        import numpy as np
+        import polars as pl
+        from shapely.geometry import Point as _SPoint, LineString as _SLineString
+        from shapely.ops import transform as _sxfm
+        from pyproj import Transformer
+
+        # ---------- 0) cache path ----------
+        output_file_address = (
+            self.params.cache_dir + "/" + self._get_filename(location, date, time)
+            + "_headsway_" + self.params.get_hash_str(["dt"]) + "_"
+            + self.geo_loader.get_hash_str() + ".json"
+        )
+        if os.path.isfile(output_file_address):
+            return output_file_address
+
+        # ---------- 1) load CSV ----------
+        fully_process_file = self.files_dict[(location, date, time)]
+        df = pl.read_csv(fully_process_file)
+
+        # Expect columns: link_id, cell_id, lat, lon, track_id, trajectory_time
+        # Basic sanity
+        required_cols = {"link_id", "cell_id", "lat", "lon", "track_id", "trajectory_time"}
+        missing = required_cols - set(df.columns)
+        if missing:
+            raise ValueError(f"Missing required columns: {sorted(missing)}")
+
+        # ---------- 2) choose a metric CRS (UTM) based on median lon/lat ----------
+        lon_med = float(df.select(pl.col("lon").median()).item())
+        lat_med = float(df.select(pl.col("lat").median()).item())
+        zone = int((lon_med + 180) // 6) + 1
+        epsg = 32600 + zone if lat_med >= 0 else 32700 + zone  # 326xx=N, 327xx=S
+        to_m = Transformer.from_crs("EPSG:4326", f"EPSG:{epsg}", always_xy=True).transform
+
+        # ---------- 3) precompute cell LineStrings and lengths in METERS ----------
+        # We assume self.geo_loader.links[link_id].cells[cell_id] has attributes: _from, _to  (as Shapely Points in lon/lat)
+        line_by_cell = {}
+        length_by_cell_m = {}
+        unique_cells = set(tuple(x) for x in df.select(["link_id", "cell_id"]).to_numpy())
+        for link_id, cell_id in unique_cells:
+            link = self.geo_loader.links[int(link_id)]
+            cell = link.cells[int(cell_id)]
+            p1_m = _sxfm(to_m, cell._from)  # shapely Point in meters
+            p2_m = _sxfm(to_m, cell._to)
+            line = _SLineString([p1_m, p2_m])
+            line_by_cell[(int(link_id), int(cell_id))] = line
+            length_by_cell_m[(int(link_id), int(cell_id))] = float(line.length)
+
+        # ---------- 4) compute distance-from-start along the cell (meters) ----------
+        # Use linear referencing (project) onto the cell lines.
+        # (You could vectorize, but this is clearer and robust.)
+        link_ids = df["link_id"].to_numpy()
+        cell_ids = df["cell_id"].to_numpy()
+        lats = df["lat"].to_numpy()
+        lons = df["lon"].to_numpy()
+
+        dist_from_start_m = np.empty(len(df), dtype=float)
+        for i in range(len(df)):
+            key = (int(link_ids[i]), int(cell_ids[i]))
+            line = line_by_cell[key]
+            pt_m = _SPoint(*to_m(float(lons[i]), float(lats[i])))
+            dist_from_start_m[i] = float(line.project(pt_m))  # meters along the line
+
+        df = df.with_columns(pl.Series("distance_from_cell_start_m", dist_from_start_m))
+
+        # ---------- 5) SPACE HEADWAY: per (t, link, cell) ----------
+        space_headway = {}
+        for (t, link, cell), group in df.group_by(["trajectory_time", "link_id", "cell_id"]):
+            t_py = float(t) if not isinstance(t, float) else t
+            link_py = int(link)
+            cell_py = int(cell)
+
+            group = group.sort("distance_from_cell_start_m")
+            d = group["distance_from_cell_start_m"].to_numpy()
+            if len(d) == 0:
+                seq = []
+            elif len(d) == 1:
+                seq = [0.0]
+            else:
+                seq = [0.0] + np.diff(d).tolist()
+
+            space_headway.setdefault(link_py, {}).setdefault(t_py, {})[cell_py] = seq
+
+        # ---------- 6) TIME HEADWAY: per (link, cell) arrival series; store keyed by the earlier arrival time ----------
+        time_headway = {}
+        for link_id, cell_id in unique_cells:
+            link_py = int(link_id)
+            cell_py = int(cell_id)
+
+            cell_len_m = length_by_cell_m[(link_py, cell_py)]
+            detector_s = 0.5 * cell_len_m  # mid-cell virtual detector
+
+            g = df.filter((pl.col("link_id") == link_py) & (pl.col("cell_id") == cell_py)) \
+                .select(["track_id", "trajectory_time", "distance_from_cell_start_m"])
+
+            # Collect first crossing time per track (if any)
+            arrivals = []
+            for track_id, inner in g.group_by("track_id"):
+                inner = inner.sort("trajectory_time")
+                s = inner["distance_from_cell_start_m"].to_numpy()
+                t = inner["trajectory_time"].to_numpy()
+                idxs = np.nonzero(s >= detector_s)[0]
+                if len(idxs) > 0:
+                    arrivals.append(float(t[idxs[0]]))
+
+            if not arrivals:
+                # keep schema consistent: no trajectory_time keys for this (link, cell)
+                continue
+
+            arrivals = np.array(sorted(arrivals), dtype=float)
+            dts = np.diff(arrivals)  # seconds (assuming trajectory_time is in seconds)
+
+            # Store by the earlier arrival time; allow multiple dt values per same time (list)
+            for i in range(len(dts)):
+                t0 = float(arrivals[i])
+                dt = float(dts[i])
+                time_headway.setdefault(link_py, {}).setdefault(t0, {}).setdefault(cell_py, []).append(dt)
+
+        # ---------- 7) persist ----------
+        results = {"time_headway": time_headway, "space_headway": space_headway}
+        os.makedirs(os.path.dirname(output_file_address), exist_ok=True)
+        with open(output_file_address, "w") as f:
+            json.dump(results, f)
+        return output_file_address
+
+
     def get_average_speeds_per_cell(self, location, date, time):
         """
         Returns a dictionary with dict[link_id][trajectory_time] = list(average speed)
