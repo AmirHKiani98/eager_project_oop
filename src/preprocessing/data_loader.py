@@ -52,7 +52,6 @@ class DataLoader:
         fp_location (list): List of location identifiers.
         fp_date (list): List of dates in the format 'yyyymmdd'.
         fp_time (list): List of time ranges in the format 'hhmm_hhmm'.
-        cache_dir (str): Directory where downloaded files are cached.
         files_list (dict): Dictionary to store information about downloaded files.
     """
     def __init__(
@@ -2718,7 +2717,59 @@ class DataLoader:
                 copy_tasks[index]["actual_outflow"] = {cell_id: outflow.to(Units.PER_SEC).value for cell_id, outflow in copy_tasks[index]["actual_outflow"].items()}
             json.dump(copy_tasks, f, indent=4)
         self.destruct()
+
+    
+    def prepare_actuals(self, location: str, date: str, time: str):
+        """
+        Prepares the tasks for the specified class name.
         
+        Args:
+            class_name (str): The name of the class to prepare tasks for.
+            fp_location (str): The location of the file.
+            fp_date (str): The date of the file.
+            fp_time (str): The time of the file.
+        """
+        self.activate_first_cell_outflow_dict(location, date, time)
+        self.activate_next_timestamp_occupancy(location, date, time)
+        output_file = (
+            self.params.cache_dir + "/" +
+            f"{self._get_filename(location, date, time)}_prepared_actuals_tasks_"
+            f"{self.geo_loader.get_hash_str()}_{self.params.get_hash_str(['cache_dir', 'dt'])}.json"
+        )
+        if os.path.isfile(output_file):
+            self.tasks = json.load(open(output_file, "r", encoding="utf-8"))
+            return
+        
+        tasks = []
+        for link_id, cell_dict in self.first_cell_outflow_dict.items():
+            for trajectory_time, data in cell_dict.items():
+                if link_id not in self.next_timestamp_occupancy_dict:
+                    continue
+                if trajectory_time not in self.next_timestamp_occupancy_dict[link_id]:
+                    continue
+                next_occupancy = self.next_timestamp_occupancy_dict[link_id][trajectory_time]["next_occupancy"]
+                last_cell_id = len(next_occupancy)
+                last_cell_outflow = data[last_cell_id] if last_cell_id in data else 0
+                for cell_id, outflow in data.items():
+                    tasks.append(
+                        {
+                            "link_id": link_id,
+                            "trajectory_time": trajectory_time,
+                            "q_link": (last_cell_outflow * Units.PER_SEC).to(Units.PER_HR).value,
+                            "k_link": (sum([next_occupancy_value for next_occupancy_value in next_occupancy]) / self.geo_loader.links[link_id].get_length()).to(Units.PER_KM).value,  # type: ignore
+                            "cell_id": cell_id,
+                            "k_cell": (next_occupancy[int(cell_id)-1] / self.geo_loader.links[link_id].cells[cell_id].get_length()).to(Units.PER_KM).value,  # type: ignore
+                            "q_cell": (outflow * Units.PER_SEC).to(Units.PER_HR).value,
+                        }
+                    )                    
+        self.tasks = tasks
+        with open(output_file, "w", encoding="utf-8") as f:
+            json.dump(self.tasks, f, ensure_ascii=False, indent=4)
+        return self.tasks
+
+        
+          
+
     def prepare(self, class_name: str, fp_location: str, fp_date: str, fp_time: str):
         """
         Prepares the data for the specified class name.
@@ -2755,6 +2806,12 @@ class DataLoader:
             )
         elif class_name == "PW":
             self.prepare_pw_tasks(
+                fp_location,
+                fp_date,
+                fp_time
+            )
+        elif class_name == "Actuals":
+            self.prepare_actuals(
                 fp_location,
                 fp_date,
                 fp_time

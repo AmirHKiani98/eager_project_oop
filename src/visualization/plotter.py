@@ -16,10 +16,9 @@ import numpy as np
 from shapely.geometry import Point as POINT
 from src.preprocessing.geo_loader import GeoLoader
 from src.common_utility.units import Units
-from collections import defaultdict
 from pyproj import Geod
 import matplotlib.cm as cm
-
+import seaborn as sns
 import matplotlib.lines as mlines
 color_map = plt.get_cmap('tab20')
 
@@ -833,6 +832,7 @@ class Plotter:
         except Exception:
             # Manual fallback for complex nested JSON
             import json
+
             with open(file_name, 'r') as f:
                 json_data = json.load(f)
             
@@ -1762,25 +1762,48 @@ class Plotter:
         plt.savefig(f"{self.cache_dir}/sensitivity/sensitivity_analysis_all.png", dpi=300)
         plt.close()
 
-
-
-if __name__ == "__main__":
-    
-    plotter = Plotter(cache_dir=".cache_dt5s")
-    data_file_name = "d1_20181029_0800_0830"
-    geo_hash_str = "623b00c4"
-    # plotter.plot_trajectory(data_file_name, geo_hash_str, min_time=200, max_time=300)
-    plotter.plot_all()
-    # plotter.plot_sensitivity()
-
-    # plotter.plot_fundamental_diagram()
-    # plotter.animation(f".cache/{data_file_name}_fully_process_vehicles_{geo_hash}.csv")
-    # print("Heatmap generated and saved successfully.")
-    
-    # plotter.plot(
-    #     data_file_name=data_file_name,
-    #     hash_params=params_hash,
-    #     hash_geo=geo_hash,
-    #     traffic_model=traffic_model_name
-    # )
-# row
+    def plot_actuals(self, data_actuals):
+        """
+        Process actual tasks from the data.
+        """
+        df = pl.DataFrame(data_actuals)
+        df = df.with_columns(
+            pl.col("link_id").cast(pl.Int32),
+            pl.col("trajectory_time").cast(pl.Float64),
+            pl.col("q").cast(pl.Float64),
+            pl.col("k").cast(pl.Float64)
+        )
+        df = df.filter(pl.col("link_id") != 5)
+        df = df.sort(by=["link_id", "trajectory_time"])
+        groups = df.group_by(["link_id", "cell_id"])
+        os.makedirs(f"{self.cache_dir}/results/actuals") if not os.path.exists(f"{self.cache_dir}/results/actuals") else None
+        length_groups = len(df.select(["link_id", 'cell_id']).unique())
+        for name, group in tqdm(groups, desc="Plotting actuals", total=length_groups):
+            link_id = name[0]
+            cell_id = name[1]
+            group = group.sort("trajectory_time")
+            densities = group["k"].to_list()
+            flows = group["q"].to_list()
+            if len(densities) < 10:
+                continue
+            valid = True
+            if len(set(densities)) < 2 or len(set(flows)) < 2:
+                valid = False
+            if any([d is None for d in densities]) or any([f is None for f in flows]):
+                valid = False
+            try:
+                if valid:
+                    plt.scatter(densities, flows, s=20, c='blue', alpha=0.01)
+                    # sns.kdeplot(x=densities, y=flows, fill=True, cmap="Blues", alpha=1, thresh=0.1, levels=100)
+                else:
+                    raise ValueError("Insufficient or degenerate data for KDE plot.")
+            except Exception as e:
+                print(f"[WARNING] KDE plot failed for link {link_id}: {e}. Falling back to scatter plot.")
+            plt.xlabel("Density (veh/km)")
+            plt.ylabel("Flow (veh/hr)")
+            plt.title("Density vs Flow for Link " + str(link_id), fontsize=24)
+            plt.grid()
+            plt.legend()
+            plt.tight_layout()
+            plt.savefig(f"{self.cache_dir}/results/actuals/link_{link_id}_{cell_id}.png")
+            plt.close()

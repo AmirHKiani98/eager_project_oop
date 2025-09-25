@@ -17,7 +17,7 @@ from src.model.pw import PW
 from src.model.params import Parameters
 from src.preprocessing.data_loader import DataLoader
 from src.preprocessing.geo_loader import GeoLoader
-from src.common_utility.units import Units
+from src.visualization.plotter import Plotter
 
 # from src.visualization.plotter import Plotter
 
@@ -153,7 +153,29 @@ def main():
             fp_date=args.fp_date,
             fp_time=args.fp_time,
         )
-        
+    elif args.model == "actual":
+        params = Parameters(
+            cache_dir=args.cache_dir
+        )
+        model = DataLoader(
+            fp_location=args.fp_location,
+            fp_date=args.fp_date,
+            fp_time=args.fp_time,
+            geo_loader=GeoLoader(intersection_locations, cell_length=5),
+            params=params
+        )
+        model.prepare_actuals(
+            location=args.fp_location,
+            date=args.fp_date,
+            time=args.fp_time
+        )
+        plotter = Plotter(cache_dir=args.cache_dir)
+        plotter.plot_actuals(
+            model.tasks
+        )
+        return
+    
+
     else:
         raise ValueError(f"Model {args.model} not supported")
     num_processes = cpu_count()
