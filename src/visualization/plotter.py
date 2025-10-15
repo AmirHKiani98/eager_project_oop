@@ -46,10 +46,16 @@ class Plotter:
         
 
         self.errors = {}
+        self.errors_flow = {}
         all_errors_path = f"{self.cache_dir}/all_errors.json"
+        all_errors_flow_path = f"{self.cache_dir}/all_errors_flow.json"
+
         if os.path.exists(all_errors_path):
             with open(all_errors_path, "r") as f:
                 self.errors = json.load(f)
+        if os.path.exists(all_errors_flow_path):
+            with open(all_errors_flow_path, "r") as f:
+                self.errors_flow = json.load(f)
         self.max_density = float("-inf")
         self.min_density = float("inf")
         self.max_flow = float("-inf")
@@ -168,88 +174,6 @@ class Plotter:
         else:
             raise FileNotFoundError(f"Parameters file not found: {path_to_params_file}")
         
-    def plot_error_point_queue_spatial_queue(self,
-                                             data_file_name: str,
-            hash_params: str,
-            hash_geo: str,
-            traffic_model: str,
-            params: Optional[tuple] = None):
-        """
-        Find RMSE from the file name.
-
-        Args:
-            data_file_name (str): The name of the file to extract parameters from.
-            hash_params (str): The hash of the parameters.
-            hash_geo (str): The hash of the geo.
-            traffic_model (str): The name of the traffic model.
-        """
-
-        file_name = f"{self.cache_dir}/{traffic_model}/{data_file_name}_{hash_geo}_{hash_params}.json"
-        if not os.path.exists(file_name):
-            raise FileNotFoundError(f"File not found: {file_name}")
-        
-        data = pl.read_json(
-            file_name
-        )
-        data = data.filter(
-            pl.col("link_id") != 5
-        )
-        link_lengths = self._get_link_lengths(hash_geo)
-        if not link_lengths:
-            raise ValueError(f"No link lengths found for geo hash: {hash_geo}")
-        data = data.with_columns(
-            pl.col("link_id").cast(pl.Int64).replace(link_lengths).alias("link_length")
-        )
-        rmse_data = data.group_by(["link_id", "trajectory_time"]).agg(
-            (((pl.col("receiving_flow") - pl.col("outflow")) - (pl.col("next_occupancy")) / pl.col("link_length"))
-             ).pow(2).mean().alias("rmse")
-        )
-        average_error = rmse_data["rmse"].mean()
-        if params is not None:
-            if traffic_model not in self.errors:
-                self.errors[traffic_model] = {}
-            
-            str_key = str(params)
-            self.errors[traffic_model][str_key] = average_error
-            print("Saved error for params: ", str_key, " with value: ", average_error)
-            self.save_errors()
-        
-        
-        figure_path = f"{self.cache_dir}/results/{self.get_base_name_without_extension(file_name)}/{traffic_model}/error.png"
-        if not os.path.exists(os.path.dirname(figure_path)):
-            os.makedirs(os.path.dirname(figure_path))
-        
-        rmse_data_min = rmse_data["rmse"].min()
-        rmse_data_max = rmse_data["rmse"].max()
-        if not isinstance(rmse_data_min, float) or not isinstance(rmse_data_max, float):
-            raise ValueError("RMSE data min and max should be float values.")
-        import matplotlib.pyplot as plt
-
-        # Convert Polars DataFrame to Pandas DataFrame for seaborn compatibility
-        rmse_data_pd = rmse_data.to_pandas()
-        rmse_data_pd["link_id"] = rmse_data_pd["link_id"].astype(int)
-        # Pivot the data for heatmap
-        heatmap_data = rmse_data_pd.pivot(index="trajectory_time", columns="link_id", values="rmse")
-
-        # Plot the heatmap using seaborn
-        plt.figure(figsize=(10, 8))
-        ax = sns.heatmap(
-            heatmap_data,
-            cmap="Reds",
-            vmin=rmse_data_min,
-            vmax=rmse_data_max,
-            annot=False,
-            cbar_kws={'label': 'Error'}
-        )
-
-        plt.title("Density Error Heatmap")
-        #plt.xlabel("Link Index")
-        plt.ylabel("Time (s)")
-        plt.tight_layout()
-
-        # Save the heatmap
-        plt.savefig(figure_path)
-        plt.close()  
     
     def plot_point_queue_spatial_queue(self,
             data_file_name: str,
@@ -314,6 +238,7 @@ class Plotter:
 
         all_rmse_data = []
         average_error = 0
+        average_flow = 0
         n = 0
         actual_min, actual_max = float("inf"), float("-inf")
         predicted_min, predicted_max = float("inf"), float("-inf")
@@ -349,6 +274,7 @@ class Plotter:
                 })
                 # print(squared_error)
                 average_error += squared_error
+                average_flow += flow_error
                 n += 1
 
             actual_min = min(actual_min, actual_density)
@@ -398,7 +324,7 @@ class Plotter:
         plt.figure(figsize=(15, 8))
         ax = sns.heatmap(
             actual_data,
-            cmap="Reds",
+            cmap="Blues",
             vmin=self.min_density,
             vmax=self.max_density,
             cbar_kws={'label': r'Actual Density $(Veh/m)$'}
@@ -419,7 +345,7 @@ class Plotter:
         plt.figure(figsize=(15, 8))
         ax = sns.heatmap(
             predicted_data,
-            cmap="Reds",
+            cmap="Greens",
             vmin=self.min_density,
             vmax=self.max_density,
             cbar_kws={'label': r'Predicted Density $(Veh/m)$'}
@@ -438,8 +364,11 @@ class Plotter:
         if params is not None:
             if traffic_model not in self.errors:
                 self.errors[traffic_model] = {}
+            if traffic_model not in self.errors_flow:
+                self.errors_flow[traffic_model] = {}
             str_key = str(params)
             self.errors[traffic_model][str_key] = average_error / n
+            self.errors_flow[traffic_model][str_key] = average_flow / n
             self.save_errors()
 
         # Flow
@@ -469,7 +398,7 @@ class Plotter:
         plt.figure(figsize=(15, 8))
         ax = sns.heatmap(
             actual_flow_data,
-            cmap="Reds",
+            cmap="Blues",
             vmin=self.min_flow,
             vmax=self.max_flow,
             cbar_kws={'label': r'Actual Flow $(Veh/hr)$'}
@@ -489,7 +418,7 @@ class Plotter:
         plt.figure(figsize=(15, 8))
         ax = sns.heatmap(
             predicted_flow_data,
-            cmap="Reds",
+            cmap="Greens",
             vmin=self.min_flow,
             vmax=self.max_flow,
             cbar_kws={'label': r'Predicted Flow $(Veh/hr)$'}
@@ -601,6 +530,7 @@ class Plotter:
         predicted_min = float("inf")
         all_rmse_data = []
         average_error = 0
+        average_flow_error = 0
         n = 0
         actual_min, actual_max = float("inf"), float("-inf")
         predicted_min, predicted_max = float("inf"), float("-inf")
@@ -640,6 +570,7 @@ class Plotter:
                 })
                 # print(squared_error)
                 average_error += squared_error
+                average_flow_error += squared_flow_error
                 n += 1
 
                 actual_min = min(actual_min, actual_density)
@@ -692,7 +623,7 @@ class Plotter:
         plt.figure(figsize=(15, 8))
         ax = sns.heatmap(
             actual_data,
-            cmap="Reds",
+            cmap="Blues",
             vmin=self.min_density,
             vmax=self.max_density,
             cbar_kws={'label': r'Actual Density $(Veh/m)$'}
@@ -716,7 +647,7 @@ class Plotter:
         plt.figure(figsize=(15, 8))
         ax = sns.heatmap(
             predicted_data,
-            cmap="Reds",
+            cmap="Greens",
             vmin=self.min_density,
             vmax=self.max_density,
             cbar_kws={'label': r'Predicted Density $(Veh/m)$'}
@@ -738,8 +669,11 @@ class Plotter:
         if params is not None:
             if traffic_model not in self.errors:
                 self.errors[traffic_model] = {}
+            if traffic_model not in self.errors_flow:
+                self.errors_flow[traffic_model] = {}
             str_key = str(params)
             self.errors[traffic_model][str_key] = average_error / n
+            self.errors_flow[traffic_model][str_key] = average_flow_error / n
             self.save_errors()
 
         # Flow
@@ -770,7 +704,7 @@ class Plotter:
         plt.figure(figsize=(15, 8))
         ax = sns.heatmap(
             actual_flow_data,
-            cmap="Reds",
+            cmap="Blues",
             vmin=self.min_flow,
             vmax=self.max_flow,
             cbar_kws={'label': r'Actual Flow $(Veh/hr)$'}
@@ -793,7 +727,7 @@ class Plotter:
         plt.figure(figsize=(15, 8))
         ax = sns.heatmap(
             predicted_flow_data,
-            cmap="Reds",
+            cmap="Greens",
             vmin=self.min_flow,
             vmax=self.max_flow,
             cbar_kws={'label': r'Predicted Flow $(Veh/hr)$'}
@@ -886,6 +820,7 @@ class Plotter:
 
         all_rmse_data = []
         average_error = 0
+        average_flow_error = 0
         n = 0
         for row in tqdm(data.iter_rows(named=True), desc="Collecting error data for all links"):
             link_id = int(row["link_id"])
@@ -913,6 +848,7 @@ class Plotter:
                 "flow_error": squared_flow_error
             })
             average_error += squared_error
+            average_flow_error += squared_flow_error
             n += 1
 
         if not all_rmse_data:
@@ -954,7 +890,7 @@ class Plotter:
         plt.figure(figsize=(15, 8))
         ax = sns.heatmap(
             actual_data,
-            cmap="Reds",
+            cmap="Blues",
             vmin=self.min_density,
             vmax=self.max_density,
             cbar_kws={'label': r'Actual Density $(Veh/m)$'}
@@ -978,7 +914,7 @@ class Plotter:
         plt.figure(figsize=(15, 8))
         ax = sns.heatmap(
             predicted_data,
-            cmap="Reds",
+            cmap="Greens",
             vmin=self.min_density,
             vmax=self.max_density,
             cbar_kws={'label': r'Predicted Density $(Veh/m)$'}
@@ -1000,8 +936,11 @@ class Plotter:
         if params is not None:
             if traffic_model not in self.errors:
                 self.errors[traffic_model] = {}
+            if traffic_model not in self.errors_flow:
+                self.errors_flow[traffic_model] = {}
             str_key = str(params)
             self.errors[traffic_model][str_key] = average_error / n
+            self.errors_flow[traffic_model][str_key] = average_flow_error / n
             self.save_errors()
 
         # Flow
@@ -1035,7 +974,7 @@ class Plotter:
         plt.figure(figsize=(15, 8))
         ax = sns.heatmap(
             actual_flow_data,
-            cmap="Reds",
+            cmap="Blues",
             vmin=self.min_flow,
             vmax=self.max_flow,
             cbar_kws={'label': r'Actual Flow $(Veh/hr)$'}
@@ -1058,7 +997,7 @@ class Plotter:
         plt.figure(figsize=(15, 8))
         ax = sns.heatmap(
             predicted_flow_data,
-            cmap="Reds",
+            cmap="Greens",
             vmin=self.min_flow,
             vmax=self.max_flow,
             cbar_kws={'label': r'Predicted Flow $(Veh/hr)$'}
@@ -1138,6 +1077,7 @@ class Plotter:
 
             all_rmse_data = []
             average_error = 0
+            average_flow_error = 0
             n = 0
             actual_min, actual_max = float("inf"), float("-inf")
             predicted_min, predicted_max = float("inf"), float("-inf")
@@ -1186,6 +1126,7 @@ class Plotter:
                     })
                     # print(squared_error)
                     average_error += squared_error
+                    average_flow_error += squared_flow_error
                     n += 1
 
                     actual_min = min(actual_min, actual_density)
@@ -1235,7 +1176,7 @@ class Plotter:
             print(self.min_density, self.max_density)
             ax = sns.heatmap(
                 actual_data,
-                cmap="Reds",
+                cmap="Blues",
                 vmin=self.min_density,
                 vmax=self.max_density,
                 cbar_kws={'label': r'Actual Density $(Veh/m)$'}
@@ -1256,7 +1197,7 @@ class Plotter:
             plt.figure(figsize=(15, 8))
             ax = sns.heatmap(
                 predicted_data,
-                cmap="Reds",
+                cmap="Greens",
                 vmin=self.min_density,
                 vmax=self.max_density,
                 cbar_kws={'label': r'Predicted Density $(Veh/m)$'}
@@ -1275,8 +1216,11 @@ class Plotter:
             if params is not None:
                 if traffic_model not in self.errors:
                     self.errors[traffic_model] = {}
+                if traffic_model not in self.errors_flow:
+                    self.errors_flow[traffic_model] = {}
                 str_key = str(params)
                 self.errors[traffic_model][str_key] = average_error / n
+                self.errors_flow[traffic_model][str_key] = average_flow_error / n
                 self.save_errors()
 
             # Flow
@@ -1306,7 +1250,7 @@ class Plotter:
             plt.figure(figsize=(15, 8))
             ax = sns.heatmap(
                 actual_flow_data,
-                cmap="Reds",
+                cmap="Blues",
                 vmin=self.min_flow,
                 vmax=self.max_flow,
                 cbar_kws={'label': r'Actual Flow $(Veh/hr)$'}
@@ -1326,7 +1270,7 @@ class Plotter:
             plt.figure(figsize=(15, 8))
             ax = sns.heatmap(
                 predicted_flow_data,
-                cmap="Reds",
+                cmap="Greens",
                 vmin=self.min_flow,
                 vmax=self.max_flow,
                 cbar_kws={'label': r'Predicted Flow $(Veh/hr)$'}
@@ -1508,14 +1452,11 @@ class Plotter:
         all_errors_path = f"{self.cache_dir}/all_errors.json"
         with open(all_errors_path, "w") as f:
             json.dump(self.errors, f, indent=4)
+        all_errors_flow_path = f"{self.cache_dir}/all_errors_flow.json"
+        with open(all_errors_flow_path, "w") as f:
+            json.dump(self.errors_flow, f, indent=4)
 
-    def load_errors(self):
-        """
-        Load the errors from a JSON file.
-        """
-        all_errors_path = f"{self.cache_dir}/all_errors.json"
-        with open(all_errors_path, "r") as f:
-            self.errors = json.load(f)
+
     def plot_all(self):
         """
         Plot all the existing models results.
@@ -1528,7 +1469,7 @@ class Plotter:
                 traffic_model = folder
                 for file_name in os.listdir(f"{self.cache_dir}/{traffic_model}"):
                     if file_name.endswith(".json"):
-                        # if "02def4d37e404aeb30af833da45bd3e7" not in file_name:
+                        # if "5d869d64be442945aa8ebd2014007dc8" not in file_name:
                         #     continue
                         
                         data_file_name = "_".join(file_name.split("_")[:4])
@@ -1885,7 +1826,7 @@ class Plotter:
 
 if __name__ == "__main__":
     
-    plotter = Plotter(cache_dir=".cache_dt5s")
+    plotter = Plotter(cache_dir=".cache_dt5s_case1")
     plotter.plot_all()
     # plotter.plot_sensitivity()
     # plotter.plot_headways()
