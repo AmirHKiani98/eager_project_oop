@@ -1,10 +1,12 @@
 import subprocess
 
-models = ["pq", "sq", "pw"]
+models = ["pq", "sq", "pw", "ctm", "ltm"]
 base_command = [
     "python", "-m", "src.main",
+    "--fp-date=20181030",
+    "--fp-time=0800_0830",
     "--calibration",
-    "--cache-dir=.cache_dt5s",
+    "--cache-dir=.cache_dt5s_case1",
     "--dt=5"
 ]
 

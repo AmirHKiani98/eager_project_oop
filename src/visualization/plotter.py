@@ -62,6 +62,10 @@ class Plotter:
                 self.min_density = data.get("min_density")
                 self.max_flow = data.get("max_flow")
                 self.min_flow = data.get("min_flow")
+        self.max_density = 2.0
+        self.min_density = 0.0
+        self.max_flow = 8000
+        self.min_flow = 0.0
     
     def format_colorbar(self, ax, data, label_fontsize=20, tick_fontsize=15, ytick_modulo=50, tick_fontsize_x=18):
         """
@@ -1101,8 +1105,27 @@ class Plotter:
             file_name = f"{self.cache_dir}/{traffic_model}/{data_file_name}_{hash_geo}_{hash_params}.json"
             if not os.path.exists(file_name):
                 raise FileNotFoundError(f"File not found: {file_name}")
-
-            data = pl.read_json(file_name)
+            with open(file_name, 'r') as f:
+                json_data = json.load(f)
+                
+                # Flatten the nested structures if needed
+                flattened_data = []
+                for record in json_data:
+                    flat_record = {}
+                    for key, value in record.items():
+                        if isinstance(value, (list, dict)):
+                            # Convert complex types to string for visualization
+                            if isinstance(value, list):
+                                flat_record[key] = value
+                            elif isinstance(value, dict):
+                                v = dict(sorted(value.items(), key=lambda x: x[0]))
+                                flat_record[key] = list(v.values())
+                            
+                        else:
+                            flat_record[key] = value
+                    flattened_data.append(flat_record)
+                data = pl.DataFrame(flattened_data, strict=False)
+            
             data = data.filter(pl.col("link_id") != 5)
             data = data.with_columns(
                 pl.struct(["next_densities", "cell_lengths"])
@@ -1505,8 +1528,8 @@ class Plotter:
                 traffic_model = folder
                 for file_name in os.listdir(f"{self.cache_dir}/{traffic_model}"):
                     if file_name.endswith(".json"):
-                        if "2cd8746790625c2e16ac27d3f96ba842" not in file_name:
-                            continue
+                        # if "02def4d37e404aeb30af833da45bd3e7" not in file_name:
+                        #     continue
                         
                         data_file_name = "_".join(file_name.split("_")[:4])
                         hash_geo = file_name.split("_")[4].split(".")[0]
@@ -1862,10 +1885,10 @@ class Plotter:
 
 if __name__ == "__main__":
     
-    plotter = Plotter(cache_dir=".cache_dt5")
-    # plotter.plot_all()
+    plotter = Plotter(cache_dir=".cache_dt5s")
+    plotter.plot_all()
     # plotter.plot_sensitivity()
-    plotter.plot_headways()
+    # plotter.plot_headways()
 
     # plotter.plot_fundamental_diagram()
     # plotter.animation(f".cache/{data_file_name}_fully_process_vehicles_{geo_hash}.csv")
